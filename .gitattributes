@@ -1,0 +1,4 @@
+# Luôn dùng LF (chạy trên Ubuntu / Docker), kể cả khi checkout trên Windows
+* text=auto eol=lf
+*.png binary
+*.db binary

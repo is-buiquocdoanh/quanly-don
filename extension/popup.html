@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Đơn hôm nay</title>
+<style>
+  *{box-sizing:border-box;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+  body{margin:0;width:400px;font-size:13px;color:#1c1e21;background:#fff}
+  header{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#1f6f43;color:#fff}
+  header b{flex:1;font-size:14px}
+  header a{color:#fff;font-size:12px}
+  .bar{display:flex;gap:6px;align-items:center;padding:8px 12px;border-bottom:1px solid #eceef0;background:#f7f8fa}
+  .bar select{font-size:12px;padding:3px}
+  .bar label{display:flex;gap:4px;align-items:center;margin-left:auto;font-size:12px}
+  .stats{padding:8px 12px;color:#606770;font-size:12px}
+  .stats b{color:#1c1e21}
+  ul{list-style:none;margin:0;padding:0;max-height:380px;overflow:auto}
+  li{padding:8px 12px;border-bottom:1px solid #f0f1f3}
+  li.dup{background:#fdf0ef}
+  li.cancel{opacity:.5}
+  .top{display:flex;gap:6px;align-items:baseline}
+  .top .n{font-weight:600;flex:1}
+  .id{font-size:11px;color:#8a8d91}
+  .addr{color:#606770;font-size:12px;margin-top:2px}
+  .tag{font-size:10px;font-weight:700;padding:1px 6px;border-radius:9px;background:#eceef0;color:#606770;white-space:nowrap}
+  .tag.new{background:#fff3cd;color:#8a6100}
+  .tag.sent{background:#e3edfb;color:#1d5fbf}
+  .tag.done{background:#e3f4e8;color:#1f6f43}
+  .tag.dup{background:#fde2e1;color:#8a1c14}
+  .actions{padding:10px 12px;border-top:1px solid #eceef0}
+  button,.btn{display:block;width:100%;text-align:center;text-decoration:none;cursor:pointer;border-radius:6px;padding:8px;font-size:13px;font-weight:600;border:1px solid #1f6f43;background:#1f6f43;color:#fff}
+  .msg{padding:6px 12px;font-size:12px;color:#8a1c14}
+  .empty{padding:24px 12px;text-align:center;color:#8a8d91}
+</style>
+</head>
+<body>
+  <header><b>🧾 Đơn hàng</b><a href="#" id="openOpts">Cài đặt</a></header>
+  <div class="bar">
+    <select id="days">
+      <option value="1">Hôm nay</option>
+      <option value="2">2 ngày</option>
+      <option value="7">7 ngày</option>
+    </select>
+    <button id="reload" style="width:auto;padding:3px 8px;font-size:12px;background:#fff;color:#1f6f43">↻</button>
+    <label><input type="checkbox" id="enabled"> Bắt Ctrl+C</label>
+  </div>
+  <div class="stats" id="stats">Đang tải…</div>
+  <ul id="list"></ul>
+  <div class="msg" id="msg" hidden></div>
+  <div class="actions"><a class="btn" href="#" id="openWeb">🌐 Mở trang quản lý</a></div>
+  <script src="popup.js"></script>
+</body>
+</html>

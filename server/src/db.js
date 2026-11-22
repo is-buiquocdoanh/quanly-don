@@ -1,0 +1,140 @@
+import { DatabaseSync } from 'node:sqlite';
+import fs from 'node:fs';
+import path from 'node:path';
+import { nowVN } from './util.js';
+
+export const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
+fs.mkdirSync(DATA_DIR, { recursive: true });
+export const DB_PATH = path.join(DATA_DIR, 'don.db');
+
+export const db = new DatabaseSync(DB_PATH);
+db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS users (
+  id            INTEGER PRIMARY KEY,
+  username      TEXT UNIQUE NOT NULL,
+  display_name  TEXT NOT NULL DEFAULT '',
+  password_hash TEXT NOT NULL,
+  role          TEXT NOT NULL DEFAULT 'kho' CHECK (role IN ('admin','kho')),
+  api_token     TEXT UNIQUE,
+  active        INTEGER NOT NULL DEFAULT 1,
+  created_at    TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+  token      TEXT PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS customers (
+  id         INTEGER PRIMARY KEY,
+  phone      TEXT UNIQUE NOT NULL,
+  name       TEXT NOT NULL DEFAULT '',
+  address    TEXT NOT NULL DEFAULT '',
+  flag       TEXT NOT NULL DEFAULT '',          -- '', 'vip', 'bom'
+  note       TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS orders (
+  id            INTEGER PRIMARY KEY,
+  code          TEXT UNIQUE NOT NULL,
+  created_at    TEXT NOT NULL,
+  customer_id   INTEGER REFERENCES customers(id),
+  name          TEXT NOT NULL DEFAULT '',
+  phone         TEXT NOT NULL,
+  address       TEXT NOT NULL DEFAULT '',
+  product       TEXT NOT NULL DEFAULT '',
+  qty           INTEGER NOT NULL DEFAULT 0,
+  total         INTEGER NOT NULL DEFAULT 0,
+  ship_fee      INTEGER NOT NULL DEFAULT 0,
+  note          TEXT NOT NULL DEFAULT '',
+  kho_note      TEXT NOT NULL DEFAULT '',
+  page          TEXT NOT NULL DEFAULT '',
+  link          TEXT NOT NULL DEFAULT '',
+  status        TEXT NOT NULL DEFAULT 'moi' CHECK (status IN ('moi','da_gui','da_giao','hoan','huy')),
+  tracking_code TEXT NOT NULL DEFAULT '',
+  shipped_at    TEXT,
+  done_at       TEXT,
+  cod_received  INTEGER NOT NULL DEFAULT 0,
+  cod_at        TEXT,
+  dup_codes     TEXT NOT NULL DEFAULT '',
+  created_by    INTEGER REFERENCES users(id),
+  updated_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
+CREATE INDEX IF NOT EXISTS idx_orders_phone   ON orders(phone);
+CREATE INDEX IF NOT EXISTS idx_orders_status  ON orders(status);
+CREATE TABLE IF NOT EXISTS order_events (
+  id       INTEGER PRIMARY KEY,
+  order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  at       TEXT NOT NULL,
+  user_id  INTEGER REFERENCES users(id),
+  action   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_events_order ON order_events(order_id);
+CREATE TABLE IF NOT EXISTS transactions (
+  id         INTEGER PRIMARY KEY,
+  date       TEXT NOT NULL,
+  type       TEXT NOT NULL CHECK (type IN ('thu','chi')),
+  category   TEXT NOT NULL,
+  amount     INTEGER NOT NULL,
+  page       TEXT NOT NULL DEFAULT '',
+  note       TEXT NOT NULL DEFAULT '',
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tx_date ON transactions(date);
+CREATE TABLE IF NOT EXISTS settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+`);
+
+export const SETTING_DEFAULTS = {
+  shop_name: 'Trứng sâu canxi',
+  cost_per_unit: 0,          // giá vốn 1 hộp, để tính lãi ước tính
+  dup_days: 7,               // số ngày kiểm tra trùng SĐT
+  default_product: 'trứng sâu canxi Ruồi Lính Đen (35g/hộp)',
+  chi_categories: ['Quảng cáo', 'Nhập hàng', 'Phí ship', 'Đóng gói', 'Lương', 'Khác'],
+  thu_categories: ['Thu khác'],
+};
+
+export function getSettings() {
+  const out = { ...SETTING_DEFAULTS };
+  for (const r of db.prepare('SELECT key, value FROM settings').all()) {
+    try { out[r.key] = JSON.parse(r.value); } catch { /* bỏ qua giá trị hỏng */ }
+  }
+  return out;
+}
+export function getSetting(key) {
+  return getSettings()[key];
+}
+export function setSetting(key, value) {
+  db.prepare('INSERT INTO settings(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+    .run(key, JSON.stringify(value));
+}
+
+/** Chạy fn trong 1 transaction. */
+export function tx(fn) {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const r = fn();
+    db.exec('COMMIT');
+    return r;
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+}
+
+/** Sao lưu database ra file (an toàn khi đang chạy). */
+export function backupTo(file) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  if (fs.existsSync(file)) fs.unlinkSync(file);
+  db.prepare('VACUUM INTO ?').run(file);
+  return file;
+}
+
+export function stamp() {
+  return nowVN();
+}

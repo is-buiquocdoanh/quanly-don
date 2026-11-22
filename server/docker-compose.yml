@@ -1,0 +1,23 @@
+services:
+  web:
+    build: .
+    image: quanly-don:latest
+    container_name: quanly-don
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/data            # database + bản sao lưu nằm ở server/data trên máy Ubuntu
+    ports:
+      - "3000:3000"             # truy cập trong mạng nội bộ: http://<IP-server>:3000
+
+  # Cloudflare Tunnel: đưa web ra https://don.<tên-miền> mà không cần mở port modem.
+  # Trong Cloudflare → Public Hostname, đặt Service = http://web:3000
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: quanly-don-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      - web

@@ -1,0 +1,7 @@
+# dữ liệu thật + bí mật — KHÔNG đưa lên git
+server/data/
+server/.env
+*.db
+*.db-wal
+*.db-shm
+node_modules/

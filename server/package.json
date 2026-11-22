@@ -1,0 +1,13 @@
+{
+  "name": "quan-ly-don",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Web quản lý đơn hàng, kho, thu chi — Node 24 + SQLite, không phụ thuộc thư viện ngoài",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
+  }
+}

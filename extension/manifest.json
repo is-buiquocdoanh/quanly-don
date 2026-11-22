@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Bắt đơn Mess",
+  "version": "2.0.0",
+  "description": "Bôi đen đơn hàng trong Meta Business Suite, Ctrl+C là lưu vào web quản lý đơn (hoặc Google Sheets), kiểm tra trùng SĐT.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://script.google.com/*", "https://script.googleusercontent.com/*"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://business.facebook.com/*", "https://www.facebook.com/*"],
+      "js": ["parser.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": { "default_popup": "popup.html", "default_title": "Đơn hôm nay" },
+  "options_page": "options.html"
+}
