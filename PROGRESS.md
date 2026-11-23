@@ -51,7 +51,7 @@
 
 ## Nhật ký
 
-- **23/11/2026 (tối):** Sửa lỗi mã đơn trùng khi một ngày quá 999 đơn (`nextCode` so theo độ dài trước). Thêm `deploy/backup-gdrive.sh`: nén bản sao lưu mới nhất, đưa lên Google Drive bằng rclone mỗi tuần (cron 3:30 sáng Chủ nhật), giữ 365 ngày; hướng dẫn ở DEPLOY.md mục "Sao lưu lên Google Drive". ⏳ Chưa cài trên server thật (cần chạy `rclone config`). `npm test`: 11/11 qua. Đo dung lượng: khoảng 1,2 KB mỗi đơn, nên 100 đơn/ngày ≈ 45 MB/năm.
+- **23/11/2026 (tối):** Sửa lỗi mã đơn trùng khi một ngày quá 999 đơn (`nextCode` so theo độ dài trước). Thêm `deploy/backup-gdrive.sh`: nén bản sao lưu mới nhất, đưa lên Google Drive bằng rclone mỗi tuần (cron 3:30 sáng Chủ nhật), giữ 365 ngày; hướng dẫn ở DEPLOY.md mục "Sao lưu lên Google Drive". ✅ 24/11/2026 đã cài trên server thật (Google Cloud project riêng, xác minh doanhwork.com, app ở chế độ In production), 2 bản đầu đã lên Drive. `npm test`: 11/11 qua. Đo dung lượng: khoảng 1,2 KB mỗi đơn, nên 100 đơn/ngày ≈ 45 MB/năm.
 
 - **23/11/2026:** Thêm **lý do hoàn** (cột `orders.return_reason`, danh sách sửa ở Cài đặt → `return_reasons`, biểu đồ ở Tổng quan), **Sổ đỏ** (cờ `customers.flag = 'bom'` cũ, thêm `flagged_at`; API `POST /api/customers/blacklist`, `GET /api/customers/suspects`), tab **Khách quen** (`GET /api/customers?view=loyal`). Extension đổi câu cảnh báo thành "nằm trong SỔ ĐỎ". Database cũ tự thêm cột khi khởi động. README thêm lệnh chạy trên Windows. `npm test`: 10/10 qua; đã chạy thử giao diện bằng Edge headless, không lỗi JS.
 

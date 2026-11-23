@@ -225,11 +225,36 @@ sudo -v ; curl https://rclone.org/install.sh | sudo bash
 rclone version
 ```
 
-**Bước 2. Kết nối rclone với Google Drive**
+**Bước 2. Tạo ứng dụng Google riêng cho rclone (làm 1 lần, trên trình duyệt)**
+
+rclone báo mã ứng dụng Google dùng chung của nó sẽ ngừng hoạt động trong năm 2026, nên phải tự tạo một mã riêng (miễn phí). Dùng **đúng tài khoản Google sẽ chứa bản sao lưu** cho mọi bước dưới đây.
+
+1. https://console.cloud.google.com → chọn project ở góc trên → **New Project**, tên `quanly-don-backup` → **Create**, rồi chọn đúng project đó.
+2. **APIs & Services → Library** → tìm **Google Drive API** → **Enable**.
+3. **Google Auth Platform** (Nền tảng xác thực của Google) → **Get started**: App name `quanly-don-backup`, email hỗ trợ, Audience **External**, email liên hệ → **Create**.
+4. **Xác minh tên miền** (Google bắt có trang chủ + chính sách bảo mật trên tên miền đã xác minh thì mới cho Publish):
+   - https://search.google.com/search-console → **Thêm tài sản** → ô **Miền** → `doanhwork.com`.
+   - Nút tự xác minh qua Cloudflare hay báo lỗi *401 Unauthorized*. Khi đó đổi **Hướng dẫn cho** sang *Bất kỳ nhà cung cấp DNS nào*, bấm **Sao chép** chuỗi `google-site-verification=…`, rồi vào Cloudflare → `doanhwork.com` → **DNS → Add record**: Type `TXT`, Name `@`, Content dán chuỗi → **Save** → quay lại bấm **Xác minh**.
+   - **Không xóa** bản ghi TXT này, xóa là mất trạng thái đã xác minh.
+5. **Branding** (Xây dựng thương hiệu):
+
+   | Ô | Điền |
+   |---|---|
+   | Logo | **để trống** (có logo là Google bắt gửi hồ sơ xét duyệt) |
+   | Trang chủ ứng dụng | `https://don.doanhwork.com` |
+   | Chính sách bảo mật | `https://don.doanhwork.com/privacy.html` (trang có sẵn trong web, file `server/public/privacy.html`) |
+   | Điều khoản sử dụng | để trống |
+   | Các miền được ủy quyền | `doanhwork.com` |
+
+   Bấm **Lưu**.
+6. **Audience** (Khán giả) → **Xuất bản ứng dụng** (Publish app) → **Xác nhận**. Trạng thái phải là **In production / Đang sản xuất**. Để *Testing* thì Google thu hồi quyền sau 7 ngày và sao lưu hằng tuần sẽ hỏng.
+7. **Clients** (Khách hàng) → **Create client** → loại **Desktop app**, tên `rclone` → **Create**. Copy **Client ID** và **Client secret**.
+
+**Bước 3. Kết nối rclone với Google Drive**
 
 Server không có trình duyệt, nên phần đăng nhập Google làm trên máy Windows.
 
-1. Trên **Windows**: tải rclone tại https://rclone.org/downloads/ (bản *Windows, Intel/AMD 64 Bit*), giải nén ra ví dụ `C:\rclone`.
+1. Trên **Windows**: tải rclone tại https://rclone.org/downloads/ (bản *Windows, Intel/AMD 64 Bit*), giải nén. Mở thư mục có `rclone.exe`, gõ `powershell` vào thanh địa chỉ rồi Enter để mở PowerShell ngay tại đó.
 2. Trên **server**, chạy `rclone config` rồi trả lời lần lượt:
 
    | rclone hỏi | Gõ |
@@ -237,21 +262,22 @@ Server không có trình duyệt, nên phần đăng nhập Google làm trên m�
    | `n) New remote` | `n` |
    | `name>` | `gdrive` |
    | `Storage>` | `drive` |
-   | `client_id>` và `client_secret>` | Enter (bỏ trống) |
+   | `Continue using the shared client_id anyway?` | `n` |
+   | `client_id>` | dán Client ID ở bước 2.7 |
+   | `client_secret>` | dán Client secret |
    | `scope>` | `drive.file` (rclone chỉ thấy file do chính nó tạo, không đụng được file khác trong Drive của bạn) |
    | `service_account_file>` | Enter |
    | `Edit advanced config?` | `n` |
    | `Use web browser to automatically authenticate?` | **`n`** |
 
-3. rclone in ra một lệnh dạng `rclone authorize "drive" "eyJ..."`. Copy nguyên dòng đó, mở **PowerShell trên Windows** và chạy:
+3. rclone in ra một lệnh dạng `rclone authorize "drive" "eyJ..."`. Chạy lệnh đó trong PowerShell trên Windows, nhớ thêm `.\` ở đầu:
    ```powershell
-   cd C:\rclone
-   .\rclone.exe authorize "drive" "eyJ..."     # dán đúng lệnh server in ra
+   .\rclone.exe authorize "drive" "eyJ..."     # dán đúng chuỗi server in ra
    ```
-   Trình duyệt mở trang Google: đăng nhập tài khoản Drive muốn chứa bản sao lưu, bấm **Cho phép**. PowerShell in ra một đoạn token dài: copy **toàn bộ**, dán vào ô `config_token>` trên server.
+   Trình duyệt mở trang Google: đăng nhập, gặp *"Google hasn't verified this app"* thì bấm **Advanced → Go to quanly-don-backup (unsafe) → Continue**. PowerShell in ra một chuỗi dài giữa `--->` và `<---End paste`: copy **toàn bộ chuỗi đó**, dán vào ô `config_token>` trên server. Chuỗi này là chìa khóa vào Drive, **đừng gửi cho ai**.
 4. Câu `Configure this as a Shared Drive?` gõ `n`, rồi `y` để lưu và `q` để thoát.
 
-**Bước 3. Chép script, chạy thử và hẹn giờ**
+**Bước 4. Chép script, chạy thử và hẹn giờ**
 ```bash
 cd ~/apps/quanly-don
 git -C src pull && cp src/deploy/backup-gdrive.sh . && chmod +x backup-gdrive.sh
@@ -273,7 +299,8 @@ Mở Google Drive sẽ thấy thư mục **quanly-don-backup** chứa các file 
 Trên Windows cũng mở được file từ Drive: tải `.db.gz` về, giải nén bằng 7-Zip, rồi mở bằng [DB Browser for SQLite](https://sqlitebrowser.org/) nếu cần xem.
 
 - Đổi số ngày giữ hoặc tên thư mục: thêm vào `.env` dòng `GDRIVE_KEEP_DAYS=730` hoặc `GDRIVE_REMOTE=gdrive:ten-thu-muc-khac`.
-- Log báo lỗi `token expired` / `invalid_grant`: Google thu hồi quyền (đổi mật khẩu Google, gỡ quyền ứng dụng…). Chạy `rclone config reconnect gdrive:` rồi làm lại bước 2.3.
+- Log báo lỗi `token expired` / `invalid_grant`: Google thu hồi quyền (đổi mật khẩu Google, gỡ quyền ứng dụng…). Chạy `rclone config reconnect gdrive:` trên server, trả lời `n` ở câu dùng trình duyệt, rồi làm lại bước 3.3.
+- Log báo lỗi sau đúng 7 ngày: ứng dụng vẫn đang ở *Testing*, xem lại bước 2.6.
 
 ### Bảo mật
 
