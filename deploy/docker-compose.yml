@@ -1,0 +1,26 @@
+# Bản dùng trên server: KHÔNG build ở đây, chỉ chạy image đã build sẵn bởi deploy.sh.
+# Phiên bản đang chạy = APP_VERSION trong .env (deploy.sh tự ghi, đừng sửa tay).
+name: quanly-don
+
+services:
+  web:
+    image: quanly-don:${APP_VERSION:?Chưa có phiên bản - hãy chạy ./deploy.sh}
+    container_name: quanly-don
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/data            # database + bản sao lưu hằng ngày
+    ports:
+      - "3000:3000"             # trong mạng nội bộ: http://<IP-server>:3000
+
+  # Cloudflare Tunnel: đưa web ra https://don.doanhwork.com, không cần IP tĩnh hay mở port.
+  # Trong Cloudflare → Tunnel → Public Hostname, đặt Service = http://web:3000
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: quanly-don-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      - web
