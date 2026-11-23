@@ -160,7 +160,7 @@ Thời gian web tạm ngừng khi đổi phiên bản chỉ khoảng 2–5 giây
 ~/apps/quanly-don/deploy.sh --status
 ```
 Kiểm tra:
-- Trong mạng nội bộ: `http://<IP-server>:3000`
+- Ngay trên server: `curl http://localhost:3010/api/health` (cổng `WEB_PORT` trong `.env`; atlasweb đã dùng 3000)
 - Từ bất kỳ đâu: `https://don.doanhwork.com`. Ở Cloudflare Zero Trust, tunnel phải hiện **HEALTHY**.
 
 > **Khi deploy.sh hoặc docker-compose.yml trong repo có thay đổi**, chép lại bản mới:

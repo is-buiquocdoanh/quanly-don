@@ -127,7 +127,12 @@ cmd_deploy() {
   docker stop "$CONTAINER" >/dev/null 2>&1 || true
   backup_db "$ver"
   set_version "$ver"
-  compose up -d --remove-orphans
+  if ! compose up -d --remove-orphans; then
+    warn "Docker không khởi động được container (xem lỗi ở trên)."
+    warn "Nếu báo 'port is already allocated': đổi WEB_PORT trong .env (vd WEB_PORT=3010) rồi chạy lại."
+    [[ -n $prev ]] && set_version "$prev" && compose up -d >/dev/null 2>&1 || true
+    die "Chưa đổi được sang $ver."
+  fi
 
   log "Chờ web khởi động…"
   if wait_healthy; then

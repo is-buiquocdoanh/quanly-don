@@ -11,7 +11,7 @@ services:
     volumes:
       - ./data:/data            # database + bản sao lưu hằng ngày
     ports:
-      - "3000:3000"             # trong mạng nội bộ: http://<IP-server>:3000
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"   # chỉ mở trong server (giống atlasweb); ra ngoài đi qua tunnel
 
   # Cloudflare Tunnel: đưa web ra https://don.doanhwork.com, không cần IP tĩnh hay mở port.
   # Trong Cloudflare → Tunnel → Public Hostname, đặt Service = http://web:3000
