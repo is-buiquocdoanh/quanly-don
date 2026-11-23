@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chính sách bảo mật</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<style>
+  :root { --ink: #101828; --muted: #475467; --line: #e4e7ec; --bg: #f9fafb; --card: #fff; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #f2f4f7; --muted: #98a2b3; --line: #344054; --bg: #0c111d; --card: #161b26; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 32px 16px 56px; }
+  article { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px 22px; margin-bottom: 20px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 22px 0 6px; }
+  p, li { color: var(--muted); }
+  ul { padding-left: 20px; }
+  .meta { font-size: 14px; color: var(--muted); margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<main>
+  <article lang="vi">
+    <h1>Chính sách bảo mật</h1>
+    <p class="meta">Áp dụng cho web quản lý đơn tại don.doanhwork.com và ứng dụng sao lưu "quanly-don-backup". Cập nhật: 24/11/2026.</p>
+
+    <h2>Ứng dụng này là gì</h2>
+    <p>Đây là hệ thống nội bộ của một cửa hàng nhỏ, chỉ chủ cửa hàng và nhân viên được cấp tài khoản sử dụng. Không mở đăng ký cho người ngoài.</p>
+
+    <h2>Dữ liệu được lưu</h2>
+    <ul>
+      <li>Thông tin đơn hàng do cửa hàng nhập: tên, số điện thoại, địa chỉ giao hàng, số lượng, số tiền, ghi chú.</li>
+      <li>Tài khoản đăng nhập của chủ cửa hàng và nhân viên (mật khẩu được mã hóa).</li>
+    </ul>
+    <p>Dữ liệu chỉ dùng để xử lý và giao đơn hàng. Không bán, không chia sẻ cho bên thứ ba, không dùng cho quảng cáo.</p>
+
+    <h2>Quyền truy cập Google Drive</h2>
+    <p>Ứng dụng "quanly-don-backup" chỉ xin quyền <b>drive.file</b>: nó chỉ tạo và đọc các file sao lưu do chính nó tải lên Google Drive của chủ cửa hàng. Nó <b>không xem, không sửa, không xóa</b> bất kỳ file nào khác trong Drive. Dữ liệu từ Google chỉ dùng cho việc sao lưu và khôi phục, không được chuyển cho bên nào khác.</p>
+
+    <h2>Lưu trữ và xóa</h2>
+    <p>Dữ liệu nằm trên máy chủ riêng của cửa hàng. Bản sao lưu trên Google Drive được tự xóa sau 365 ngày. Chủ cửa hàng có thể thu hồi quyền truy cập Drive bất cứ lúc nào tại myaccount.google.com/permissions.</p>
+
+    <h2>Liên hệ</h2>
+    <p>Muốn hỏi hoặc yêu cầu xóa thông tin của bạn, vui lòng liên hệ trực tiếp với cửa hàng qua kênh bạn đã đặt hàng (Facebook Messenger).</p>
+  </article>
+
+  <article lang="en">
+    <h1>Privacy Policy</h1>
+    <p class="meta">For the order management site at don.doanhwork.com and the "quanly-don-backup" backup app. Updated: 24 Nov 2026.</p>
+    <p>This is an internal tool for a small shop, used only by the shop owner and staff accounts the owner creates. It stores order details entered by the shop (name, phone number, delivery address, quantity, amount, notes) and staff login accounts (passwords are hashed). The data is used only to process and ship orders. It is never sold, shared with third parties or used for advertising.</p>
+    <p><b>Google Drive access.</b> The "quanly-don-backup" app requests only the <b>drive.file</b> scope. It creates and reads only the backup files it uploads to the shop owner's own Google Drive. It cannot see, change or delete any other file. Data obtained through Google APIs is used only for backup and restore, and is not transferred to anyone else. Backups on Drive are deleted automatically after 365 days. Access can be revoked at any time at myaccount.google.com/permissions.</p>
+    <p><b>Contact.</b> To ask a question or request deletion of your data, contact the shop through the channel you ordered from (Facebook Messenger).</p>
+  </article>
+</main>
+</body>
+</html>
