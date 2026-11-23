@@ -207,3 +207,58 @@ test('page Facebook: khai báo trong Cài đặt, extension lấy được danh 
   const r = await ext({ action: 'pages', token: tok });
   assert.deepEqual(r.pages.slice(0, 4), ['Trứng Sâu Miền Bắc', 'Trứng Sâu Miền Nam, Chi Nhánh 2', 'Gà Đẻ Khỏe', 'Sâu Canxi Sỉ']);
 });
+
+test('lý do hoàn + sổ đỏ + khách quen', async () => {
+  const mk = async (phone, name) => (await admin('POST', '/api/orders', { name, phone, address: 'Xã A, Huyện B, Hà Nội', qty: 1, total: 100000 })).order;
+  // khách quen: 3 đơn đã giao
+  for (let i = 0; i < 3; i++) {
+    const o = await mk('0911000111', 'Khách Quen');
+    await admin('PATCH', '/api/orders/' + o.id, { status: 'da_giao' });
+  }
+  // khách phá: đơn bị hoàn vì lý do đầu tiên (cố tình phá)
+  const { settings } = await admin('GET', '/api/bootstrap');
+  const fake = settings.return_reasons[0];
+  const bad = await mk('0922000222', 'Khách Phá');
+  await admin('PATCH', '/api/orders/' + bad.id, { status: 'da_gui' });
+  let r = await admin('PATCH', '/api/orders/' + bad.id, { status: 'hoan', return_reason: fake });
+  assert.equal(r.order.return_reason, fake);
+  // hoàn tác về Đã gửi thì xóa lý do, hoàn lại thì ghi lại
+  r = await admin('PATCH', '/api/orders/' + bad.id, { status: 'da_gui' });
+  assert.equal(r.order.return_reason, '');
+  r = await admin('POST', '/api/orders/bulk', { ids: [bad.id], status: 'hoan', return_reason: fake });
+  assert.equal(r.updated, 1);
+  assert.equal((await admin('GET', `/api/orders?reason=${encodeURIComponent(fake)}`)).count, 1);
+  // lý do hoàn không ghi được khi đơn không ở trạng thái Hoàn
+  const other = await mk('0933000333', 'Ai Đó');
+  assert.equal((await admin('PATCH', '/api/orders/' + other.id, { return_reason: 'x' })).order.return_reason, '');
+
+  const { today } = await admin('GET', '/api/bootstrap');
+  const rep = await admin('GET', `/api/report?from=${today}&to=${today}`);
+  assert.equal(rep.by_return_reason[fake], 1);
+
+  // nghi vấn → đưa vào sổ đỏ
+  const sus = (await admin('GET', '/api/customers/suspects')).customers;
+  const s = sus.find((c) => c.phone === '0922000222');
+  assert.ok(s, 'khách phá phải nằm trong danh sách nghi vấn');
+  assert.equal((await admin('PATCH', '/api/customers/' + s.id, { flag: 'bom' })).customer.flag, 'bom');
+  assert.ok(!(await admin('GET', '/api/customers/suspects')).customers.some((c) => c.id === s.id));
+
+  // thêm SĐT chưa từng đặt vào sổ đỏ
+  const add = await admin('POST', '/api/customers/blacklist', { phone: '0944 000 444', note: 'Tạo đơn ảo bằng nhiều SĐT' });
+  assert.equal(add.customer.flag, 'bom');
+  assert.ok(add.customer.flagged_at);
+  const red = (await admin('GET', '/api/customers?view=red')).customers.map((c) => c.phone);
+  assert.ok(red.includes('0922000222') && red.includes('0944000444'));
+
+  // extension và danh sách đơn đều báo sổ đỏ
+  const tok = (await admin('POST', '/api/me/api-token')).token;
+  assert.equal((await ext({ action: 'check', token: tok, order: { phone: '0944000444' } })).customer.flag, 'bom');
+  assert.equal((await admin('GET', '/api/orders?q=0922000222')).orders[0].cflag, 'bom');
+
+  // khách quen
+  const loyal = (await admin('GET', '/api/customers?view=loyal')).customers;
+  const q = loyal.find((c) => c.phone === '0911000111');
+  assert.equal(q.delivered, 3);
+  assert.equal(q.spent, 300000);
+  assert.ok(!loyal.some((c) => c.flag === 'bom'));
+});

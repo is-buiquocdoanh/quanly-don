@@ -122,7 +122,49 @@ function supplierSwitch(onDone) {
   };
   return { html, bind };
 }
-const flagBadge = (f) => (f === 'bom' ? '<span class="badge b-bom">Bom hàng</span>' : f === 'vip' ? '<span class="badge b-vip">VIP</span>' : '');
+const flagBadge = (f) => (f === 'bom' ? '<span class="badge b-bom">Sổ đỏ</span>' : f === 'vip' ? '<span class="badge b-vip">VIP</span>' : '');
+const returnReasons = () => S.settings.return_reasons || [];
+
+/** Hỏi lý do hoàn. Trả về { return_reason, red } hoặc null nếu bấm hủy.
+ *  red = chủ shop tick "đưa SĐT vào sổ đỏ" (kho không thấy ô này). */
+function askReturn(o, { count = 1 } = {}) {
+  const admin = S.user.role === 'admin';
+  const reasons = returnReasons();
+  return new Promise((resolve) => {
+    let done = false;
+    const m = modal(count > 1 ? `${count} đơn bị hoàn` : `Đơn của ${o.name || o.phone} bị hoàn`, `
+      <p class="muted small" style="margin:0 0 10px">Chọn lý do hoàn${count > 1 ? ' (áp dụng cho mọi đơn đã chọn)' : ''}:</p>
+      <div class="reasons">${reasons.map((x, i) => `<label class="reason"><input type="radio" name="rr" value="${esc(x)}" ${i === 0 ? 'data-fake' : ''}> ${esc(x)}</label>`).join('')}
+        <label class="reason"><input type="radio" name="rr" value="__other"> Lý do khác</label></div>
+      <input id="rrOther" placeholder="Ghi lý do…" hidden style="width:100%;margin-top:8px">
+      ${admin && count === 1 ? `<label class="check red-check" id="redWrap"><input type="checkbox" id="red"> Đưa SĐT ${esc(o.phone)} vào <b>Sổ đỏ</b> (cảnh báo khi đặt lại)</label>` : ''}
+      <div class="actions"><span class="spacer"></span><button class="btn sec" data-close>Hủy</button><button class="btn danger" id="ok">Xác nhận hoàn</button></div>`);
+    const finish = (v) => { if (done) return; done = true; resolve(v); };
+    const wrap = m.el.closest('.modal-wrap');
+    new MutationObserver((_, ob) => { if (!wrap.isConnected) { ob.disconnect(); finish(null); } }).observe(document.body, { childList: true });
+    m.el.addEventListener('change', (e) => {
+      if (e.target.name !== 'rr') return;
+      $('#rrOther', m.el).hidden = e.target.value !== '__other';
+      if (e.target.value === '__other') $('#rrOther', m.el).focus();
+      const red = $('#red', m.el);
+      if (red) red.checked = e.target.hasAttribute('data-fake');
+    });
+    $('#ok', m.el).addEventListener('click', () => {
+      const pick = $('input[name=rr]:checked', m.el);
+      let reason = pick ? pick.value : '';
+      if (reason === '__other') reason = $('#rrOther', m.el).value.trim();
+      if (!reason) { toast('Chọn lý do hoàn', true); return; }
+      finish({ return_reason: reason, red: !!$('#red', m.el)?.checked });
+      m.close();
+    });
+  });
+}
+
+/** Đưa SĐT của đơn vào sổ đỏ, ghi lý do kèm mã đơn. */
+async function addToRedBook(o, reason) {
+  await api('POST', '/api/customers/blacklist', { phone: o.phone, name: o.name, note: `${o.code}: ${reason}` });
+  toast(`Đã đưa ${o.phone} vào Sổ đỏ`);
+}
 const pageOptions = (sel = '', all = 'Tất cả page') =>
   `<option value="">${all}</option>` + S.pages.map((p) => `<option ${p === sel ? 'selected' : ''}>${esc(p)}</option>`).join('');
 
@@ -382,6 +424,10 @@ VIEWS.dashboard = async (root) => {
     </section>
 
     <section class="grid g-1-1">
+      ${Object.keys(r.by_return_reason || {}).length ? `<div class="panel">
+        <div class="panel-h"><h2>Lý do hoàn</h2><span class="panel-note">${num(r.by_status.hoan || 0)} đơn hoàn</span></div>
+        ${Charts.hbars(Object.entries(r.by_return_reason).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k, value: v })), { fmt: (v) => num(v) + ' đơn' })}
+      </div>` : ''}
       <div class="panel">
         <div class="panel-h"><h2>Tỉnh/thành mua nhiều</h2><span class="panel-note">Theo số đơn</span></div>
         ${Charts.hbars(r.by_province.map((p) => ({ label: p.province, value: p.orders, sub: p.returns ? `${p.returns} hoàn` : '' })), { fmt: (v) => num(v) + ' đơn' })}
@@ -478,12 +524,12 @@ VIEWS.orders = async (root) => {
       ${rows.map((o) => `<tr class="click ${o.dup_codes ? 'is-dup' : ''} ${o.status === 'huy' ? 'is-huy' : ''}" data-id="${o.id}">
         <td><input type="checkbox" data-sel="${o.id}" ${ordState.selected.has(o.id) ? 'checked' : ''}></td>
         <td class="nowrap"><b class="mono">${esc(o.code)}</b><div class="cell-sub">${dt(o.created_at)}</div></td>
-        <td>${esc(o.name)}<div class="cell-sub mono">${esc(o.phone)}</div></td>
+        <td>${esc(o.name)} ${o.cflag === 'bom' ? flagBadge('bom') : ''}<div class="cell-sub mono">${esc(o.phone)}</div></td>
         <td class="addr">${esc(o.address)}${o.note ? `<div class="cell-sub">📝 ${esc(o.note)}</div>` : ''}</td>
         <td class="right">${o.qty}</td>
         <td class="right nowrap">${money(o.total)}${o.cod_received ? '<div><span class="badge b-cod">COD về</span></div>' : ''}</td>
         <td class="small">${esc(o.page)}</td>
-        <td>${badge(o.status)}${o.dup_codes ? `<div><span class="badge b-dup" title="Trùng: ${esc(o.dup_codes)}">Trùng đơn</span></div>` : ''}</td>
+        <td>${badge(o.status)}${o.return_reason ? `<div class="cell-sub">${esc(o.return_reason)}</div>` : ''}${o.dup_codes ? `<div><span class="badge b-dup" title="Trùng: ${esc(o.dup_codes)}">Trùng đơn</span></div>` : ''}</td>
         ${hasWh() ? `<td>${whBadge(o.kho_id)}</td>` : ''}
         <td class="small mono">${esc(o.tracking_code)}</td></tr>`).join('')}
       </tbody></table>`;
@@ -518,7 +564,13 @@ VIEWS.orders = async (root) => {
     const ids = [...ordState.selected];
     $('#bSt').addEventListener('change', async (e) => {
       if (!e.target.value) return;
-      const r = await api('POST', '/api/orders/bulk', { ids, status: e.target.value }).catch(fail);
+      const body = { ids, status: e.target.value };
+      if (body.status === 'hoan') {
+        const a = await askReturn(null, { count: ids.length });
+        if (!a) { e.target.value = ''; return; }
+        body.return_reason = a.return_reason;
+      }
+      const r = await api('POST', '/api/orders/bulk', body).catch(fail);
       if (r) { toast(`Đã cập nhật ${r.updated} đơn`); ordState.selected.clear(); load(); }
     });
     $('#bWh')?.addEventListener('change', async (e) => {
@@ -601,7 +653,7 @@ function orderForm(prefill, onDone) {
     const r = await api('GET', '/api/orders/check?phone=' + phone).catch(() => null);
     if (!r) return;
     let html = '';
-    if (r.customer?.flag === 'bom') html += `<div class="warn">🚫 <b>Khách này từng BOM HÀNG.</b> ${esc(r.customer.note)}</div>`;
+    if (r.customer?.flag === 'bom') html += `<div class="warn">🚫 <b>SĐT này nằm trong SỔ ĐỎ</b> (từng phá / bom hàng). ${esc(r.customer.note)}</div>`;
     if (r.matches.length) html += `<div class="warn"><b>⚠️ SĐT này đã đặt trong ${S.settings.dup_days} ngày qua:</b>${r.matches.map((d) => `<div>${esc(d.code)} · ${dt(d.created_at)} · ${d.qty} hộp · ${money(d.total)} · ${esc(S.statuses[d.status])}</div>`).join('')}</div>`;
     box.innerHTML = html;
     $('#save', m.el).textContent = r.matches.length ? 'Vẫn lưu (đơn trùng)' : 'Lưu đơn';
@@ -630,13 +682,14 @@ async function openOrder(id, onDone) {
   const stOpts = Object.entries(S.statuses).filter(([k]) => admin || k !== 'huy')
     .map(([k, v]) => `<option value="${k}" ${o.status === k ? 'selected' : ''}>${v}</option>`).join('');
   const m = modal(`Đơn ${o.code}`, `
-    ${r.customer?.flag === 'bom' ? `<div class="warn">🚫 Khách từng BOM HÀNG. ${esc(r.customer.note)}</div>` : ''}
+    ${r.customer?.flag === 'bom' ? `<div class="warn">🚫 <b>SĐT này nằm trong SỔ ĐỎ</b> (từng phá / bom hàng). ${esc(r.customer.note)}</div>` : ''}
     ${o.dup_codes ? `<div class="warn">⚠️ Trùng với: ${esc(o.dup_codes)}</div>` : ''}
     <div class="cols">
       <div>
         <form class="form" id="f">
           ${admin ? orderFields(o) : `<div class="full"><b>${esc(o.name)}</b> · ${esc(o.phone)}<div>${esc(o.address)}</div><div>${o.qty} hộp · ${money(o.total)}</div></div>`}
           <label>Trạng thái<select name="status">${stOpts}</select></label>
+          <label id="rrBox" ${o.status === 'hoan' ? '' : 'hidden'}>Lý do hoàn<input name="return_reason" list="rrList" value="${esc(o.return_reason)}" placeholder="Chọn hoặc gõ lý do"><datalist id="rrList">${returnReasons().map((x) => `<option value="${esc(x)}">`).join('')}</datalist></label>
           ${admin && S.khos.length ? `<label>Kho gửi đơn này<select name="kho_id">${whOptions(o.kho_id || '')}</select></label>` : ''}
           <label>Mã vận đơn<input name="tracking_code" value="${esc(o.tracking_code)}"></label>
           <label>Phí ship<input name="ship_fee" value="${o.ship_fee ? num(o.ship_fee) : ''}" inputmode="numeric"></label>
@@ -658,12 +711,21 @@ async function openOrder(id, onDone) {
       </div>
     </div>`, { wide: true });
 
+  $('[name=status]', m.el).addEventListener('change', (e) => { $('#rrBox', m.el).hidden = e.target.value !== 'hoan'; });
   $('#save', m.el).addEventListener('click', async () => {
     const d = formData($('#f', m.el));
     d.ship_fee = OrderParser.parseMoney(d.ship_fee);
     if ('total' in d) d.total = OrderParser.parseMoney(d.total);
+    let red = false;
+    if (d.status === 'hoan' && o.status !== 'hoan' && !d.return_reason.trim()) {
+      const a = await askReturn(o);
+      if (!a) return;
+      d.return_reason = a.return_reason;
+      red = a.red;
+    }
     try {
       await api('PATCH', '/api/orders/' + id, d);
+      if (red) await addToRedBook(o, d.return_reason);
       toast('Đã lưu');
       m.close();
       onDone && onDone();
@@ -752,7 +814,7 @@ VIEWS.kho = async (root) => {
         <span class="k-addr">${esc(o.address)}</span>
         <span class="k-qty"><b>${o.qty || '?'}</b> hộp</span>
         <span class="k-total">${money(o.total)}</span>
-        <span class="k-st">${badge(o.status)}${o.dup_codes ? `<span class="badge b-dup" title="Trùng: ${esc(o.dup_codes)}">Trùng đơn</span>` : ''}${when ? `<span class="k-when">${whenLbl} ${dt(when)}</span>` : ''}${hasWh() && !khoState.sup ? whBadge(o.kho_id) : ''}</span>
+        <span class="k-st">${badge(o.status)}${o.return_reason ? `<span class="k-when">${esc(o.return_reason)}</span>` : ''}${o.cflag === 'bom' ? flagBadge('bom') : ''}${o.dup_codes ? `<span class="badge b-dup" title="Trùng: ${esc(o.dup_codes)}">Trùng đơn</span>` : ''}${when ? `<span class="k-when">${whenLbl} ${dt(when)}</span>` : ''}${hasWh() && !khoState.sup ? whBadge(o.kho_id) : ''}</span>
         <span class="chev" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span>
       </button>
       <div class="k-acts no-print">
@@ -806,11 +868,17 @@ VIEWS.kho = async (root) => {
     }
     if (t.dataset.act) {
       const st = t.dataset.act;
-      if (st === 'hoan' && !confirm(`Xác nhận đơn của ${o.name} bị hoàn?`)) return;
+      let ret = null;
+      if (st === 'hoan') {
+        ret = await askReturn(o);
+        if (!ret) return;
+        fields.return_reason = ret.return_reason;
+      }
       t.disabled = true;
       const before = o.status;
       try {
         await setStatus(id, st, fields);
+        if (ret?.red) await addToRedBook(o, ret.return_reason).catch(fail);
         khoState.open.delete(id);
         await load();
         const who = o.name || o.phone;
@@ -838,26 +906,117 @@ VIEWS.kho = async (root) => {
 };
 
 // ================================================================ KHÁCH HÀNG
-const cusState = { q: '', flag: '' };
+const cusState = { q: '', tab: 'all' };
 VIEWS.customers = async (root) => {
+  const TABS = { all: 'Tất cả', loyal: 'Khách quen', red: 'Sổ đỏ' };
   root.innerHTML = `
-    <div class="toolbar page-title"><h1>Khách hàng</h1><span class="spacer"></span></div>
-    <div class="toolbar">
-      <input class="grow" id="q" placeholder="Tìm tên, SĐT, địa chỉ…" value="${esc(cusState.q)}">
-      <select id="flag"><option value="">Tất cả</option><option value="vip" ${cusState.flag === 'vip' ? 'selected' : ''}>VIP</option><option value="bom" ${cusState.flag === 'bom' ? 'selected' : ''}>Bom hàng</option></select>
-    </div>
-    <div class="table-wrap" id="tbl"><div class="loading">Đang tải…</div></div>`;
-  async function load() {
-    const r = await api('GET', `/api/customers?q=${encodeURIComponent(cusState.q)}&flag=${cusState.flag}`);
-    $('#tbl').innerHTML = r.customers.length ? `<table><thead><tr><th>Khách</th><th>Địa chỉ</th><th class="right">Số đơn</th><th class="right">Đã mua</th><th class="right">Hoàn</th><th>Lần cuối</th></tr></thead><tbody>
-      ${r.customers.map((c) => `<tr class="click" data-id="${c.id}"><td>${esc(c.name)} ${flagBadge(c.flag)}<div class="cell-sub mono">${esc(c.phone)}</div></td>
+    <div class="toolbar page-title"><h1>Khách hàng</h1><span class="spacer"></span>
+      <button class="btn danger sm" id="addRed">+ Thêm SĐT vào Sổ đỏ</button></div>
+    <div class="tabs" id="ctabs">${Object.entries(TABS).map(([k, v]) => `<button class="tab ${cusState.tab === k ? 'on' : ''}" data-tab="${k}">${v}</button>`).join('')}</div>
+    <div class="toolbar"><input class="grow" id="q" placeholder="Tìm tên, SĐT, địa chỉ…" value="${esc(cusState.q)}"></div>
+    <p class="muted small" id="chint" style="margin:0 0 8px"></p>
+    <div class="table-wrap" id="tbl"><div class="loading">Đang tải…</div></div>
+    <div id="sus"></div>`;
+
+  const HINT = {
+    all: '',
+    loyal: 'Khách có từ 2 đơn đã giao, mua nhiều nhất trước. "Chu kỳ" là số ngày trung bình giữa 2 lần mua; khách quá chu kỳ mà chưa đặt lại thì nên nhắn chăm sóc.',
+    red: 'Số điện thoại từng tạo đơn ảo, cố tình phá hoặc bom hàng. Đặt đơn bằng SĐT này thì web và extension đều cảnh báo đỏ.',
+  };
+  const who = (c) => `<td>${esc(c.name) || '<span class="muted">(chưa có tên)</span>'} ${flagBadge(c.flag)}<div class="cell-sub mono">${esc(c.phone)}</div></td>`;
+
+  function tableAll(list) {
+    return `<table><thead><tr><th>Khách</th><th>Địa chỉ</th><th class="right">Số đơn</th><th class="right">Đã mua</th><th class="right">Hoàn</th><th>Lần cuối</th></tr></thead><tbody>
+      ${list.map((c) => `<tr class="click" data-id="${c.id}">${who(c)}
         <td class="addr">${esc(c.address)}</td><td class="right">${c.orders}</td><td class="right">${money(c.spent)}</td>
-        <td class="right">${c.returns || ''}</td><td class="small">${dt(c.last_order)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Chưa có khách</div>';
+        <td class="right">${c.returns || ''}</td><td class="small">${dt(c.last_order)}</td></tr>`).join('')}</tbody></table>`;
   }
+  function tableLoyal(list) {
+    return `<table><thead><tr><th>#</th><th>Khách</th><th class="right">Đơn đã giao</th><th class="right">Tổng hộp</th><th class="right">Tổng tiền</th><th class="right">Chu kỳ</th><th>Lần cuối đặt</th></tr></thead><tbody>
+      ${list.map((c, i) => {
+        const late = c.cycle_days && c.since_days > c.cycle_days * 1.3;
+        return `<tr class="click" data-id="${c.id}"><td class="muted">${i + 1}</td>${who(c)}
+        <td class="right"><b>${c.delivered}</b>${c.returns ? `<div class="cell-sub">${c.returns} hoàn</div>` : ''}</td>
+        <td class="right">${num(c.boxes)}</td><td class="right nowrap">${money(c.spent)}</td>
+        <td class="right nowrap">${c.cycle_days ? `${c.cycle_days} ngày` : '—'}</td>
+        <td class="small">${dt(c.last_order)}<div class="cell-sub">${c.since_days} ngày trước${late ? ' · <b class="neg">quá chu kỳ</b>' : ''}</div></td></tr>`;
+      }).join('')}</tbody></table>`;
+  }
+  function tableRed(list) {
+    return `<table><thead><tr><th>Khách</th><th>Lý do</th><th class="right">Đơn</th><th class="right">Hoàn</th><th>Vào sổ đỏ</th></tr></thead><tbody>
+      ${list.map((c) => `<tr class="click" data-id="${c.id}">${who(c)}
+        <td class="small" style="white-space:pre-line">${esc(c.note) || '<span class="muted">—</span>'}</td>
+        <td class="right">${c.orders}</td><td class="right">${c.returns || ''}</td>
+        <td class="small">${dt(c.flagged_at)}</td></tr>`).join('')}</tbody></table>`;
+  }
+
+  async function load() {
+    const tab = cusState.tab;
+    const view = tab === 'all' ? '' : tab;
+    const [r, sus] = await Promise.all([
+      api('GET', `/api/customers?q=${encodeURIComponent(cusState.q)}&view=${view}`),
+      tab === 'red' ? api('GET', '/api/customers/suspects') : null,
+    ]);
+    if (tab !== cusState.tab) return;
+    $('#chint').textContent = HINT[tab];
+    const empty = { all: 'Chưa có khách', loyal: 'Chưa có khách nào mua từ 2 lần trở lên', red: 'Sổ đỏ đang trống' }[tab];
+    $('#tbl').innerHTML = r.customers.length
+      ? (tab === 'loyal' ? tableLoyal : tab === 'red' ? tableRed : tableAll)(r.customers)
+      : `<div class="empty">${empty}</div>`;
+    $('#sus').innerHTML = sus && sus.customers.length ? `
+      <h2 style="margin:18px 0 4px">Nghi vấn (${sus.customers.length})</h2>
+      <p class="muted small" style="margin:0 0 8px">Chưa vào sổ đỏ nhưng có đơn hoàn vì "${esc(returnReasons()[0] || '')}", hoặc hoàn nhiều mà gần như không nhận đơn nào.</p>
+      <div class="table-wrap"><table><thead><tr><th>Khách</th><th class="right">Đơn</th><th class="right">Đã nhận</th><th class="right">Hoàn</th><th>Lần cuối</th><th></th></tr></thead><tbody>
+      ${sus.customers.map((c) => `<tr class="click" data-id="${c.id}">${who(c)}<td class="right">${c.orders}</td><td class="right">${c.delivered}</td>
+        <td class="right"><b class="neg">${c.returns}</b>${c.fake_returns ? `<div class="cell-sub">${c.fake_returns} cố tình phá</div>` : ''}</td>
+        <td class="small">${dt(c.last_order)}</td>
+        <td class="right"><button class="btn danger sm" data-red="${c.id}">Vào sổ đỏ</button></td></tr>`).join('')}</tbody></table></div>` : '';
+  }
+
+  function addRedForm(prefill = {}) {
+    const m = modal('Thêm vào Sổ đỏ', `
+      <form class="form" id="rf">
+        <label>Số điện thoại<input name="phone" inputmode="tel" value="${esc(prefill.phone || '')}" required></label>
+        <label>Tên (nếu biết)<input name="name" value="${esc(prefill.name || '')}"></label>
+        <label class="full">Lý do<input name="note" list="rrList2" placeholder="VD: tạo đơn ảo, đặt nhiều SĐT để phá"><datalist id="rrList2">${returnReasons().map((x) => `<option value="${esc(x)}">`).join('')}</datalist></label>
+      </form>
+      <div class="actions"><span class="spacer"></span><button class="btn danger" id="ok">Đưa vào Sổ đỏ</button></div>`);
+    $('#ok', m.el).addEventListener('click', async () => {
+      try {
+        const r = await api('POST', '/api/customers/blacklist', formData($('#rf', m.el)));
+        toast(`Đã đưa ${r.customer.phone} vào Sổ đỏ`);
+        m.close();
+        cusState.tab = 'red';
+        route();
+      } catch (e) { fail(e); }
+    });
+    $('[name=phone]', m.el).focus();
+  }
+
   let t;
   $('#q').addEventListener('input', (e) => { cusState.q = e.target.value; clearTimeout(t); t = setTimeout(load, 300); });
-  $('#flag').addEventListener('change', (e) => { cusState.flag = e.target.value; load(); });
-  $('#tbl').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-id]'); if (tr) openCustomer(Number(tr.dataset.id), load); });
+  $('#ctabs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tab]');
+    if (!b) return;
+    cusState.tab = b.dataset.tab;
+    $$('#ctabs .tab').forEach((x) => x.classList.toggle('on', x === b));
+    $('#tbl').innerHTML = '<div class="loading">Đang tải…</div>';
+    $('#sus').innerHTML = '';
+    load().catch(fail);
+  });
+  $('#addRed').addEventListener('click', () => addRedForm());
+  root.addEventListener('click', async (e) => {
+    const rb = e.target.closest('[data-red]');
+    if (rb) {
+      e.stopPropagation();
+      const id = Number(rb.dataset.red);
+      if (!confirm('Đưa khách này vào Sổ đỏ?')) return;
+      try { await api('PATCH', '/api/customers/' + id, { flag: 'bom' }); toast('Đã đưa vào Sổ đỏ'); load(); } catch (err) { fail(err); }
+      return;
+    }
+    const tr = e.target.closest('tr[data-id]');
+    if (tr && root.contains(tr)) openCustomer(Number(tr.dataset.id), load);
+  });
   await load();
 };
 
@@ -868,13 +1027,14 @@ async function openCustomer(id, onDone) {
   const m = modal(`Khách ${c.phone}`, `
     <form class="form" id="f">
       <label>Tên<input name="name" value="${esc(c.name)}"></label>
-      <label>Đánh dấu<select name="flag"><option value="">—</option><option value="vip" ${c.flag === 'vip' ? 'selected' : ''}>VIP</option><option value="bom" ${c.flag === 'bom' ? 'selected' : ''}>Bom hàng</option></select></label>
+      <label>Đánh dấu<select name="flag"><option value="">—</option><option value="vip" ${c.flag === 'vip' ? 'selected' : ''}>VIP</option><option value="bom" ${c.flag === 'bom' ? 'selected' : ''}>Sổ đỏ (phá / bom hàng)</option></select></label>
       <label class="full">Địa chỉ<textarea name="address" rows="2">${esc(c.address)}</textarea></label>
-      <label class="full">Ghi chú<textarea name="note" rows="2">${esc(c.note)}</textarea></label>
+      <label class="full">Ghi chú${c.flag === 'bom' ? ' (lý do vào sổ đỏ)' : ''}<textarea name="note" rows="2">${esc(c.note)}</textarea></label>
+      ${c.flagged_at ? `<p class="full muted small" style="margin:0">Vào sổ đỏ lúc ${dt(c.flagged_at)}</p>` : ''}
     </form>
     <div class="actions"><button class="btn" id="save">Lưu</button></div>
     <h2>Đơn hàng (${r.orders.length})</h2>
-    <ul class="timeline">${r.orders.map((o) => `<li><a href="#" data-open="${o.id}">${esc(o.code)}</a> · ${dt(o.created_at)} · ${o.qty} hộp · ${money(o.total)} ${badge(o.status)} <span class="muted small">${esc(o.page)}</span></li>`).join('')}</ul>`, { wide: true });
+    <ul class="timeline">${r.orders.map((o) => `<li><a href="#" data-open="${o.id}">${esc(o.code)}</a> · ${dt(o.created_at)} · ${o.qty} hộp · ${money(o.total)} ${badge(o.status)}${o.return_reason ? ` <span class="small">(${esc(o.return_reason)})</span>` : ''} <span class="muted small">${esc(o.page)}</span></li>`).join('')}</ul>`, { wide: true });
   $('#save', m.el).addEventListener('click', async () => {
     try { await api('PATCH', '/api/customers/' + id, formData($('#f', m.el))); toast('Đã lưu'); m.close(); onDone && onDone(); } catch (e) { fail(e); }
   });
@@ -990,6 +1150,8 @@ VIEWS.settings = async (root) => {
             <span class="hint" style="margin:4px 0 0">Extension dùng danh sách này để tự điền page cho từng đơn.</span></div>
           <div class="full fld"><span class="fld-l">Danh mục chi</span>${UI.tags('chi_categories', s.chi_categories, 'Thêm danh mục chi, nhấn Enter')}</div>
           <div class="full fld"><span class="fld-l">Danh mục thu</span>${UI.tags('thu_categories', s.thu_categories, 'Thêm danh mục thu, nhấn Enter')}</div>
+          <div class="full fld"><span class="fld-l">Lý do hoàn (để chọn nhanh)</span>${UI.tags('return_reasons', s.return_reasons || [], 'Thêm lý do, nhấn Enter')}
+            <span class="hint" style="margin:4px 0 0">Lý do <b>đầu tiên</b> được hiểu là "khách cố tình phá": chọn lý do này thì web gợi ý đưa SĐT vào Sổ đỏ.</span></div>
           <div class="full form-sep">Khi bấm "Chép" một đơn</div>
           <label>Ngăn cách các mục bằng<select name="copy_sep">
             ${[['pipe', 'Gạch đứng  |'], ['dash', 'Gạch ngang  -'], ['semi', 'Chấm phẩy  ;'], ['tab', 'Tab (dán vào Excel/Sheets thành từng cột)'], ['newline', 'Xuống dòng (mỗi mục 1 dòng)']]

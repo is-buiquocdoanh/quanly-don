@@ -299,7 +299,7 @@
       hasDup = r.matches.length > 0;
       const isBom = r.customer && r.customer.flag === 'bom';
       box.hidden = !hasDup && !isBom;
-      box.innerHTML = (isBom ? `<b>🚫 Khách này từng BOM HÀNG.</b> ${esc(r.customer.note || '')}` : '') +
+      box.innerHTML = (isBom ? `<b>🚫 SĐT này nằm trong SỔ ĐỎ (từng phá / bom hàng).</b> ${esc(r.customer.note || '')}` : '') +
         (hasDup ? `<b style="display:block;margin-top:${isBom ? 6 : 0}px">⚠️ SĐT này đã đặt gần đây:</b>` + r.matches.map((m) =>
           `<div class="m">${esc(m.id)} · ${esc(m.time)} · ${esc(m.name)} · ${esc(m.qty)} hộp · ${fmtMoney(m.total)} · <i>${esc(m.status)}</i></div>`).join('') : '');
       setSaveLabel();

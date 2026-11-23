@@ -231,4 +231,4 @@ Server khởi động lại thì web tự chạy lại, không cần làm gì.
 
 ---
 
-*Sửa code và chạy thử trên laptop: xem mục **Quy trình làm việc** trong [README.md](README.md) (`nvm use && npm run dev`, không cần Docker).*
+*Sửa code và chạy thử trên laptop: xem mục **Quy trình làm việc** trong [README.md](README.md) (Windows: `npm install` rồi `npm run dev` trong PowerShell; không cần Docker).*

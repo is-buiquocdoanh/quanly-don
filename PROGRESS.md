@@ -19,7 +19,7 @@
                                      Cloudflare Tunnel → https://don.<tên-miền>
 ```
 
-- **Backend:** Node.js 24, dùng `node:sqlite` có sẵn, **không cần thư viện ngoài** (không phải `npm install`).
+- **Backend:** Node.js 24, dùng `node:sqlite` có sẵn; thư viện ngoài duy nhất là `@anthropic-ai/sdk` (AI đọc đơn), nên lần đầu cần `npm install`.
 - **Frontend:** HTML + JS thuần (SPA, điều hướng bằng hash), dùng được trên điện thoại.
 - **Dữ liệu:** `server/data/don.db`. Tự sao lưu mỗi ngày vào `server/data/backups/`, giữ 30 bản.
 - **Quyền:** `admin` (chủ shop) làm được tất cả. `kho` chỉ thấy màn hình Kho: đổi trạng thái, nhập mã vận đơn, phí ship.
@@ -51,6 +51,8 @@
 
 ## Nhật ký
 
+- **23/11/2026:** Thêm **lý do hoàn** (cột `orders.return_reason`, danh sách sửa ở Cài đặt → `return_reasons`, biểu đồ ở Tổng quan), **Sổ đỏ** (cờ `customers.flag = 'bom'` cũ, thêm `flagged_at`; API `POST /api/customers/blacklist`, `GET /api/customers/suspects`), tab **Khách quen** (`GET /api/customers?view=loyal`). Extension đổi câu cảnh báo thành "nằm trong SỔ ĐỎ". Database cũ tự thêm cột khi khởi động. README thêm lệnh chạy trên Windows. `npm test`: 10/10 qua; đã chạy thử giao diện bằng Edge headless, không lỗi JS.
+
 - **22/11/2026:** Xong giai đoạn 1. Chốt kiến trúc giai đoạn 2. Đã kiểm tra Node 24 có `node:sqlite`. Bắt đầu viết server.
 - **22/11/2026:** Xong backend và API, test tự động đều qua. Chạy thử trên máy: `cd server && ADMIN_PASSWORD=xxx npm start` → http://localhost:3000
 - **22/11/2026 (tối):** Xong giao diện web, extension v2.0, Docker, DEPLOY.md. Đã chụp màn hình kiểm tra: Tổng quan, Đơn hàng, Tạo đơn (dán tin nhắn), Kho (máy tính + điện thoại), Khách hàng, Thu chi, Cài đặt. Không có lỗi JS. Kho bấm "Đã gửi" lưu đúng mã vận đơn và phí ship.
@@ -67,6 +69,7 @@
 ## Ghi chú kỹ thuật (cho người code tiếp)
 
 - **API** (xem `server/src/routes.js`): `/api/login`, `/api/bootstrap`, `/api/orders` (GET lọc: from, to, status, page, q, dup=1, cod=pending), `/api/orders/:id` (GET chi tiết, PATCH, DELETE), `/api/orders/bulk`, `/api/orders/check?phone=`, `/api/customers`, `/api/transactions`, `/api/report?from&to`, `/api/settings`, `/api/users`, `/api/me/api-token`, `/api/me/password`, `/api/backup` (tải file .db).
+- **Lý do hoàn / sổ đỏ**: `updateOrder` chỉ nhận `return_reason` khi đơn đang / sẽ ở trạng thái `hoan`, rời trạng thái hoàn thì tự xóa. Lý do **đầu tiên** trong `return_reasons` = "cố tình phá" (dùng cho mục Nghi vấn và tự tick ô sổ đỏ). Danh sách đơn trả thêm `cflag` (cờ của khách), kho không thấy.
 - **`/api/ext`**: giữ đúng định dạng của Apps Script cũ (`{action, token, ...}`, các action: ping, check, save, list), nên extension chỉ cần đổi link. `token` là mã API tạo trong web → Cài đặt.
 - **Quyền kho** (`updateOrder` trong `orders.js`): chỉ sửa được `status` (moi/da_gui/da_giao/hoan), `tracking_code`, `ship_fee`, `kho_note`.
 - **Lãi ước tính** = doanh thu (bỏ đơn hủy và hoàn) − giá vốn (SL × `cost_per_unit`) − phí ship − chi Quảng cáo − chi khác. **Không trừ** "Nhập hàng", vì giá vốn đã tính rồi.

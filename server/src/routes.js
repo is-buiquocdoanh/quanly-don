@@ -5,7 +5,7 @@ import {
 } from './util.js';
 import {
   STATUS, createOrder, updateOrder, bulkUpdate, listOrders, orderDetail, deleteOrder, findDups,
-  getCustomerByPhone, listCustomers, customerDetail, updateCustomer, report, listPages,
+  getCustomerByPhone, listCustomers, customerDetail, updateCustomer, suspectCustomers, blacklistPhone, report, listPages,
 } from './orders.js';
 import { listKho, khoIdOrNull, adoptUnassigned, khoName } from './kho.js';
 import { aiEnabled, aiParse } from './ai.js';
@@ -81,7 +81,7 @@ add('POST', '/api/logout', 'none', ({ sid, setCookie }) => {
 
 add('GET', '/api/bootstrap', 'any', ({ user }) => ({
   user: publicUser(user),
-  settings: user.role === 'admin' ? getSettings() : (({ shop_name, default_product, copy_sep, copy_labels }) => ({ shop_name, default_product, copy_sep, copy_labels }))(getSettings()),
+  settings: user.role === 'admin' ? getSettings() : (({ shop_name, default_product, copy_sep, copy_labels, return_reasons }) => ({ shop_name, default_product, copy_sep, copy_labels, return_reasons }))(getSettings()),
   pages: user.role === 'admin' ? listPages() : [],
   khos: user.role === 'admin' ? listKho() : [],
   statuses: STATUS,
@@ -110,6 +110,7 @@ add('DELETE', '/api/orders/:id', 'admin', ({ params, user }) => (deleteOrder(toI
 add('POST', '/api/orders/bulk', 'any', ({ body, user }) => {
   const changes = {};
   if (body.status) changes.status = body.status;
+  if ('return_reason' in body) changes.return_reason = body.return_reason;
   if ('cod_received' in body) {
     if (user.role !== 'admin') throw new HttpError(403, 'Không có quyền');
     changes.cod_received = body.cod_received;
@@ -124,6 +125,8 @@ add('POST', '/api/orders/bulk', 'any', ({ body, user }) => {
 // ---------------------------------------------------------------- Khách hàng
 
 add('GET', '/api/customers', 'admin', ({ query }) => ({ customers: listCustomers(query) }));
+add('GET', '/api/customers/suspects', 'admin', () => ({ customers: suspectCustomers() }));
+add('POST', '/api/customers/blacklist', 'admin', ({ body }) => ({ customer: blacklistPhone(body) }));
 add('GET', '/api/customers/:id', 'admin', ({ params }) => customerDetail(toInt(params.id)));
 add('PATCH', '/api/customers/:id', 'admin', ({ params, body }) => ({ customer: updateCustomer(toInt(params.id), body) }));
 

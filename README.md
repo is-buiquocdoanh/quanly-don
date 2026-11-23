@@ -17,11 +17,11 @@ DEPLOY.md      Hướng dẫn đưa web lên server Ubuntu + tên miền
 |---|---|---|
 | **Tổng quan** | Chủ shop | Đơn, doanh thu, chi quảng cáo, chi phí QC/đơn, lãi ước tính, tỷ lệ hoàn, COD chờ về; biểu đồ theo ngày; so sánh theo page |
 | **Đơn hàng** | Chủ shop | Lọc, tìm, sửa đơn, báo trùng SĐT, đổi trạng thái hàng loạt, đánh dấu COD đã về, tạo đơn bằng cách dán tin nhắn |
-| **Kho gửi hàng** | Kho + chủ shop | Thẻ đơn chờ gửi, nút copy từng ô sang app Viettel Post, nhập mã vận đơn và phí ship, chuyển Đã gửi / Đã giao / Hoàn, in danh sách |
-| **Khách hàng** | Chủ shop | Lịch sử mua theo SĐT, đánh dấu VIP / **bom hàng** (cảnh báo khi khách đặt lại) |
+| **Kho gửi hàng** | Kho + chủ shop | Thẻ đơn chờ gửi, nút copy từng ô sang app Viettel Post, nhập mã vận đơn và phí ship, chuyển Đã gửi / Đã giao / Hoàn, in danh sách. Bấm **Bị hoàn** phải chọn **lý do hoàn** |
+| **Khách hàng** | Chủ shop | 3 tab: **Tất cả** (lịch sử mua theo SĐT, đánh dấu VIP), **Khách quen** (mua nhiều, mua thường xuyên), **Sổ đỏ** (SĐT tạo đơn ảo / phá / bom hàng, có cảnh báo khi đặt lại). Chi tiết ở mục [Lý do hoàn, Sổ đỏ, Khách quen](#lý-do-hoàn-sổ-đỏ-khách-quen) |
 | **Thu chi** | Chủ shop | Chi quảng cáo theo page, nhập hàng, ship, lương…; COD về và COD chờ về |
 | **Chia đơn cho kho** | Chủ shop | Mỗi tài khoản quyền **Kho** (chủ shop tạo, đưa cho 1 bên có hàng) **chỉ thấy đơn được chia cho mình**: không thấy đơn, mã vận đơn, ghi chú của kho khác, không thấy fanpage, link chat, giá vốn. Chỉ có 1 tài khoản kho thì mọi đơn tự vào kho đó. Nhiều kho: công tắc "Đơn mới giao cho…" ở trang Đơn hàng / Cài đặt để đổi kho khi hết hàng, kèm chuyển luôn các đơn chờ gửi. Chia từng đơn / hàng loạt. Tổng quan có bảng theo kho |
-| **Cài đặt** | Chủ shop | Giá vốn, danh mục thu chi, tài khoản kho, mã API cho extension, tải bản sao lưu |
+| **Cài đặt** | Chủ shop | Giá vốn, danh mục thu chi, danh sách lý do hoàn, tài khoản kho, mã API cho extension, tải bản sao lưu |
 
 ## Quy trình làm việc
 
@@ -36,18 +36,35 @@ git tag v1.1.0              ──push──►  lưu tag v1.1.0  ◄──git f
 
 ### 1. Sửa và chạy thử trên laptop (không cần Docker)
 
-Cần Node.js 24 (file `server/.nvmrc`). Máy đã có nvm thì chỉ cần `nvm use`.
+Cần Node.js 24 (file `server/.nvmrc`).
+
+**Windows (PowerShell)**
+
+```powershell
+cd d:\01_Tools\Vscode\quanly-don\server
+npm install                        # lần đầu, hoặc khi package.json đổi
+$env:ADMIN_PASSWORD = "123456"
+npm run dev                        # mở http://localhost:3000, đăng nhập admin / 123456
+npm test                           # chạy test API (mở terminal khác)
+```
+
+- Báo lỗi *"running scripts is disabled on this system"*: chạy 1 lần `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` (gõ `Y`), đóng rồi mở lại terminal. Máy công ty bị khóa chính sách này thì gõ `npm.cmd` thay cho `npm` (ví dụ `npm.cmd run dev`).
+- Kiểu viết `ADMIN_PASSWORD=123456 npm run dev` chỉ chạy trên Linux / macOS / Git Bash, PowerShell không hiểu.
+- `nvm use` của nvm-windows không đọc `.nvmrc`; gõ `nvm use 24` hoặc bỏ qua nếu `node -v` đã là v24.
+
+**Linux / macOS / Git Bash**
 
 ```bash
 cd server
 nvm use                              # chuyển sang Node 24 (lần đầu: nvm install)
+npm install                          # lần đầu
 ADMIN_PASSWORD=123456 npm run dev    # mở http://localhost:3000, đăng nhập admin / 123456
 npm test                             # chạy test API
 ```
 
 - Sửa **`public/`** (giao diện: HTML, CSS, JS): lưu file rồi tải lại trang (F5) là thấy.
 - Sửa **`src/`** (backend): server tự khởi động lại, rồi tải lại trang.
-- Không muốn gõ `ADMIN_PASSWORD=…` mỗi lần: tạo file `server/.env` chứa `ADMIN_PASSWORD=123456`. `npm run dev` tự đọc file này, và git bỏ qua nó.
+- Không muốn đặt `ADMIN_PASSWORD` mỗi lần: tạo file `server/.env` chứa `ADMIN_PASSWORD=123456`. `npm run dev` tự đọc file này (cả Windows lẫn Linux), và git bỏ qua nó.
 - Dữ liệu chạy thử nằm ở `server/data/`. Xóa thư mục này là làm lại từ đầu. Mật khẩu admin chỉ được tạo ở lần chạy đầu, khi `data/` còn trống.
 - Xem giao diện điện thoại: Chrome → F12 → Ctrl+Shift+M.
 
@@ -58,6 +75,20 @@ git add -A && git commit -m "…" && git push      # lưu code
 git tag v1.1.0 && git push origin v1.1.0          # đánh dấu phiên bản
 ```
 Trên server: `~/apps/quanly-don/deploy.sh v1.1.0`. Bản mới lỗi thì `deploy.sh v1.0.1` để quay lại. Chi tiết ở [DEPLOY.md](DEPLOY.md).
+
+## Lý do hoàn, Sổ đỏ, Khách quen
+
+**Lý do hoàn.** Khi kho hoặc chủ shop bấm **Bị hoàn** (trang Kho, chi tiết đơn, hay đổi trạng thái hàng loạt), web hỏi lý do: chọn trong danh sách hoặc gõ lý do khác. Lý do hiện ở danh sách đơn, thẻ đơn của kho và lịch sử khách. Trang **Tổng quan** có biểu đồ **Lý do hoàn** theo khoảng ngày đang xem. Hoàn tác (đổi lại về Đã gửi) thì lý do cũ tự xóa.
+
+- Sửa danh sách lý do ở **Cài đặt → Lý do hoàn**. Lý do **đứng đầu** được hiểu là *khách cố tình phá* (mặc định "Đơn ảo / cố tình phá"): chọn lý do này thì ô **Đưa SĐT vào Sổ đỏ** tự được tick (chỉ chủ shop thấy ô này, kho thì không).
+
+**Sổ đỏ** (Khách hàng → tab Sổ đỏ). Danh sách SĐT từng tạo đơn ảo, phá hoặc bom hàng. Đặt đơn bằng SĐT trong sổ đỏ thì form tạo đơn, chi tiết đơn và extension đều hiện cảnh báo đỏ; danh sách đơn có nhãn **Sổ đỏ** cạnh tên khách.
+
+- Đưa vào sổ đỏ bằng 1 trong 4 cách: tick ô khi báo hoàn; nút **+ Thêm SĐT vào Sổ đỏ** (dùng được cả với SĐT chưa từng đặt đơn); nút **Vào sổ đỏ** ở mục **Nghi vấn**; hoặc mở 1 khách → Đánh dấu → *Sổ đỏ*.
+- Mục **Nghi vấn** gợi ý khách chưa vào sổ đỏ nhưng: có đơn hoàn vì lý do *cố tình phá*, hoặc hoàn từ 2 đơn mà chưa nhận đơn nào, hoặc hoàn từ 3 đơn và hoàn nhiều hơn nhận.
+- Gỡ khỏi sổ đỏ: mở khách → Đánh dấu → *—* → Lưu. Cờ "bom hàng" cũ chính là sổ đỏ, không mất dữ liệu.
+
+**Khách quen** (Khách hàng → tab Khách quen). Khách có từ 2 đơn **đã giao**, xếp theo số đơn rồi tổng tiền. Cột **Chu kỳ** là số ngày trung bình giữa 2 lần mua; khách đã quá chu kỳ khoảng 30% mà chưa đặt lại thì hiện chữ đỏ **quá chu kỳ**, nên nhắn chăm sóc. Khách trong sổ đỏ không hiện ở đây.
 
 ## Đưa lên server
 

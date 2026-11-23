@@ -568,3 +568,10 @@ td .dd { min-width: 170px; }
 @media (max-width: 860px) {
   .kho-bar .dd { width: 100%; }
 }
+
+/* ---------------------------------------------------------------- lý do hoàn + sổ đỏ */
+.neg { color: var(--bad); }
+.reasons { display: grid; gap: 6px; }
+.reason { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid var(--line, #eaecf0); border-radius: var(--r-sm); cursor: pointer; }
+.reason:has(input:checked) { border-color: var(--bad); background: var(--bad-soft); }
+.red-check { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--bad-soft); color: var(--bad); }

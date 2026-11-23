@@ -24,7 +24,7 @@ function canSee(o, user) {
   if (sc && o.kho_id !== sc) throw new HttpError(404, 'Không tìm thấy đơn');
 }
 // Bỏ những gì kho không cần biết: fanpage, link chat, người tạo, mã đơn trùng thuộc bên khác.
-const KHO_HIDDEN = ['page', 'link', 'created_by', 'customer_id', 'cod_received', 'cod_at'];
+const KHO_HIDDEN = ['page', 'link', 'created_by', 'customer_id', 'cod_received', 'cod_at', 'cflag'];
 export function forKho(rows, user) {
   if (!isKho(user)) return rows;
   const list = Array.isArray(rows) ? rows : [rows];
@@ -129,8 +129,8 @@ export function updateOrder(id, input, user, info = {}) {
   canSee(o, user);
   const isAdmin = user.role === 'admin';
   const allowed = isAdmin
-    ? ['name', 'phone', 'address', 'product', 'qty', 'total', 'ship_fee', 'note', 'kho_note', 'page', 'status', 'tracking_code', 'cod_received', 'kho_id']
-    : ['status', 'tracking_code', 'ship_fee', 'kho_note'];
+    ? ['name', 'phone', 'address', 'product', 'qty', 'total', 'ship_fee', 'note', 'kho_note', 'page', 'status', 'return_reason', 'tracking_code', 'cod_received', 'kho_id']
+    : ['status', 'return_reason', 'tracking_code', 'ship_fee', 'kho_note'];
   const now = nowVN();
   let sets = {};
   const changes = [];
@@ -166,6 +166,13 @@ export function updateOrder(id, input, user, info = {}) {
       changes.push(w ? `Giao cho ${khoName(w)}` : 'Bỏ chia kho');
       continue;
     }
+    if (k === 'return_reason') {
+      // lý do hoàn chỉ có nghĩa khi đơn đang / sẽ ở trạng thái Hoàn
+      if ((sets.status || o.status) !== 'hoan' || v === o.return_reason) continue;
+      sets.return_reason = v;
+      changes.push(v ? `Lý do hoàn: ${v}` : 'Bỏ lý do hoàn');
+      continue;
+    }
     if (k === 'cod_received') {
       if (v === o.cod_received) continue;
       sets.cod_received = v;
@@ -178,6 +185,8 @@ export function updateOrder(id, input, user, info = {}) {
     const labels = { tracking_code: 'Mã vận đơn', ship_fee: 'Phí ship', kho_note: 'Ghi chú kho', total: 'Tổng tiền', qty: 'SL', phone: 'SĐT', address: 'Địa chỉ', name: 'Tên' };
     changes.push(labels[k] ? `${labels[k]}: ${v}` : `Sửa ${k}`);
   }
+  // rời trạng thái Hoàn (hoàn tác, sửa nhầm) thì xóa lý do hoàn cũ
+  if (sets.status && sets.status !== 'hoan' && o.return_reason) sets.return_reason = '';
   if (!changes.length) return o;
   info.changed = true;
 
@@ -220,6 +229,7 @@ export function listOrders(q = {}, user = null) {
   if (q.dup === '1') where.push("dup_codes <> ''");
   if (q.cod === 'pending') where.push("status = 'da_giao' AND cod_received = 0");
   if (q.cod === 'done') where.push('cod_received = 1');
+  if (q.reason) { where.push('return_reason = ?'); args.push(String(q.reason)); }
   if (q.q) {
     const s = '%' + String(q.q).trim() + '%';
     const p = normalizePhone(q.q);
@@ -230,7 +240,8 @@ export function listOrders(q = {}, user = null) {
   const limit = Math.min(toInt(q.limit, 300), 2000);
   const offset = toInt(q.offset, 0);
   const order = q.sort === 'asc' ? 'ASC' : 'DESC';
-  const rows = db.prepare(`SELECT * FROM orders ${w} ORDER BY created_at ${order} LIMIT ? OFFSET ?`).all(...args, limit, offset);
+  const rows = db.prepare(`SELECT orders.*, (SELECT flag FROM customers c WHERE c.id = orders.customer_id) AS cflag
+    FROM orders ${w} ORDER BY created_at ${order} LIMIT ? OFFSET ?`).all(...args, limit, offset);
   const sum = db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(qty),0) qty, COALESCE(SUM(total),0) total FROM orders ${w}`).get(...args);
   return { orders: forKho(rows, user), count: sum.n, qty: sum.qty, total: sum.total };
 }
@@ -264,22 +275,59 @@ export function deleteOrder(id, user) {
 
 // ---------------------------------------------------------------- Khách hàng
 
+const CUS_STATS = `
+    SELECT c.*, COUNT(o.id) AS orders,
+      COALESCE(SUM(o.status = 'da_giao'), 0) AS delivered,
+      COALESCE(SUM(CASE WHEN o.status = 'da_giao' THEN o.total END), 0) AS spent,
+      COALESCE(SUM(CASE WHEN o.status = 'da_giao' THEN o.qty END), 0) AS boxes,
+      COALESCE(SUM(o.status = 'hoan'), 0) AS returns,
+      COALESCE(SUM(o.status = 'hoan' AND o.return_reason = ?), 0) AS fake_returns,
+      MIN(CASE WHEN o.status = 'da_giao' THEN o.created_at END) AS first_buy,
+      MAX(CASE WHEN o.status = 'da_giao' THEN o.created_at END) AS last_buy,
+      MAX(o.created_at) AS last_order
+    FROM customers c LEFT JOIN orders o ON o.customer_id = c.id`;
+// lý do hoàn đầu tiên trong Cài đặt = "đơn ảo / cố tình phá"
+const fakeReason = () => (getSettings().return_reasons || [])[0] || '';
+
+/**
+ * view: ''      = tất cả, mới đặt gần nhất trước
+ *       'loyal' = khách quen: từ 2 đơn đã giao, mua nhiều nhất trước
+ *       'red'   = sổ đỏ (flag = 'bom'), mới thêm trước
+ */
 export function listCustomers(q = {}) {
-  const args = [];
-  let w = '';
+  const args = [fakeReason()];
+  const where = [];
   if (q.q) {
     const s = '%' + String(q.q).trim() + '%';
-    w = 'WHERE c.name LIKE ? OR c.phone LIKE ? OR c.address LIKE ?';
+    where.push('(c.name LIKE ? OR c.phone LIKE ? OR c.address LIKE ?)');
     args.push(s, s, s);
   }
-  if (q.flag) { w += (w ? ' AND ' : 'WHERE ') + 'c.flag = ?'; args.push(String(q.flag)); }
-  return db.prepare(`
-    SELECT c.*, COUNT(o.id) AS orders,
-      COALESCE(SUM(CASE WHEN o.status = 'da_giao' THEN o.total END), 0) AS spent,
-      COALESCE(SUM(CASE WHEN o.status = 'hoan' THEN 1 END), 0) AS returns,
-      MAX(o.created_at) AS last_order
-    FROM customers c LEFT JOIN orders o ON o.customer_id = c.id
-    ${w} GROUP BY c.id ORDER BY last_order DESC LIMIT ?`).all(...args, Math.min(toInt(q.limit, 300), 2000));
+  if (q.view === 'red') where.push("c.flag = 'bom'");
+  else if (q.flag) { where.push('c.flag = ?'); args.push(String(q.flag)); }
+  if (q.view === 'loyal') where.push("c.flag <> 'bom'");
+  const having = q.view === 'loyal' ? `HAVING delivered >= ${Math.max(2, toInt(q.min, 2))}` : '';
+  const order = q.view === 'loyal' ? 'delivered DESC, spent DESC'
+    : q.view === 'red' ? 'c.flagged_at DESC, last_order DESC' : 'last_order DESC';
+  const rows = db.prepare(`${CUS_STATS} ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+    GROUP BY c.id ${having} ORDER BY ${order} LIMIT ?`).all(...args, Math.min(toInt(q.limit, 300), 2000));
+  if (q.view === 'loyal') {
+    // chu kỳ mua lại trung bình và số ngày từ lần mua cuối: biết khách nào đến hạn / lâu rồi chưa mua lại
+    const today = Date.parse(todayVN());
+    for (const c of rows) {
+      const first = Date.parse(c.first_buy.slice(0, 10));
+      const last = Date.parse(c.last_buy.slice(0, 10));
+      c.cycle_days = Math.round((last - first) / 864e5 / (c.delivered - 1));
+      c.since_days = Math.round((today - Date.parse(c.last_order.slice(0, 10))) / 864e5);
+    }
+  }
+  return rows;
+}
+
+/** Khách nghi vấn: chưa vào sổ đỏ nhưng có đơn hoàn vì "cố tình phá", hoặc hoàn nhiều mà gần như không nhận đơn nào. */
+export function suspectCustomers() {
+  return db.prepare(`${CUS_STATS} WHERE c.flag <> 'bom' GROUP BY c.id
+    HAVING fake_returns >= 1 OR (returns >= 2 AND delivered = 0) OR (returns >= 3 AND returns > delivered)
+    ORDER BY fake_returns DESC, returns DESC, last_order DESC LIMIT 100`).all(fakeReason());
 }
 
 export function customerDetail(id) {
@@ -293,12 +341,26 @@ export function updateCustomer(id, input) {
   const c = db.prepare('SELECT * FROM customers WHERE id = ?').get(id);
   if (!c) throw new HttpError(404, 'Không tìm thấy khách');
   const flag = ['', 'vip', 'bom'].includes(input.flag) ? input.flag : c.flag;
-  db.prepare('UPDATE customers SET name = ?, address = ?, note = ?, flag = ? WHERE id = ?').run(
+  const flaggedAt = flag === 'bom' ? (c.flag === 'bom' && c.flagged_at ? c.flagged_at : nowVN()) : null;
+  db.prepare('UPDATE customers SET name = ?, address = ?, note = ?, flag = ?, flagged_at = ? WHERE id = ?').run(
     'name' in input ? str(input.name, 120) : c.name,
     'address' in input ? str(input.address, 500) : c.address,
     'note' in input ? str(input.note, 1000) : c.note,
-    flag, id);
+    flag, flaggedAt, id);
   return db.prepare('SELECT * FROM customers WHERE id = ?').get(id);
+}
+
+/** Đưa 1 SĐT vào sổ đỏ (kể cả SĐT chưa từng đặt đơn). Lý do được nối thêm vào ghi chú cũ. */
+export function blacklistPhone(input) {
+  const phone = normalizePhone(input.phone);
+  if (phone.length !== 10) throw bad('SĐT phải có 10 số');
+  const reason = str(input.note, 500);
+  return tx(() => {
+    const id = upsertCustomer(phone, str(input.name, 120), '');
+    const c = db.prepare('SELECT * FROM customers WHERE id = ?').get(id);
+    const note = reason && !c.note.includes(reason) ? (c.note ? c.note + '\n' : '') + reason : c.note;
+    return updateCustomer(id, { flag: 'bom', note });
+  });
 }
 
 // ---------------------------------------------------------------- Báo cáo
@@ -319,13 +381,13 @@ export function report(from, to, { compare = true } = {}) {
   const s = getSettings();
   const cost = Number(s.cost_per_unit) || 0;
   const orders = db.prepare(`SELECT substr(created_at, 1, 10) AS d, CAST(substr(created_at, 12, 2) AS INTEGER) AS h,
-    status, qty, total, ship_fee, page, address, COALESCE(kho_id, 0) AS wh
+    status, qty, total, ship_fee, page, address, return_reason, COALESCE(kho_id, 0) AS wh
     FROM orders WHERE created_at BETWEEN ? AND ?`).all(from + ' 00:00:00', to + ' 23:59:59');
   const txs = db.prepare('SELECT date, type, category, amount, page FROM transactions WHERE date BETWEEN ? AND ?').all(from, to);
 
   const r = {
     from, to, orders: 0, qty: 0, revenue: 0, delivered: 0, cogs: 0, ship: 0, ads: 0, import: 0,
-    other_chi: 0, other_thu: 0, cancelled: 0, by_status: {}, chi_by_cat: {},
+    other_chi: 0, other_thu: 0, cancelled: 0, by_status: {}, chi_by_cat: {}, by_return_reason: {},
   };
   const days = {};
   const pages = {};
@@ -357,7 +419,12 @@ export function report(from, to, { compare = true } = {}) {
     const PV = (provinces[pv] ??= { province: pv, orders: 0, revenue: 0, returns: 0 });
     PV.orders++;
     qtyBuckets[o.qty >= 5 ? '5+' : Math.max(1, o.qty)]++;
-    if (o.status === 'hoan') { P.returns++; PV.returns++; continue; }
+    if (o.status === 'hoan') {
+      P.returns++; PV.returns++;
+      const why = o.return_reason || 'Chưa ghi lý do';
+      r.by_return_reason[why] = (r.by_return_reason[why] || 0) + 1;
+      continue;
+    }
     r.qty += o.qty; r.revenue += o.total; r.cogs += o.qty * cost;
     D.qty += o.qty; D.revenue += o.total; D.cogs += o.qty * cost;
     PV.revenue += o.total;

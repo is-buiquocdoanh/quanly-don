@@ -98,6 +98,10 @@ function addColumn(table, column, def) {
 // đơn chia cho tài khoản kho nào (mỗi tài khoản kho = 1 bên có hàng gửi đơn)
 addColumn('orders', 'kho_id', 'INTEGER REFERENCES users(id)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_orders_kho ON orders(kho_id, status)');
+// lý do đơn bị hoàn (chọn khi bấm "Bị hoàn")
+addColumn('orders', 'return_reason', "TEXT NOT NULL DEFAULT ''");
+// thời điểm khách bị đưa vào sổ đỏ (flag = 'bom')
+addColumn('customers', 'flagged_at', 'TEXT');
 {
   // nâng cấp: chỉ có 1 tài khoản kho thì mọi đơn chưa chia thuộc về tài khoản đó
   const act = db.prepare(`SELECT id FROM users WHERE role = 'kho' AND active = 1 LIMIT 2`).all();
@@ -111,6 +115,8 @@ export const SETTING_DEFAULTS = {
   default_product: 'trứng sâu canxi Ruồi Lính Đen (35g/hộp)',
   chi_categories: ['Quảng cáo', 'Nhập hàng', 'Phí ship', 'Đóng gói', 'Lương', 'Khác'],
   thu_categories: ['Thu khác'],
+  // lý do hoàn để chọn nhanh; lý do đầu tiên = khách cố tình phá → gợi ý đưa vào sổ đỏ
+  return_reasons: ['Đơn ảo / cố tình phá', 'Khách không nghe máy', 'Khách từ chối nhận', 'Khách đổi ý / đặt nhầm', 'Sai địa chỉ / SĐT', 'Giao lâu, khách hủy', 'Hàng lỗi / hỏng'],
   fb_pages: [],              // các page Facebook của shop (extension chọn page theo danh sách này)
   active_kho: 0,             // tài khoản kho đang nhận đơn mới (0 = tự động nếu chỉ có 1 tài khoản kho)
   copy_sep: 'pipe',          // ký tự ngăn cách khi chép đơn: pipe | dash | semi | tab | newline
