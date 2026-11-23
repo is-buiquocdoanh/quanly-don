@@ -7,6 +7,9 @@ import {
   STATUS, createOrder, updateOrder, bulkUpdate, listOrders, orderDetail, deleteOrder, findDups,
   getCustomerByPhone, listCustomers, customerDetail, updateCustomer, report, listPages,
 } from './orders.js';
+import { listKho, khoIdOrNull, adoptUnassigned, khoName } from './kho.js';
+import { aiEnabled, aiParse } from './ai.js';
+import { forKho } from './orders.js';
 
 const SESSION_DAYS = 30;
 const routes = [];
@@ -37,7 +40,9 @@ function userFromApiToken(token) {
   const u = db.prepare('SELECT id, username, display_name, role, active FROM users WHERE api_token = ?').get(String(token));
   return u && u.active ? u : null;
 }
-const publicUser = (u) => ({ id: u.id, username: u.username, display_name: u.display_name, role: u.role });
+const publicUser = (u) => ({
+  id: u.id, username: u.username, display_name: u.display_name, role: u.role,
+});
 
 const loginFails = new Map(); // ip -> {n, until}
 function checkRate(ip) {
@@ -76,8 +81,9 @@ add('POST', '/api/logout', 'none', ({ sid, setCookie }) => {
 
 add('GET', '/api/bootstrap', 'any', ({ user }) => ({
   user: publicUser(user),
-  settings: getSettings(),
+  settings: user.role === 'admin' ? getSettings() : (({ shop_name, default_product, copy_sep, copy_labels }) => ({ shop_name, default_product, copy_sep, copy_labels }))(getSettings()),
   pages: user.role === 'admin' ? listPages() : [],
+  khos: user.role === 'admin' ? listKho() : [],
   statuses: STATUS,
   today: todayVN(),
 }));
@@ -92,14 +98,14 @@ add('POST', '/api/me/password', 'any', ({ user, body }) => {
 
 // ---------------------------------------------------------------- Đơn hàng
 
-add('GET', '/api/orders', 'any', ({ query }) => listOrders(query));
+add('GET', '/api/orders', 'any', ({ query, user }) => listOrders(query, user));
 add('GET', '/api/orders/check', 'admin', ({ query }) => ({
   matches: findDups(query.phone, query.exclude ? toInt(query.exclude) : null),
   customer: getCustomerByPhone(query.phone),
 }));
-add('GET', '/api/orders/:id', 'any', ({ params }) => orderDetail(toInt(params.id)));
+add('GET', '/api/orders/:id', 'any', ({ params, user }) => orderDetail(toInt(params.id), user));
 add('POST', '/api/orders', 'admin', ({ body, user }) => createOrder(body, user));
-add('PATCH', '/api/orders/:id', 'any', ({ params, body, user }) => ({ order: updateOrder(toInt(params.id), body, user) }));
+add('PATCH', '/api/orders/:id', 'any', ({ params, body, user }) => ({ order: forKho(updateOrder(toInt(params.id), body, user), user) }));
 add('DELETE', '/api/orders/:id', 'admin', ({ params, user }) => (deleteOrder(toInt(params.id), user), { ok: true }));
 add('POST', '/api/orders/bulk', 'any', ({ body, user }) => {
   const changes = {};
@@ -107,6 +113,10 @@ add('POST', '/api/orders/bulk', 'any', ({ body, user }) => {
   if ('cod_received' in body) {
     if (user.role !== 'admin') throw new HttpError(403, 'Không có quyền');
     changes.cod_received = body.cod_received;
+  }
+  if ('kho_id' in body) {
+    if (user.role !== 'admin') throw new HttpError(403, 'Không có quyền');
+    changes.kho_id = body.kho_id;
   }
   return { updated: bulkUpdate(body.ids, changes, user) };
 });
@@ -167,9 +177,12 @@ add('PUT', '/api/settings', 'admin', ({ body }) => {
     if (!(k in body)) continue;
     let v = body[k];
     if (Array.isArray(SETTING_DEFAULTS[k])) {
-      v = (Array.isArray(v) ? v : String(v).split(/[\n,]/)).map((x) => str(x, 60)).filter(Boolean);
+      v = (Array.isArray(v) ? v : String(v).split(k === 'fb_pages' ? /\n/ : /[\n,]/)).map((x) => str(x, 60)).filter(Boolean);
     } else if (typeof SETTING_DEFAULTS[k] === 'number') v = toInt(v);
     else v = str(v, 300);
+    if (k === 'active_kho') v = khoIdOrNull(v) || 0;
+    if (k === 'copy_sep' && !['pipe', 'dash', 'semi', 'tab', 'newline'].includes(v)) v = 'pipe';
+    if (k === 'copy_labels') v = v ? 1 : 0;
     setSetting(k, v);
   }
   return { settings: getSettings() };
@@ -186,6 +199,7 @@ add('POST', '/api/users', 'admin', ({ body }) => {
   const role = body.role === 'admin' ? 'admin' : 'kho';
   db.prepare('INSERT INTO users(username, display_name, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)')
     .run(username, str(body.display_name, 60) || username, hashPassword(body.password), role, nowVN());
+  if (role === 'kho') adoptUnassigned();
   return { ok: true };
 });
 add('PATCH', '/api/users/:id', 'admin', ({ params, body, user }) => {
@@ -201,6 +215,8 @@ add('PATCH', '/api/users/:id', 'admin', ({ params, body, user }) => {
         db.prepare('UPDATE users SET active = ? WHERE id = ?').run(body.active ? 1 : 0, id);
         if (!body.active) db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
       }
+      if ('role' in body && body.role === 'admin') db.prepare('UPDATE orders SET kho_id = NULL WHERE kho_id = ?').run(id);
+      if (u.role === 'kho' || body.role === 'kho') adoptUnassigned();
     }
     if (body.password) {
       if (String(body.password).length < 6) throw bad('Mật khẩu tối thiểu 6 ký tự');
@@ -209,6 +225,18 @@ add('PATCH', '/api/users/:id', 'admin', ({ params, body, user }) => {
     }
     return { ok: true };
   });
+});
+
+// ---------------------------------------------------------------- Chia đơn cho tài khoản kho
+
+add('GET', '/api/kho', 'admin', () => listKho({ stats: true }));
+/** Chuyển mọi đơn CHỜ GỬI của 1 tài khoản kho (hoặc chưa chia: from = 0) sang tài khoản kho khác. */
+add('POST', '/api/kho/move', 'admin', ({ body, user }) => {
+  const to = khoIdOrNull(body.to);
+  const from = body.from === 'none' || Number(body.from) === 0 ? null : khoIdOrNull(body.from);
+  if (from === to) throw bad('Chọn 2 tài khoản kho khác nhau');
+  const ids = db.prepare(`SELECT id FROM orders WHERE status = 'moi' AND ${from ? 'kho_id = ?' : 'kho_id IS NULL'}`).all(...(from ? [from] : [])).map((r) => r.id);
+  return { updated: ids.length ? bulkUpdate(ids, { kho_id: to }, user) : 0 };
 });
 
 /** Tạo mã API mới cho extension (của chính tài khoản đang đăng nhập). */
@@ -221,30 +249,49 @@ add('POST', '/api/me/api-token', 'admin', ({ user }) => {
 // ---------------------------------------------------------------- API cho Chrome extension
 
 const fmtTime = (s) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)} ${s.slice(11, 16)}` : '');
-const extOrder = (o) => ({
+// tên kho chỉ gửi khi có từ 2 tài khoản kho (1 kho thì không cần biết)
+const khoNames = () => {
+  const ks = listKho();
+  return ks.length > 1 ? Object.fromEntries(ks.map((k) => [k.id, k.name])) : null;
+};
+const extOrder = (o, names = null) => ({
+  kho: names && o.kho_id ? names[o.kho_id] || '' : '',
   id: o.code, time: fmtTime(o.created_at), name: o.name, phone: o.phone, address: o.address,
   product: o.product, qty: o.qty, total: o.total, note: o.note, page: o.page,
   status: STATUS[o.status] || o.status, dup: o.dup_codes,
 });
 
-add('POST', '/api/ext', 'none', ({ body, baseUrl }) => {
+add('POST', '/api/ext', 'none', async ({ body, baseUrl }) => {
   const user = userFromApiToken(body.token);
   if (!user || user.role !== 'admin') throw new HttpError(401, 'Sai mã API — vào web → Cài đặt → tạo mã API cho extension');
   switch (body.action) {
     case 'ping':
-      return { ok: true, sheetUrl: baseUrl, webUrl: baseUrl, user: user.display_name || user.username };
+      return { ok: true, sheetUrl: baseUrl, webUrl: baseUrl, user: user.display_name || user.username, ai: aiEnabled() };
+    case 'parse': {
+      // đọc đơn bằng AI; lỗi AI không chặn việc lưu đơn (extension vẫn dùng kết quả bộ lọc thường)
+      try {
+        const def = getSettings().default_product;
+        const r = await aiParse(body.text, { defaultProduct: def });
+        return { ok: true, ai: true, order: { ...r.order, product: r.order.product || def }, model: r.model };
+      } catch (e) {
+        return { ok: true, ai: false, error: e.message };
+      }
+    }
+    case 'pages':
+      return { ok: true, pages: listPages() };
     case 'check': {
       const c = getCustomerByPhone(body.order?.phone);
-      return { ok: true, matches: findDups(body.order?.phone).map(extOrder), customer: c && { flag: c.flag, note: c.note } };
+      return { ok: true, matches: findDups(body.order?.phone).map((d) => extOrder(d)), customer: c && { flag: c.flag, note: c.note } };
     }
     case 'save': {
       const { order, dups } = createOrder(body.order || {}, user);
-      return { ok: true, id: order.code, dups: dups.map(extOrder) };
+      const names = khoNames();
+      return { ok: true, id: order.code, kho: names && order.kho_id ? khoName(order.kho_id) : '', dups: dups.map((d) => extOrder(d)) };
     }
     case 'list': {
       const days = Math.max(1, Math.min(toInt(body.days, 1), 31));
       const from = todayVN(new Date(Date.now() - (days - 1) * 864e5));
-      return { ok: true, orders: listOrders({ from, sort: 'asc', limit: 2000 }).orders.map(extOrder), sheetUrl: baseUrl, webUrl: baseUrl };
+      return { ok: true, orders: listOrders({ from, sort: 'asc', limit: 2000 }).orders.map(((n) => (o) => extOrder(o, n))(khoNames())), sheetUrl: baseUrl, webUrl: baseUrl };
     }
     default:
       throw bad('Không rõ thao tác: ' + body.action);

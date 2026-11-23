@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Bắt đơn Mess</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+  body { min-width: 300px; }
+  .top { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 14px 14px 10px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand img { width: 30px; height: 30px; border-radius: 8px; box-shadow: 0 2px 6px rgba(22,163,74,.28); }
+  .brand b { flex: 1; font-size: 15px; }
+
+  .power { margin-top: 12px; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px;
+    background: var(--brand-soft); border: 1px solid var(--brand-line); transition: background .2s, border-color .2s; }
+  .power.off { background: var(--card); border-color: var(--line); }
+  .power .t { flex: 1; min-width: 0; }
+  .power .t b { display: block; font-size: 14px; }
+  .power .t span { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .power.off .t b { color: var(--muted); }
+
+  .pagebox { margin-top: 10px; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); }
+  .pagebox.unset { border-color: #fcd34d; background: var(--warn-soft); }
+  .pagebox .pl { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  .pagebox input { flex: 1; min-width: 0; font: inherit; border: 1px solid var(--brand); border-radius: 8px; padding: 6px 8px; background: var(--card); color: var(--ink); outline: none; }
+  .pagesrc { margin: 5px 4px 0; font-size: 11px; color: var(--muted); line-height: 1.45; }
+  .pagesrc.ok { color: var(--brand-ink); }
+  .pagesrc code { font-size: 10px; background: var(--chip); padding: 0 4px; border-radius: 4px; }
+  .pagebox select { flex: 1; min-width: 0; font: inherit; font-weight: 600; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+  .bar { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+  .seg { display: flex; flex: 1; background: var(--chip); border-radius: 9px; padding: 3px; }
+  .seg button { flex: 1; border: 0; background: none; color: var(--muted); font-family: inherit; font-size: 12px; font-weight: 600; line-height: 1; padding: 7px 4px; border-radius: 7px; cursor: pointer; }
+  .seg button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 14px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .tile span { display: block; color: var(--muted); font-size: 11px; font-weight: 600; }
+  .tile b { display: block; font-size: 18px; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .tile.warn b { color: var(--warn-ink); }
+
+  .sec-h { display: flex; justify-content: space-between; align-items: baseline; padding: 16px 14px 8px; }
+  .sec-h h2 { margin: 0; font-size: 13px; }
+  .sec-h span { color: var(--muted); font-size: 11px; }
+  .list { padding: 0 14px 90px; display: flex; flex-direction: column; gap: 8px; }
+  .o { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .o.dup { border-color: var(--bad-line); }
+  .o.cancel { opacity: .55; }
+  .o.fresh { animation: fresh 1.6s ease-out; }
+  @keyframes fresh { from { box-shadow: 0 0 0 3px var(--brand); } to { box-shadow: 0 0 0 3px transparent; } }
+  .o .r1 { display: flex; gap: 6px; align-items: center; }
+  .o .n { flex: 1; min-width: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .o .ph { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; margin-top: 1px; }
+  .o .ad { color: var(--ink-2); font-size: 12px; margin-top: 4px; }
+  .o .r3 { display: flex; gap: 8px; align-items: center; margin-top: 6px; font-size: 12px; color: var(--muted); }
+  .o .r3 .m { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .o .r3 .when { margin-left: auto; white-space: nowrap; }
+
+  .foot { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 14px 14px; background: linear-gradient(transparent, var(--bg) 30%); }
+  .empty { text-align: center; color: var(--muted); padding: 28px 12px; }
+  .err { margin: 0 14px; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="brand">
+      <img src="icons/icon.svg" alt="">
+      <b>Bắt đơn Mess</b>
+      <button class="icon-btn" id="openOpts" title="Cài đặt" aria-label="Cài đặt"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></button>
+    </div>
+    <label class="power" id="power">
+      <div class="t"><b id="pwT">Đang bật bắt đơn</b><span id="pwS">Bôi đen tin nhắn có đơn rồi Ctrl+C</span></div>
+      <span class="switch"><input type="checkbox" id="enabled" role="switch" aria-label="Bật / tắt bắt đơn"><i></i></span>
+    </label>
+    <div class="pagebox" id="pagebox" hidden>
+      <span class="pl">Page đang mở</span>
+      <select id="curPage" aria-label="Page đang mở"></select>
+      <input id="newPage" placeholder="Tên page…" hidden>
+    </div>
+    <div class="pagesrc" id="pagesrc" hidden></div>
+    <div class="bar">
+      <div class="seg" id="days" role="tablist">
+        <button data-d="1" class="on">Hôm nay</button><button data-d="2">2 ngày</button><button data-d="7">7 ngày</button>
+      </div>
+      <button class="icon-btn" id="reload" title="Tải lại" aria-label="Tải lại"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 10-2.3 5.7M20 4v7h-7"/></svg></button>
+    </div>
+  </div>
+  <div class="tiles" id="tiles"></div>
+  <div class="msg err" id="msg" hidden></div>
+  <div class="sec-h"><h2>Đơn đã lưu</h2><span id="upd"></span></div>
+  <div class="list" id="list"><div class="empty">Đang tải…</div></div>
+  <div class="foot"><a class="btn block" href="#" id="openWeb">Mở trang quản lý đơn</a></div>
+  <script src="keys.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

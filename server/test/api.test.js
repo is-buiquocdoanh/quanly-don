@@ -31,7 +31,7 @@ const ext = (body) => fetch(BASE + '/api/ext', { method: 'POST', headers: { 'Con
 before(async () => {
   proc = spawn(process.execPath, ['src/server.js'], {
     cwd: path.resolve(import.meta.dirname, '..'),
-    env: { ...process.env, PORT: String(PORT), DATA_DIR: DATA, ADMIN_PASSWORD: 'test123' },
+    env: { ...process.env, ANTHROPIC_API_KEY: '', PORT: String(PORT), DATA_DIR: DATA, ADMIN_PASSWORD: 'test123' },
     stdio: 'ignore',
   });
   for (let i = 0; i < 50; i++) {
@@ -108,4 +108,102 @@ test('tìm kiếm + khách hàng + lịch sử', async () => {
 test('chống CSRF: form post bị chặn', async () => {
   const r = await fetch(BASE + '/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'a=1' });
   assert.equal(r.status, 415);
+});
+
+test('chia đơn cho 2 tài khoản kho: mỗi kho chỉ thấy đơn của mình, không biết kho kia', async () => {
+  await admin('POST', '/api/users', { username: 'bena', password: 'abc123', role: 'kho', display_name: 'Kho A' });
+  await admin('POST', '/api/users', { username: 'benb', password: 'abc123', role: 'kho', display_name: 'Kho B' });
+  const { khos } = await admin('GET', '/api/kho');
+  const A = khos.find((k) => k.username === 'bena');
+  const B = khos.find((k) => k.username === 'benb');
+  const OLD = khos.find((k) => k.username === 'kho');
+  assert.equal(A.name, 'Kho A');
+  const ka = client(), kb = client();
+  await ka('POST', '/api/login', { username: 'bena', password: 'abc123' });
+  await kb('POST', '/api/login', { username: 'benb', password: 'abc123' });
+
+  // đang chia đơn mới cho Kho A
+  await admin('PUT', '/api/settings', { active_kho: A.id, cost_per_unit: 45000 });
+  const mk = (phone) => admin('POST', '/api/orders', { name: 'Khách', phone, address: 'Hà Nội', qty: 1, total: 100000, page: 'Page bí mật', link: 'https://m.me/abc' });
+  const o1 = (await mk('0913000001')).order;
+  const o2 = (await mk('0913000001')).order; // trùng SĐT với o1
+  assert.equal(o1.kho_id, A.id);
+
+  // kho không nhận giá vốn / danh mục thu chi / danh sách kho khác
+  const bs = await ka('GET', '/api/bootstrap');
+  assert.equal(bs.settings.cost_per_unit, undefined);
+  assert.equal(bs.settings.shop_name !== undefined, true);
+  assert.deepEqual(bs.khos, []);
+  assert.equal((await ka('GET', '/api/kho')).ok, false);
+
+  // Kho A thấy đơn, không thấy fanpage / link chat; Kho B và kho cũ không thấy
+  const la = await ka('GET', '/api/orders?status=moi');
+  assert.deepEqual(la.orders.map((o) => o.id).sort(), [o1.id, o2.id].sort());
+  assert.equal(la.orders[0].page, undefined);
+  assert.equal(la.orders[0].link, undefined);
+  assert.equal((await kb('GET', '/api/orders?status=moi')).orders.length, 0);
+  assert.equal((await kho('GET', '/api/orders?status=moi')).orders.some((o) => o.id === o1.id), false);
+  // kho không lọc lách sang kho khác bằng tham số
+  assert.equal((await kb('GET', `/api/orders?kho=${A.id}`)).orders.length, 0);
+
+  // Kho A nhập mã vận đơn + ghi chú, rồi hết hàng → chủ shop chuyển đơn chờ gửi sang Kho B
+  await ka('PATCH', '/api/orders/' + o1.id, { tracking_code: 'VTP-A-1', kho_note: 'kho A ghi' });
+  await admin('PUT', '/api/settings', { active_kho: B.id });
+  assert.equal((await admin('POST', '/api/kho/move', { from: A.id, to: B.id })).updated, 2);
+  const o3 = (await mk('0913000003')).order;
+  assert.equal(o3.kho_id, B.id);
+
+  assert.equal((await ka('GET', '/api/orders?status=moi')).orders.length, 0);          // Kho A không còn thấy
+  assert.equal((await ka('GET', '/api/orders/' + o1.id)).ok, false);
+  assert.equal((await ka('PATCH', '/api/orders/' + o1.id, { status: 'da_gui' })).ok, false);
+  const lb = (await kb('GET', '/api/orders?status=moi')).orders;
+  assert.equal(lb.length, 3);
+  const b1 = lb.find((o) => o.id === o1.id);
+  assert.equal(b1.tracking_code, '');                                                   // thông tin Kho A đã xóa
+  assert.equal(b1.kho_note, '');
+
+  // chi tiết đơn ở Kho B: không thấy việc chia cho Kho A, không thấy thao tác của Kho A, không có lịch sử khách
+  const d = await kb('GET', '/api/orders/' + o1.id);
+  const log = JSON.stringify(d.events);
+  assert.ok(!log.includes('Kho A') && !log.includes('bena') && !log.includes('VTP-A-1') && !log.includes('Giao cho'));
+  assert.deepEqual(d.history, []);
+  assert.equal(d.customer, null);
+  assert.equal(d.order.page, undefined);
+
+  // mã đơn trùng: chỉ hiện nếu đơn kia cũng thuộc kho mình
+  await admin('POST', '/api/orders/bulk', { ids: [o2.id], kho_id: A.id });
+  assert.equal((await kb('GET', '/api/orders/' + o1.id)).order.dup_codes, '');
+  assert.ok((await admin('GET', '/api/orders/' + o1.id)).order.dup_codes.includes(o2.code));
+
+  // kho không tự chuyển đơn
+  await kb('PATCH', '/api/orders/' + o1.id, { kho_id: A.id });
+  assert.equal((await admin('GET', '/api/orders/' + o1.id)).order.kho_id, B.id);
+  assert.equal((await kb('POST', '/api/orders/bulk', { ids: [o1.id], kho_id: A.id })).ok, false);
+  assert.equal((await kb('POST', '/api/kho/move', { from: B.id, to: A.id })).ok, false);
+
+  // Kho B gửi xong → bấm Đã gửi
+  assert.equal((await kb('PATCH', '/api/orders/' + o1.id, { status: 'da_gui' })).order.status, 'da_gui');
+
+  const { today } = await admin('GET', '/api/bootstrap');
+  const rep = await admin('GET', `/api/report?from=${today}&to=${today}`);
+  assert.ok(rep.by_kho.find((x) => x.id === B.id).waiting >= 1);
+  assert.ok(OLD);
+});
+
+test('AI đọc đơn: server chưa có khóa AI → extension dùng bộ lọc thường, không lỗi', async () => {
+  const tok = (await admin('POST', '/api/me/api-token')).token;
+  const ping = await ext({ action: 'ping', token: tok });
+  assert.equal(ping.ai, false);
+  const r = await ext({ action: 'parse', token: tok, text: 'nguyen van a 0912345678 ha noi' });
+  assert.equal(r.ok, true);
+  assert.equal(r.ai, false);
+  assert.match(r.error, /Chưa bật AI/);
+});
+
+
+test('page Facebook: khai báo trong Cài đặt, extension lấy được danh sách', async () => {
+  await admin('PUT', '/api/settings', { fb_pages: 'Trứng Sâu Miền Bắc\nTrứng Sâu Miền Nam, Chi Nhánh 2\nGà Đẻ Khỏe\nSâu Canxi Sỉ' });
+  const tok = (await admin('POST', '/api/me/api-token')).token;
+  const r = await ext({ action: 'pages', token: tok });
+  assert.deepEqual(r.pages.slice(0, 4), ['Trứng Sâu Miền Bắc', 'Trứng Sâu Miền Nam, Chi Nhánh 2', 'Gà Đẻ Khỏe', 'Sâu Canxi Sỉ']);
 });

@@ -8,8 +8,9 @@ ENV NODE_ENV=production \
 RUN apk add --no-cache tzdata
 
 WORKDIR /app
-# Không có thư viện ngoài → không cần npm install
-COPY package.json ./
+# Thư viện ngoài duy nhất: @anthropic-ai/sdk (AI đọc đơn)
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 COPY src ./src
 COPY public ./public
 

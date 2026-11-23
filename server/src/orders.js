@@ -1,5 +1,6 @@
 import { db, tx, getSettings } from './db.js';
 import { nowVN, todayVN, daysAgoVN, normalizePhone, toInt, str, bad, HttpError, isDate } from './util.js';
+import { khoIdOrNull, khoName, activeKho, listKho } from './kho.js';
 
 export const STATUS = { moi: 'Chờ gửi', da_gui: 'Đã gửi', da_giao: 'Đã giao', hoan: 'Hoàn', huy: 'Hủy' };
 const KHO_STATUSES = ['moi', 'da_gui', 'da_giao', 'hoan'];
@@ -13,6 +14,33 @@ export function getOrder(id) {
   const o = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
   if (!o) throw new HttpError(404, 'Không tìm thấy đơn');
   return o;
+}
+
+// Tài khoản kho chỉ thấy / sửa đơn chủ shop chia cho chính mình.
+export const isKho = (user) => !!user && user.role !== 'admin';
+const khoScope = (user) => (isKho(user) ? user.id : null);
+function canSee(o, user) {
+  const sc = khoScope(user);
+  if (sc && o.kho_id !== sc) throw new HttpError(404, 'Không tìm thấy đơn');
+}
+// Bỏ những gì kho không cần biết: fanpage, link chat, người tạo, mã đơn trùng thuộc bên khác.
+const KHO_HIDDEN = ['page', 'link', 'created_by', 'customer_id', 'cod_received', 'cod_at'];
+export function forKho(rows, user) {
+  if (!isKho(user)) return rows;
+  const list = Array.isArray(rows) ? rows : [rows];
+  const sc = khoScope(user);
+  const codes = [...new Set(list.flatMap((o) => (o.dup_codes ? o.dup_codes.split(/,\s*/) : [])))];
+  let visible = new Set(codes);
+  if (sc && codes.length) {
+    visible = new Set(db.prepare(`SELECT code FROM orders WHERE kho_id = ? AND code IN (${codes.map(() => '?').join(',')})`).all(sc, ...codes).map((r) => r.code));
+  }
+  const out = list.map((o) => {
+    const c = { ...o };
+    for (const k of KHO_HIDDEN) delete c[k];
+    c.dup_codes = o.dup_codes ? o.dup_codes.split(/,\s*/).filter((x) => visible.has(x)).join(', ') : '';
+    return c;
+  });
+  return Array.isArray(rows) ? out : out[0];
 }
 
 export function findDups(phone, excludeId = null) {
@@ -63,6 +91,7 @@ export function createOrder(input, user) {
     link: str(input.link, 1000),
   };
   if (!o.address) throw bad('Thiếu địa chỉ');
+  const sup = input.kho_id !== undefined ? khoIdOrNull(input.kho_id) : activeKho();
 
   return tx(() => {
     const dups = findDups(phone);
@@ -71,11 +100,12 @@ export function createOrder(input, user) {
     const customerId = upsertCustomer(phone, o.name, o.address);
     const id = Number(db.prepare(`
       INSERT INTO orders(code, created_at, customer_id, name, phone, address, product, qty, total, ship_fee,
-                         note, page, link, dup_codes, created_by, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+                         note, page, link, dup_codes, created_by, updated_at, kho_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       code, now, customerId, o.name, phone, o.address, o.product, o.qty, o.total, o.ship_fee,
-      o.note, o.page, o.link, dups.map((d) => d.code).join(', '), user?.id ?? null, now,
+      o.note, o.page, o.link, dups.map((d) => d.code).join(', '), user?.id ?? null, now, sup,
     ).lastInsertRowid);
+    if (sup) addEvent(id, user?.id, `Giao cho ${khoName(sup)}`);
     for (const d of dups) {
       db.prepare(`UPDATE orders SET dup_codes = CASE WHEN dup_codes = '' THEN ? ELSE dup_codes || ', ' || ? END WHERE id = ?`)
         .run(code, code, d.id);
@@ -96,9 +126,10 @@ function applyStatus(o, status, now) {
 
 export function updateOrder(id, input, user, info = {}) {
   const o = getOrder(id);
+  canSee(o, user);
   const isAdmin = user.role === 'admin';
   const allowed = isAdmin
-    ? ['name', 'phone', 'address', 'product', 'qty', 'total', 'ship_fee', 'note', 'kho_note', 'page', 'status', 'tracking_code', 'cod_received']
+    ? ['name', 'phone', 'address', 'product', 'qty', 'total', 'ship_fee', 'note', 'kho_note', 'page', 'status', 'tracking_code', 'cod_received', 'kho_id']
     : ['status', 'tracking_code', 'ship_fee', 'kho_note'];
   const now = nowVN();
   let sets = {};
@@ -120,6 +151,19 @@ export function updateOrder(id, input, user, info = {}) {
       if (v === o.status) continue;
       sets = { ...sets, ...applyStatus(o, v, now) };
       changes.push(`${STATUS[o.status]} → ${STATUS[v]}`);
+      continue;
+    }
+    if (k === 'kho_id') {
+      const w = khoIdOrNull(input[k]);
+      if (w === o.kho_id) continue;
+      sets.kho_id = w;
+      // đơn chưa gửi chuyển sang bên khác: xóa thông tin bên cũ đã nhập để bên mới không thấy
+      if ((sets.status || o.status) === 'moi') {
+        if (!('tracking_code' in input)) sets.tracking_code = '';
+        if (!('kho_note' in input)) sets.kho_note = '';
+        if (!('ship_fee' in input)) sets.ship_fee = 0;
+      }
+      changes.push(w ? `Giao cho ${khoName(w)}` : 'Bỏ chia kho');
       continue;
     }
     if (k === 'cod_received') {
@@ -159,9 +203,13 @@ export function bulkUpdate(ids, input, user) {
   return n;
 }
 
-export function listOrders(q = {}) {
+export function listOrders(q = {}, user = null) {
   const where = [];
   const args = [];
+  const scope = khoScope(user);
+  if (scope) { where.push('kho_id = ?'); args.push(scope); }
+  else if (q.kho === 'none') where.push('kho_id IS NULL');
+  else if (toInt(q.kho)) { where.push('kho_id = ?'); args.push(toInt(q.kho)); }
   if (isDate(q.from)) { where.push('created_at >= ?'); args.push(q.from + ' 00:00:00'); }
   if (isDate(q.to)) { where.push('created_at <= ?'); args.push(q.to + ' 23:59:59'); }
   if (q.status) {
@@ -184,13 +232,24 @@ export function listOrders(q = {}) {
   const order = q.sort === 'asc' ? 'ASC' : 'DESC';
   const rows = db.prepare(`SELECT * FROM orders ${w} ORDER BY created_at ${order} LIMIT ? OFFSET ?`).all(...args, limit, offset);
   const sum = db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(qty),0) qty, COALESCE(SUM(total),0) total FROM orders ${w}`).get(...args);
-  return { orders: rows, count: sum.n, qty: sum.qty, total: sum.total };
+  return { orders: forKho(rows, user), count: sum.n, qty: sum.qty, total: sum.total };
 }
 
-export function orderDetail(id) {
+export function orderDetail(id, user = null) {
   const o = getOrder(id);
-  const events = db.prepare(`SELECT e.at, e.action, COALESCE(u.display_name, u.username, '') AS user
+  canSee(o, user);
+  let events = db.prepare(`SELECT e.at, e.action, COALESCE(u.display_name, u.username, '') AS user, u.role, e.user_id AS uid
     FROM order_events e LEFT JOIN users u ON u.id = e.user_id WHERE order_id = ? ORDER BY e.id`).all(id);
+  if (isKho(user)) {
+    // kho chỉ thấy thao tác của bên mình; thao tác của chủ shop hiện là "Shop"; ẩn việc giao/chuyển nhà cung cấp
+    const sc = khoScope(user);
+    events = events
+      .filter((e) => !/^(Giao cho|Bỏ giao)/.test(e.action) && !(e.role === 'kho' && e.uid !== sc))
+      .map((e) => ({ at: e.at, user: e.role === 'admin' ? 'Shop' : e.user, action: e.action.replace(/^Tạo đơn \(trùng .*\)$/, 'Tạo đơn').split('; ').filter((x) => !/^(Giao cho|Bỏ giao)/.test(x)).join('; ') }))
+      .filter((e) => e.action);
+    return { order: forKho(o, user), events, history: [], customer: null };
+  }
+  events = events.map(({ role, uid, ...e }) => e);
   const history = db.prepare(`SELECT id, code, created_at, qty, total, status FROM orders
     WHERE phone = ? AND id <> ? ORDER BY created_at DESC LIMIT 20`).all(o.phone, id);
   const customer = o.customer_id ? db.prepare('SELECT * FROM customers WHERE id = ?').get(o.customer_id) : null;
@@ -244,11 +303,23 @@ export function updateCustomer(id, input) {
 
 // ---------------------------------------------------------------- Báo cáo
 
-export function report(from, to) {
+// Tách tỉnh/thành từ địa chỉ: lấy đoạn cuối sau dấu phẩy, bỏ tiền tố "tỉnh", "TP"…
+function provinceOf(address) {
+  const parts = String(address || '').split(/[,\-–]/).map((x) => x.trim()).filter(Boolean);
+  let p = parts[parts.length - 1] || '';
+  p = p.replace(/^(tỉnh|tinh|thành phố|thanh pho|tp\.?|t\.p\.?)\s+/i, '').replace(/\.$/, '').trim();
+  if (!p || p.length > 30 || /\d/.test(p)) return 'Không rõ';
+  if (/^(hn|ha noi|hà nội)$/i.test(p)) return 'Hà Nội';
+  if (/^(hcm|tphcm|sài gòn|sai gon|hồ chí minh|ho chi minh)$/i.test(p)) return 'TP Hồ Chí Minh';
+  return p.charAt(0).toUpperCase() + p.slice(1);
+}
+
+export function report(from, to, { compare = true } = {}) {
   if (!isDate(from) || !isDate(to)) throw bad('Khoảng ngày không hợp lệ');
   const s = getSettings();
   const cost = Number(s.cost_per_unit) || 0;
-  const orders = db.prepare(`SELECT substr(created_at, 1, 10) AS d, status, qty, total, ship_fee, page
+  const orders = db.prepare(`SELECT substr(created_at, 1, 10) AS d, CAST(substr(created_at, 12, 2) AS INTEGER) AS h,
+    status, qty, total, ship_fee, page, address, COALESCE(kho_id, 0) AS wh
     FROM orders WHERE created_at BETWEEN ? AND ?`).all(from + ' 00:00:00', to + ' 23:59:59');
   const txs = db.prepare('SELECT date, type, category, amount, page FROM transactions WHERE date BETWEEN ? AND ?').all(from, to);
 
@@ -258,7 +329,13 @@ export function report(from, to) {
   };
   const days = {};
   const pages = {};
-  const day = (d) => (days[d] ??= { date: d, orders: 0, qty: 0, revenue: 0, ads: 0 });
+  const blankDay = (d) => ({ date: d, orders: 0, qty: 0, revenue: 0, ads: 0, cogs: 0, ship: 0, other: 0, profit: 0 });
+  const day = (d) => (days[d] ??= blankDay(d));
+  const hours = Array.from({ length: 24 }, (_, h) => ({ hour: h, orders: 0 }));
+  const provinces = {};
+  const qtyBuckets = { 1: 0, 2: 0, 3: 0, 4: 0, '5+': 0 };
+  const whs = {};
+  const wh = (id) => (whs[id] ??= { id, orders: 0, qty: 0, revenue: 0, shipped: 0, returns: 0, waiting: 0 });
   const pg = (p) => (pages[p || '(không rõ)'] ??= { page: p || '(không rõ)', orders: 0, qty: 0, revenue: 0, ads: 0, returns: 0, delivered: 0 });
 
   for (const o of orders) {
@@ -269,9 +346,21 @@ export function report(from, to) {
     const D = day(o.d);
     const P = pg(o.page);
     D.orders++; P.orders++;
-    if (o.status === 'hoan') { P.returns++; continue; }
+    D.ship += o.ship_fee;
+    const WH = wh(o.wh);
+    WH.orders++;
+    if (o.status === 'da_gui' || o.status === 'da_giao') WH.shipped++;
+    if (o.status === 'hoan') WH.returns++;
+    else { WH.qty += o.qty; WH.revenue += o.total; }
+    if (o.h >= 0 && o.h < 24) hours[o.h].orders++;
+    const pv = provinceOf(o.address);
+    const PV = (provinces[pv] ??= { province: pv, orders: 0, revenue: 0, returns: 0 });
+    PV.orders++;
+    qtyBuckets[o.qty >= 5 ? '5+' : Math.max(1, o.qty)]++;
+    if (o.status === 'hoan') { P.returns++; PV.returns++; continue; }
     r.qty += o.qty; r.revenue += o.total; r.cogs += o.qty * cost;
-    D.qty += o.qty; D.revenue += o.total;
+    D.qty += o.qty; D.revenue += o.total; D.cogs += o.qty * cost;
+    PV.revenue += o.total;
     P.qty += o.qty; P.revenue += o.total;
     if (o.status === 'da_giao') { r.delivered += o.total; P.delivered++; }
   }
@@ -283,8 +372,9 @@ export function report(from, to) {
       day(t.date).ads += t.amount;
       pg(t.page).ads += t.amount;
     } else if (t.category === 'Nhập hàng') r.import += t.amount;
-    else r.other_chi += t.amount;
+    else { r.other_chi += t.amount; day(t.date).other += t.amount; }
   }
+  for (const t of txs) if (t.type === 'thu') day(t.date).other -= t.amount;
   const done = (r.by_status.da_giao || 0) + (r.by_status.hoan || 0);
   r.return_rate = done ? (r.by_status.hoan || 0) / done : 0;
   r.cost_per_order = r.orders ? Math.round(r.ads / r.orders) : 0;
@@ -295,7 +385,9 @@ export function report(from, to) {
   const list = [];
   for (let d = new Date(from + 'T00:00:00Z'); d <= new Date(to + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 1)) {
     const k = d.toISOString().slice(0, 10);
-    list.push(days[k] || { date: k, orders: 0, qty: 0, revenue: 0, ads: 0 });
+    const D = days[k] || blankDay(k);
+    D.profit = D.revenue - D.cogs - D.ship - D.ads - D.other;
+    list.push(D);
     if (list.length > 400) break;
   }
   r.by_day = list;
@@ -308,10 +400,40 @@ export function report(from, to) {
     .get(from + ' 00:00:00', to + ' 23:59:59');
   r.cod_in = { count: codIn.n, amount: codIn.amt };
   r.waiting = db.prepare(`SELECT COUNT(*) n FROM orders WHERE status = 'moi'`).get().n;
+
+  r.by_hour = hours;
+  const sups = listKho();
+  if (sups.length) {
+    for (const x of db.prepare(`SELECT COALESCE(kho_id, 0) w, COUNT(*) n FROM orders WHERE status = 'moi' GROUP BY 1`).all()) wh(x.w).waiting = x.n;
+    for (const u of sups) if (u.active) wh(u.id);
+    r.by_kho = Object.values(whs)
+      .map((x) => ({ ...x, name: x.id ? (sups.find((u) => u.id === x.id)?.name || khoName(x.id)) : 'Chưa chia' }))
+      .filter((x) => x.id || x.orders || x.waiting)
+      .sort((a, b) => (a.id === 0) - (b.id === 0) || b.orders - a.orders);
+  } else r.by_kho = [];
+  r.by_qty = Object.entries(qtyBuckets).map(([k, n]) => ({ qty: k, orders: n }));
+  const pvList = Object.values(provinces).sort((a, b) => b.orders - a.orders);
+  r.by_province = pvList.length > 8
+    ? [...pvList.slice(0, 7), pvList.slice(7).reduce((a, x) => ({ ...a, orders: a.orders + x.orders, revenue: a.revenue + x.revenue, returns: a.returns + x.returns }),
+      { province: `Tỉnh khác (${pvList.length - 7})`, orders: 0, revenue: 0, returns: 0 })]
+    : pvList;
+  r.roas = r.ads ? r.revenue / r.ads : 0;
+  r.aov = r.orders ? Math.round(r.revenue / Math.max(1, r.orders - (r.by_status.hoan || 0))) : 0;
+
+  // kỳ trước cùng độ dài, để so sánh tăng/giảm
+  if (compare) {
+    const n = Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1;
+    const shift = (d, k) => new Date(Date.parse(d) + k * 864e5).toISOString().slice(0, 10);
+    const p = report(shift(from, -n), shift(from, -1), { compare: false });
+    r.prev = { from: p.from, to: p.to, orders: p.orders, qty: p.qty, revenue: p.revenue, ads: p.ads, profit: p.profit,
+      return_rate: p.return_rate, cost_per_order: p.cost_per_order, roas: p.roas, aov: p.aov };
+  }
   return r;
 }
 
 export function listPages() {
-  return db.prepare(`SELECT page FROM orders WHERE page <> '' UNION SELECT page FROM transactions WHERE page <> '' ORDER BY 1`)
+  // page khai báo trong Cài đặt đứng trước, sau đó các page đã dùng trong đơn / thu chi
+  const used = db.prepare(`SELECT page FROM orders WHERE page <> '' UNION SELECT page FROM transactions WHERE page <> '' ORDER BY 1`)
     .all().map((r) => r.page);
+  return [...new Set([...(getSettings().fb_pages || []), ...used])];
 }

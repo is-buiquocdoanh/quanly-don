@@ -90,6 +90,20 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 `);
 
+// nâng cấp database cũ: thêm cột nếu chưa có
+function addColumn(table, column, def) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+  if (!cols.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+}
+// đơn chia cho tài khoản kho nào (mỗi tài khoản kho = 1 bên có hàng gửi đơn)
+addColumn('orders', 'kho_id', 'INTEGER REFERENCES users(id)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_orders_kho ON orders(kho_id, status)');
+{
+  // nâng cấp: chỉ có 1 tài khoản kho thì mọi đơn chưa chia thuộc về tài khoản đó
+  const act = db.prepare(`SELECT id FROM users WHERE role = 'kho' AND active = 1 LIMIT 2`).all();
+  if (act.length === 1) db.prepare('UPDATE orders SET kho_id = ? WHERE kho_id IS NULL').run(act[0].id);
+}
+
 export const SETTING_DEFAULTS = {
   shop_name: 'Trứng sâu canxi',
   cost_per_unit: 0,          // giá vốn 1 hộp, để tính lãi ước tính
@@ -97,6 +111,10 @@ export const SETTING_DEFAULTS = {
   default_product: 'trứng sâu canxi Ruồi Lính Đen (35g/hộp)',
   chi_categories: ['Quảng cáo', 'Nhập hàng', 'Phí ship', 'Đóng gói', 'Lương', 'Khác'],
   thu_categories: ['Thu khác'],
+  fb_pages: [],              // các page Facebook của shop (extension chọn page theo danh sách này)
+  active_kho: 0,             // tài khoản kho đang nhận đơn mới (0 = tự động nếu chỉ có 1 tài khoản kho)
+  copy_sep: 'pipe',          // ký tự ngăn cách khi chép đơn: pipe | dash | semi | tab | newline
+  copy_labels: 0,            // 1 = kèm nhãn "Tên:", "SĐT:"…
 };
 
 export function getSettings() {

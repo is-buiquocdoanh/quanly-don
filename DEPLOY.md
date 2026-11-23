@@ -231,4 +231,4 @@ Server khởi động lại thì web tự chạy lại, không cần làm gì.
 
 ---
 
-*Chạy thử trên máy lập trình (không cần Cloudflare): `cd server && cp .env.example .env && docker compose up -d --build`, rồi mở `http://localhost:3000`.*
+*Sửa code và chạy thử trên laptop: xem mục **Quy trình làm việc** trong [README.md](README.md) (`nvm use && npm run dev`, không cần Docker).*

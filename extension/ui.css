@@ -1,0 +1,60 @@
+/* Giao diện chung của extension (bảng bên cạnh + cài đặt), cùng tông với web quản lý đơn */
+:root {
+  --brand: #16a34a; --brand-ink: #15803d; --brand-soft: #ecfdf3; --brand-line: #bbf7d0;
+  --bg: #f6f7f9; --card: #fff; --line: #e5e7eb; --chip: #eceef1;
+  --ink: #0f172a; --ink-2: #334155; --muted: #64748b;
+  --bad: #dc2626; --bad-soft: #fef2f2; --bad-line: #fecaca;
+  --warn-ink: #b45309; --warn-soft: #fffbeb;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand: #22c55e; --brand-ink: #4ade80; --brand-soft: #0f2a1a; --brand-line: #1d4d30;
+    --bg: #111315; --card: #1b1e21; --line: #2c3035; --chip: #24282c;
+    --ink: #eef1f4; --ink-2: #c8ced5; --muted: #8b95a1;
+    --bad: #f87171; --bad-soft: #2c1517; --bad-line: #5b2427;
+    --warn-ink: #fbbf24; --warn-soft: #2a2110;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: var(--brand-ink); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; cursor: pointer;
+  border-radius: 10px; padding: 9px 16px; font-family: inherit; font-size: 13px; font-weight: 600; line-height: 1.2; border: 1px solid var(--brand); background: var(--brand); color: #fff; }
+.btn:hover { filter: brightness(.95); }
+.btn.sec { background: var(--card); color: var(--ink); border-color: var(--line); }
+.btn.block { display: flex; width: 100%; }
+.icon-btn { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; border: 1px solid var(--line); background: var(--card); color: var(--ink-2); cursor: pointer; flex: none; }
+.icon-btn:hover { color: var(--ink); border-color: var(--muted); }
+.icon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* công tắc bật / tắt */
+.switch { position: relative; width: 44px; height: 26px; flex: none; cursor: pointer; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.switch i { position: absolute; inset: 0; border-radius: 99px; background: #cbd5e1; transition: background .2s; pointer-events: none; }
+.switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
+.switch input:checked + i { background: var(--brand); }
+.switch input:checked + i::after { transform: translateX(18px); }
+.switch input:focus-visible + i { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap;
+  background: var(--chip); color: var(--ink-2); }
+.chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.chip.moi { color: #a16207; background: #fef6dc; }
+.chip.da_gui { color: #1d5fbf; background: #e6effb; }
+.chip.da_giao { color: #11804e; background: #e2f5ec; }
+.chip.hoan { color: #c2302f; background: #fde8e8; }
+.chip.huy { color: #6b7280; }
+.chip.dup { color: var(--bad); background: var(--bad-soft); }
+.chip.dup::before, .chip.kho::before { display: none; }
+@media (prefers-color-scheme: dark) {
+  .chip.moi { color: #fcd34d; background: #2e2510; }
+  .chip.da_gui { color: #93c5fd; background: #13243b; }
+  .chip.da_giao { color: #6ee7b7; background: #0f2a1f; }
+  .chip.hoan { color: #fca5a5; background: #33171a; }
+}
+
+.msg { padding: 9px 12px; border-radius: 10px; background: var(--brand-soft); color: var(--brand-ink); word-break: break-word; }
+.msg.err { background: var(--bad-soft); color: var(--bad); }

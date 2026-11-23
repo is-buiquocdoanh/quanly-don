@@ -106,7 +106,7 @@
 
     // --- Tổng tiền ---
     const tm = text.match(
-      /(?:tổng(?: thanh toán| tiền| cộng| đơn)?|thành tiền|thu hộ|cod|giá)\s*:?\s*(\d[\d.,]*\s*(?:k|nghìn|ngàn|tr|triệu)?)/iu
+      /(?:tổng(?: thanh toán| tiền| cộng| đơn)?|tong(?: thanh toan| tien| cong| don)?|thành tiền|thanh tien|thu hộ|thu ho|cod|giá|gia)\s*:?\s*(\d[\d.,]*\s*(?:k|nghìn|ngàn|nghin|ngan|tr|triệu|trieu)?)/iu
     );
     if (tm) out.total = parseMoney(tm[1]);
     if (!out.total) {
@@ -121,9 +121,74 @@
       const sm = text.match(/(?:phí ship|ship)\s*:?\s*(\d[\d.,]*\s*k?)/iu);
       if (sm) notes.push('Ship ' + sm[1].trim());
     }
+    const NOTE_RE = /(gọi trước(?: khi giao)?|goi truoc(?: khi giao)?|giao giờ hành chính|giao gio hanh chinh|giờ hành chính|gio hanh chinh|cho xem hàng|cho xem hang|không cho xem hàng|giao (?:buổi )?(?:sáng|chiều|tối)|giao (?:buoi )?(?:sang|chieu|toi)|giao (?:thứ \d|t\d|chủ nhật|cuối tuần))/giu;
+    const nm = [...text.matchAll(NOTE_RE)].map((m) => m[1]);
+    for (const n of nm) {
+      const pretty = (globalThis.VnAddr && /^[a-z0-9 ]+$/i.test(n) ? ({ 'goi truoc': 'Gọi trước', 'goi truoc khi giao': 'Gọi trước khi giao', 'giao gio hanh chinh': 'Giao giờ hành chính', 'gio hanh chinh': 'Giờ hành chính', 'cho xem hang': 'Cho xem hàng' }[n.toLowerCase()] || n) : n);
+      const cap = pretty.charAt(0).toUpperCase() + pretty.slice(1);
+      if (!notes.some((x) => x.toLowerCase() === cap.toLowerCase())) notes.push(cap);
+    }
     out.note = notes.join(', ');
 
+    smarten(out, text, pm);
     return out;
+  }
+
+  // ---- Bổ sung bằng danh sách địa giới (vnaddr.js) nếu đã nạp: địa chỉ có dấu đầy đủ, tên có dấu,
+  //      báo thiếu / nghi ngờ. Không có danh sách thì giữ kết quả cũ.
+  function smarten(out, text, pm) {
+    out.hints = { warnings: [], missing: [], auto: [] };
+    const V = typeof root.VnAddr !== 'undefined' ? root.VnAddr : null;
+    if (!V || !V.ready()) return;
+    const skip = pm ? [[pm.index, pm.index + pm[0].length]] : [];
+    const r = V.resolve(text, { skip });
+    const fold = (x) => V.fold(String(x || '')).replace(/\s+/g, ' ').trim();
+
+    // tên đoán nhầm thành một phần địa chỉ (vd "yen phu nam dinh 09…")
+    if (r && out.name && r.start <= text.indexOf(out.name) && text.indexOf(out.name) < r.end && !r.detail.includes(out.name)) out.name = '';
+    if (r) {
+      let detail = r.detail;
+      // "Tên, địa chỉ…" cùng dòng: bỏ tên khỏi phần chi tiết
+      if (out.name && fold(detail).startsWith(fold(out.name))) detail = detail.slice(out.name.length).replace(/^[\s,.;:\-–]+/, '');
+      out.address = [detail, r.ward, r.district, r.province].filter(Boolean).join(', ');
+      out.hints.auto.push('address');
+      out.hints.warnings.push(...r.warnings);
+      if (!detail) out.hints.missing.push('detail');
+      if (!r.ward) out.hints.missing.push('ward');
+    } else {
+      if (!out.address) out.hints.missing.push('address');
+      else out.hints.warnings.push('Không nhận ra xã / huyện / tỉnh trong địa chỉ — kiểm tra lại');
+    }
+    // bỏ phần mở đầu dính vào tên: "Gửi về:", "Người nhận", "em tên là"…
+    const NAME_LEAD = /^(?:gửi về|gui ve|giao về|giao ve|ship về|ship ve|gửi cho|gui cho|người nhận|nguoi nhan|tên người nhận|ten nguoi nhan|họ và tên|ho va ten|họ tên|ho ten|tên|ten|(?:e|em|chị|chi|c|a|anh|mình|minh|tôi|toi)\s+t[eê]n(?:\s+l[aà])?|t[eê]n\s+(?:e|em|chị|chi|mình|minh)(?:\s+l[aà])?)\s*[:\-]?\s*/iu;
+    if (out.name) out.name = out.name.replace(NAME_LEAD, '').trim();
+    if (!out.name) {
+      // "người nhận Hoàng Lan 09…", "tên: …" ở giữa câu
+      const m = text.match(/(?:người nhận|nguoi nhan|gửi cho|gui cho|giao cho|tên người nhận|ten nguoi nhan)\s*:?\s*([\p{L}]+(?:\s+[\p{L}]+){0,4}?)(?=\s*(?:[,.;\-–|(\n]|\+?\d|sđt|sdt|$))/iu);
+      if (m) out.name = m[1];
+    }
+    if (!out.name) {
+      // tên nằm riêng 1 dòng: 2–5 chữ, bắt đầu bằng họ phổ biến
+      const line = text.split(/\n+/).map((l) => l.trim()).find((l) => /^[\p{L}]+(?:\s+[\p{L}]+){1,4}$/u.test(l) && V.isSurname(l.split(/\s+/)[0]));
+      if (line) out.name = line;
+    }
+    // tên không dấu → thêm dấu cho họ / tên đệm / tên phổ biến
+    if (out.name) {
+      const f = V.fixName(out.name);
+      if (f.name !== out.name) out.hints.auto.push('name');
+      out.name = f.name;
+      if (f.unsure.length && f.unsure.length < out.name.split(' ').length) out.hints.warnings.push(`Tên "${f.unsure.join(' ')}" chưa rõ dấu — sửa nếu cần`);
+    } else out.hints.missing.push('name');
+    if (!out.phone) out.hints.missing.push('phone');
+    if (!out.qty) {
+      // "lấy 2", "sl 2", dòng chỉ có "2h"
+      const q = text.match(/(?:lấy|lay|đặt|dat|sl|số lượng|so luong)\s*:?\s*(\d{1,2})(?!\d|\s*(?:k|nghìn|ngàn|tr|đ)\b)/iu) || text.match(/(?:^|\n)\s*(\d{1,2})\s*h\s*(?:\n|$)/iu);
+      if (q) out.qty = parseInt(q[1], 10);
+    }
+    if (!out.qty) out.hints.missing.push('qty');
+    if (!out.total) out.hints.missing.push('total');
+    // dòng chat kiểu "chị ơi lấy em 2 hộp nhé" không phải tên sản phẩm
+    if (out.product && !/trứng|trung|sâu|sau|canxi|ruồi|ruoi|combo|loại|loai|size/iu.test(out.product)) out.product = '';
   }
 
   const api = { parse, normalizePhone, parseMoney, PHONE_RE };

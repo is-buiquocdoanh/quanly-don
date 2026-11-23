@@ -87,14 +87,17 @@ function serveStatic(req, res, pathname) {
   const ext = path.extname(file);
   res.writeHead(200, {
     'Content-Type': MIME[ext] || 'application/octet-stream',
-    'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300',
+    // khi dev (không phải production) luôn tải bản mới để sửa CSS/JS là thấy ngay
+    'Cache-Control': ext === '.html' || process.env.NODE_ENV !== 'production' ? 'no-cache' : 'public, max-age=300',
     'X-Content-Type-Options': 'nosniff',
   });
   fs.createReadStream(file).pipe(res);
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, 'http://x');
+  // ghép chuỗi thay vì new URL(req.url, base): đường dẫn kiểu "//" hay "//abc" làm new URL ném lỗi và sập server
+  let url;
+  try { url = new URL('http://x' + (String(req.url || '').startsWith('/') ? req.url : '/' + (req.url || ''))); } catch { res.writeHead(400).end(); return; }
   const { pathname } = url;
   if (!pathname.startsWith('/api/')) return serveStatic(req, res, pathname);
 
