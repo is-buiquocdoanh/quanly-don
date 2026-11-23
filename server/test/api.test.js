@@ -262,3 +262,18 @@ test('lý do hoàn + sổ đỏ + khách quen', async () => {
   assert.equal(q.spent, 300000);
   assert.ok(!loyal.some((c) => c.flag === 'bom'));
 });
+
+test('mã đơn: quá 999 đơn một ngày vẫn không trùng', async () => {
+  const { DatabaseSync } = await import('node:sqlite');
+  const first = (await admin('POST', '/api/orders', { name: 'A', phone: '0955000555', address: 'Hà Nội', qty: 1, total: 1 })).order.code;
+  const prefix = first.slice(0, first.lastIndexOf('-') + 1);
+  // giả lập đã có đơn thứ 999 trong ngày
+  const db = new DatabaseSync(path.join(DATA, 'don.db'));
+  db.exec('PRAGMA busy_timeout = 5000');
+  db.prepare(`INSERT INTO orders(code, created_at, phone, updated_at) VALUES (?, datetime('now'), '0955000555', datetime('now'))`).run(prefix + '999');
+  db.close();
+  const a = (await admin('POST', '/api/orders', { name: 'A', phone: '0955000555', address: 'Hà Nội', qty: 1, total: 1 })).order;
+  const b = (await admin('POST', '/api/orders', { name: 'A', phone: '0955000555', address: 'Hà Nội', qty: 1, total: 1 })).order;
+  assert.equal(a.code, prefix + '1000');
+  assert.equal(b.code, prefix + '1001');
+});

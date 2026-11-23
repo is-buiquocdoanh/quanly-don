@@ -106,7 +106,7 @@ EOF
 mkdir -p ~/apps/quanly-don && cd ~/apps/quanly-don
 git clone github-quanly-don:is-buiquocdoanh/quanly-don.git src
 
-cp src/deploy/deploy.sh src/deploy/docker-compose.yml .
+cp src/deploy/deploy.sh src/deploy/docker-compose.yml src/deploy/backup-gdrive.sh .
 cp src/deploy/.env.example .env
 nano .env          # sửa ADMIN_PASSWORD, dán TUNNEL_TOKEN ở bước 2
 
@@ -117,6 +117,7 @@ Cấu trúc sau khi cài:
 ```
 ~/apps/quanly-don/
 ├── deploy.sh             ← lệnh triển khai
+├── backup-gdrive.sh      ← chép bản sao lưu lên Google Drive (mục Sao lưu)
 ├── docker-compose.yml
 ├── .env                  ← mật khẩu, token (bí mật, không đưa lên git)
 ├── data/                 ← DATABASE + bản sao lưu hằng ngày (quan trọng nhất)
@@ -164,7 +165,7 @@ Kiểm tra:
 - Từ bất kỳ đâu: `https://don.doanhwork.com`. Ở Cloudflare Zero Trust, tunnel phải hiện **HEALTHY**.
 
 > **Khi deploy.sh hoặc docker-compose.yml trong repo có thay đổi**, chép lại bản mới:
-> `cd ~/apps/quanly-don && git -C src pull && cp src/deploy/deploy.sh src/deploy/docker-compose.yml .`
+> `cd ~/apps/quanly-don && git -C src pull && cp src/deploy/deploy.sh src/deploy/docker-compose.yml src/deploy/backup-gdrive.sh .`
 
 ---
 
@@ -209,10 +210,70 @@ Server khởi động lại thì web tự chạy lại, không cần làm gì.
 
 - Web tự sao lưu mỗi ngày vào `data/backups/don-YYYY-MM-DD.db` và giữ 30 bản.
 - `deploy.sh` chụp thêm một bản vào `backups-deploy/` trước mỗi lần đổi phiên bản.
-- **Nên sao lưu thêm ra ngoài server** phòng khi hỏng ổ cứng: trên web vào **Cài đặt → Tải bản sao lưu** mỗi tuần, hoặc dùng `rclone` copy `data/backups` lên Google Drive.
+- **Nên sao lưu thêm ra ngoài server** phòng khi hỏng ổ cứng: cài [sao lưu lên Google Drive](#sao-lưu-lên-google-drive) ở dưới (tự động mỗi tuần), hoặc trên web vào **Cài đặt → Tải bản sao lưu** mỗi tuần.
 - **Khôi phục:** `docker compose down`, copy file backup đè lên `data/don.db`, xóa `data/don.db-wal` và `data/don.db-shm` nếu có, rồi `docker compose up -d`.
 
 > **Quay lại bản cũ sau khi bản mới đã đổi cấu trúc database?** Code cũ có thể không đọc được database mới. Khi đó, khôi phục luôn database từ thư mục `backups-deploy/<thời-điểm>_truoc-<bản-mới>/`, theo cách khôi phục ở trên. Lưu ý: những đơn nhập sau thời điểm đó sẽ mất.
+
+### Sao lưu lên Google Drive
+
+Script `backup-gdrive.sh` **mỗi tuần một lần** (3:30 sáng Chủ nhật) lấy bản sao lưu mới nhất trong `data/backups/`, nén lại (nhỏ đi khoảng 10 lần) rồi đưa lên Google Drive. Bản trên Drive được giữ **365 ngày**, tức khoảng 52 bản. Với 100 đơn/ngày, cả năm chỉ tốn khoảng 150 MB Drive (gói miễn phí có 15 GB). Trong tuần, server vẫn tự sao lưu mỗi ngày như cũ, nên sự cố nhỏ thì khôi phục từ `data/backups/`; bản trên Drive dùng khi mất cả server (mất tối đa dữ liệu của 1 tuần).
+
+**Bước 1. Cài rclone trên server**
+```bash
+sudo -v ; curl https://rclone.org/install.sh | sudo bash
+rclone version
+```
+
+**Bước 2. Kết nối rclone với Google Drive**
+
+Server không có trình duyệt, nên phần đăng nhập Google làm trên máy Windows.
+
+1. Trên **Windows**: tải rclone tại https://rclone.org/downloads/ (bản *Windows, Intel/AMD 64 Bit*), giải nén ra ví dụ `C:\rclone`.
+2. Trên **server**, chạy `rclone config` rồi trả lời lần lượt:
+
+   | rclone hỏi | Gõ |
+   |---|---|
+   | `n) New remote` | `n` |
+   | `name>` | `gdrive` |
+   | `Storage>` | `drive` |
+   | `client_id>` và `client_secret>` | Enter (bỏ trống) |
+   | `scope>` | `drive.file` (rclone chỉ thấy file do chính nó tạo, không đụng được file khác trong Drive của bạn) |
+   | `service_account_file>` | Enter |
+   | `Edit advanced config?` | `n` |
+   | `Use web browser to automatically authenticate?` | **`n`** |
+
+3. rclone in ra một lệnh dạng `rclone authorize "drive" "eyJ..."`. Copy nguyên dòng đó, mở **PowerShell trên Windows** và chạy:
+   ```powershell
+   cd C:\rclone
+   .\rclone.exe authorize "drive" "eyJ..."     # dán đúng lệnh server in ra
+   ```
+   Trình duyệt mở trang Google: đăng nhập tài khoản Drive muốn chứa bản sao lưu, bấm **Cho phép**. PowerShell in ra một đoạn token dài: copy **toàn bộ**, dán vào ô `config_token>` trên server.
+4. Câu `Configure this as a Shared Drive?` gõ `n`, rồi `y` để lưu và `q` để thoát.
+
+**Bước 3. Chép script, chạy thử và hẹn giờ**
+```bash
+cd ~/apps/quanly-don
+git -C src pull && cp src/deploy/backup-gdrive.sh . && chmod +x backup-gdrive.sh
+./backup-gdrive.sh --check          # phải thấy "OK: rclone kết nối được Google Drive"
+./backup-gdrive.sh --all            # đưa lên mọi bản đang có trên server (lần đầu)
+./backup-gdrive.sh --install-cron   # từ giờ tự chạy mỗi tuần, 3:30 sáng Chủ nhật
+```
+Mở Google Drive sẽ thấy thư mục **quanly-don-backup** chứa các file `don-YYYY-MM-DD.db.gz`.
+
+**Dùng hằng ngày**
+
+| Việc | Lệnh (trong `~/apps/quanly-don`) |
+|---|---|
+| Xem các bản trên Drive | `./backup-gdrive.sh --list` |
+| Xem lịch sử chạy tự động | `tail -n 20 backup-gdrive.log` |
+| Đưa lên ngay bây giờ | `./backup-gdrive.sh` |
+| Tải 1 bản về để khôi phục | `./backup-gdrive.sh --get 2026-11-23` → file nằm ở `restore/don-2026-11-23.db`, khôi phục theo cách ở mục trên |
+
+Trên Windows cũng mở được file từ Drive: tải `.db.gz` về, giải nén bằng 7-Zip, rồi mở bằng [DB Browser for SQLite](https://sqlitebrowser.org/) nếu cần xem.
+
+- Đổi số ngày giữ hoặc tên thư mục: thêm vào `.env` dòng `GDRIVE_KEEP_DAYS=730` hoặc `GDRIVE_REMOTE=gdrive:ten-thu-muc-khac`.
+- Log báo lỗi `token expired` / `invalid_grant`: Google thu hồi quyền (đổi mật khẩu Google, gỡ quyền ứng dụng…). Chạy `rclone config reconnect gdrive:` rồi làm lại bước 2.3.
 
 ### Bảo mật
 

@@ -59,7 +59,8 @@ export function getCustomerByPhone(phone) {
 
 function nextCode() {
   const prefix = 'DH' + todayVN().slice(2).replace(/-/g, '') + '-';
-  const last = db.prepare('SELECT code FROM orders WHERE code LIKE ? ORDER BY code DESC LIMIT 1').get(prefix + '%');
+  // so theo độ dài trước: "-1000" phải đứng sau "-999" (so chuỗi thường thì "-1000" < "-999" → trùng mã)
+  const last = db.prepare('SELECT code FROM orders WHERE code LIKE ? ORDER BY length(code) DESC, code DESC LIMIT 1').get(prefix + '%');
   const n = last ? parseInt(last.code.slice(prefix.length), 10) + 1 : 1;
   return prefix + String(n).padStart(3, '0');
 }
