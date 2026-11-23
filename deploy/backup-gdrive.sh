@@ -11,7 +11,7 @@
 # Cấu hình (tùy chọn) trong .env cạnh file này:
 #   GDRIVE_REMOTE=gdrive:quanly-don-backup   tên remote rclone + thư mục trên Drive
 #   GDRIVE_KEEP_DAYS=365                     bản cũ hơn số ngày này bị xóa khỏi Drive
-# Cài đặt lần đầu: xem DEPLOY.md, mục "Sao lưu lên Google Drive".
+# Cài đặt lần đầu: xem docs/6-sao-luu.md, mục 2.
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,7 +29,7 @@ die()  { log "LỖI: $*" >&2; exit 1; }
 need_rclone() {
   command -v rclone >/dev/null || die "Chưa cài rclone. Chạy: sudo -v ; curl https://rclone.org/install.sh | sudo bash"
   rclone listremotes 2>/dev/null | grep -qx "${REMOTE%%:*}:" ||
-    die "rclone chưa có remote '${REMOTE%%:*}'. Chạy: rclone config (xem DEPLOY.md)"
+    die "rclone chưa có remote '${REMOTE%%:*}'. Chạy: rclone config (xem docs/6-sao-luu.md)"
 }
 
 # nén 1 file .db → .db.gz rồi đưa lên Drive (bỏ qua nếu Drive đã có bản cùng tên)

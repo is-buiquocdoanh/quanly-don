@@ -41,7 +41,7 @@ set_version() {
 
 check_setup() {
   command -v docker >/dev/null || die "Chưa cài Docker."
-  [[ -d $SRC_DIR/.git ]] || die "Chưa có $SRC_DIR - xem DEPLOY.md mục 3 (git clone)."
+  [[ -d $SRC_DIR/.git ]] || die "Chưa có $SRC_DIR - xem docs/3-cai-dat-server.md (git clone)."
   [[ -f $ENV_FILE ]] || die "Chưa có $ENV_FILE - copy từ src/deploy/.env.example."
   [[ -f $APP_DIR/docker-compose.yml ]] || die "Chưa có docker-compose.yml trong $APP_DIR."
 }

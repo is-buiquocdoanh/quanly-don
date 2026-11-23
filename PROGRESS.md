@@ -39,9 +39,9 @@
 | 2 | API: đơn hàng, khách hàng, thu chi, báo cáo, cài đặt, `/api/ext` cho extension | ✅ `server/src/{routes,orders}.js`, test: `cd server && npm test` (6/6 qua) |
 | 3 | Giao diện: Tổng quan, Đơn hàng, Kho, Khách hàng, Thu chi, Cài đặt | ✅ `server/public/{index.html,app.js,style.css,parser.js}`, đã chạy thử bằng Edge headless, không có lỗi JS |
 | 4 | Sửa extension để gửi đơn vào web thay vì Google Sheets | ✅ v2.0: nhập địa chỉ web + mã API (vẫn dùng được link Apps Script), cảnh báo khách bom hàng |
-| 5 | Docker + docker-compose + Cloudflare Tunnel + hướng dẫn triển khai | ✅ `server/Dockerfile`, `server/docker-compose.yml`, `DEPLOY.md`. ⚠️ **CHƯA build thử image** (Docker Desktop trên máy nhà đang tắt) |
+| 5 | Docker + docker-compose + Cloudflare Tunnel + hướng dẫn triển khai | ✅ `server/Dockerfile`, `server/docker-compose.yml`, hướng dẫn trong `docs/`. ⚠️ **CHƯA build thử image** (Docker Desktop trên máy nhà đang tắt) |
 | 6 | Chạy thử end-to-end trên máy | ✅ API + giao diện (Edge headless). ⏳ Chưa thử extension thật trên Business Suite với web |
-| 7 | **Triển khai lên server Ubuntu thật** | ⏳ **VIỆC TIẾP THEO**, làm theo `DEPLOY.md` |
+| 7 | **Triển khai lên server Ubuntu thật** | ✅ Đã chạy ở https://don.doanhwork.com (hướng dẫn: `docs/2` → `docs/4`) |
 
 ### Để sau (giai đoạn 3)
 
@@ -51,7 +51,9 @@
 
 ## Nhật ký
 
-- **23/11/2026 (tối):** Sửa lỗi mã đơn trùng khi một ngày quá 999 đơn (`nextCode` so theo độ dài trước). Thêm `deploy/backup-gdrive.sh`: nén bản sao lưu mới nhất, đưa lên Google Drive bằng rclone mỗi tuần (cron 3:30 sáng Chủ nhật), giữ 365 ngày; hướng dẫn ở DEPLOY.md mục "Sao lưu lên Google Drive". ✅ 24/11/2026 đã cài trên server thật (Google Cloud project riêng, xác minh doanhwork.com, app ở chế độ In production), 2 bản đầu đã lên Drive. `npm test`: 11/11 qua. Đo dung lượng: khoảng 1,2 KB mỗi đơn, nên 100 đơn/ngày ≈ 45 MB/năm.
+- **24/11/2026:** Chia tài liệu thành thư mục `docs/` theo từng giai đoạn (mục lục: `docs/README.md`), bỏ `DEPLOY.md`. README gốc chỉ còn giới thiệu ngắn và link.
+
+- **23/11/2026 (tối):** Sửa lỗi mã đơn trùng khi một ngày quá 999 đơn (`nextCode` so theo độ dài trước). Thêm `deploy/backup-gdrive.sh`: nén bản sao lưu mới nhất, đưa lên Google Drive bằng rclone mỗi tuần (cron 3:30 sáng Chủ nhật), giữ 365 ngày; hướng dẫn ở `docs/6-sao-luu.md`. ✅ 24/11/2026 đã cài trên server thật (Google Cloud project riêng, xác minh doanhwork.com, app ở chế độ In production), 2 bản đầu đã lên Drive. `npm test`: 11/11 qua. Đo dung lượng: khoảng 1,2 KB mỗi đơn, nên 100 đơn/ngày ≈ 45 MB/năm.
 
 - **23/11/2026:** Thêm **lý do hoàn** (cột `orders.return_reason`, danh sách sửa ở Cài đặt → `return_reasons`, biểu đồ ở Tổng quan), **Sổ đỏ** (cờ `customers.flag = 'bom'` cũ, thêm `flagged_at`; API `POST /api/customers/blacklist`, `GET /api/customers/suspects`), tab **Khách quen** (`GET /api/customers?view=loyal`). Extension đổi câu cảnh báo thành "nằm trong SỔ ĐỎ". Database cũ tự thêm cột khi khởi động. README thêm lệnh chạy trên Windows. `npm test`: 10/10 qua; đã chạy thử giao diện bằng Edge headless, không lỗi JS.
 
@@ -63,7 +65,7 @@
 
 1. Ở máy mới: chép thư mục dự án (hoặc `git clone`), cài Node ≥ 22.13, rồi chạy `cd server && npm test` để kiểm tra.
 2. Build thử Docker: `cd server && docker compose build`.
-3. Triển khai lên server Ubuntu theo `DEPLOY.md`: Cloudflare Tunnel → `.env` → `docker compose up -d --build`.
+3. Triển khai lên server Ubuntu theo `docs/` (giai đoạn 2 → 4): Cloudflare Tunnel → `.env` → `docker compose up -d --build`.
 4. Tải lại extension trong Chrome, nhập địa chỉ web và mã API, rồi thử Ctrl+C trên Business Suite thật.
 5. Ghi lại các lỗi hoặc mẫu tin nhắn bị tách sai để sửa.
 6. Giai đoạn 3 (xem mục "Để sau"): API Viettel Post, tồn kho, nhập dữ liệu cũ từ Sheets.
