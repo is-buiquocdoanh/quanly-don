@@ -13,7 +13,7 @@ import { getSite, saveSite, POLICIES, listPosts, getPost, savePost, deletePost }
 import { markdown } from './site/markdown.js';
 import { saveUpload, listUploads } from './site/uploads.js';
 import { metaStatus, listEvents, sendTest, tokenPage, seenPages, pageSubscriptions, subscribePage } from './meta.js';
-import { forKho, getOrder, markZaloSent } from './orders.js';
+import { forKho, getOrder, markZaloSent, orderText } from './orders.js';
 import { extInfo } from './extzip.js';
 import { zaloStatus, startQR, logout, listGroups, chooseGroup, sendToGroup } from './zalo.js';
 
@@ -390,6 +390,20 @@ add('POST', '/api/ext', 'none', async ({ body, baseUrl }) => {
       const from = todayVN(new Date(Date.now() - (days - 1) * 864e5));
       return { ok: true, orders: listOrders({ from, sort: 'asc', limit: 2000 }).orders.map(((n) => (o) => extOrder(o, n))(khoNames())), sheetUrl: baseUrl, webUrl: baseUrl };
     }
+    case 'zalo_pending': {
+      // đơn Chờ gửi chưa báo kho qua Zalo (mặc định 7 ngày gần nhất), cũ trước; kèm nội dung tin soạn sẵn
+      const s = getSettings();
+      const days = Math.max(1, Math.min(toInt(body.days, 7), 31));
+      const from = todayVN(new Date(Date.now() - (days - 1) * 864e5));
+      const names = khoNames();
+      const orders = listOrders({ from, status: 'moi', sort: 'asc', limit: 500 }).orders
+        .filter((o) => !o.zalo_sent_at)
+        .map((o) => ({ id: o.id, code: o.code, time: fmtTime(o.created_at), name: o.name, phone: o.phone, qty: o.qty, total: o.total,
+          kho: names && o.kho_id ? names[o.kho_id] || '' : '', text: orderText(o, s) }));
+      return { ok: true, orders, gap: { min: s.zalo_gap_min, max: s.zalo_gap_max }, group: s.zalo_group_name || '' };
+    }
+    case 'zalo_mark': // extension đã gửi xong 1 đơn trên Zalo Web
+      return { ok: true, updated: markZaloSent(body.ids, user, 'Zalo Web') };
     default:
       throw bad('Không rõ thao tác: ' + body.action);
   }

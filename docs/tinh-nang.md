@@ -31,6 +31,15 @@ Dùng khi kho không dùng web, chỉ nhận đơn qua Zalo. Mỗi đơn là **m
 
 **Hằng ngày:** trang **Đơn hàng** → tick các đơn → **Gửi Zalo kho**. Web gửi lần lượt, đơn cũ trước, mỗi tin cách nhau vài giây (20 đơn mất khoảng 1 phút). Gửi xong các đơn có nhãn **Đã báo Zalo**. Gửi lại đơn đã báo thì web hỏi trước.
 
+**Gửi trên Zalo Web bằng extension** (không cần Zalo phụ, dùng Zalo đang đăng nhập ở trình duyệt). Cần extension **2.6.0** trở lên, tải ở Cài đặt → Extension & bảo mật.
+1. Mở https://chat.zalo.me, bấm vào **nhóm kho**.
+2. Bấm nút **📦 Đơn báo kho** ở góc phải: hiện các đơn **Chờ gửi chưa báo Zalo** trong 7 ngày gần nhất, đơn cũ trước, tick sẵn hết. Bỏ tick đơn nào không muốn gửi.
+3. Lần đầu: gõ tên nhóm kho vào ô **Nhóm kho** (chỉ cần một phần tên). Từ đó extension tự kiểm tra, mở nhầm chat khác thì không gửi.
+4. Bấm **Gửi N đơn vào chat đang mở**. Extension gõ từng đơn vào ô chat, nhấn gửi, chờ ngẫu nhiên theo khoảng giãn cách ở Cài đặt, rồi sang đơn tiếp. Gửi xong đơn nào, web đánh dấu **Đã báo Zalo** đơn đó ngay, nên bấm **Dừng** giữa chừng không bị gửi lặp.
+5. Để tab Zalo mở trên màn hình trong lúc gửi (chuyển tab khác thì Chrome làm chậm lại). Ô chat đang có chữ gõ dở thì extension không gửi, để không gửi lẫn.
+
+Lần đầu nên chỉ tick **1 đơn** để thử. Zalo đổi giao diện mà extension không gõ / bấm gửi được thì khung báo lỗi và dừng: gửi tay đơn đó rồi báo lại để sửa.
+
 **Khi không tự gửi được** (Zalo phụ bị khóa, phiên hết hạn, Zalo đổi hệ thống): dùng **Chép lần lượt**.
 - Máy tính: web chép sẵn đơn 1 → sang Zalo **Ctrl+V**, **Enter** → quay lại web (Alt+Tab) là đơn 2 đã được chép sẵn, cứ thế đến hết.
 - Điện thoại: bấm **Chia sẻ** → Zalo → chọn nhóm kho → Gửi, rồi quay lại web bấm tiếp.

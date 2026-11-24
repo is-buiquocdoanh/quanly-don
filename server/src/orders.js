@@ -10,6 +10,16 @@ function addEvent(orderId, userId, action) {
     .run(orderId, nowVN(), userId ?? null, action);
 }
 
+/** Nội dung 1 đơn khi chép / gửi Zalo — giống orderLine() ở public/app.js (theo Cài đặt copy_sep, copy_labels). */
+const SEPS = { pipe: ' | ', dash: ' - ', semi: '; ', tab: '\t', newline: '\n' };
+const vnd = (n) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + 'đ';
+export function orderText(o, s = getSettings()) {
+  const sep = SEPS[s.copy_sep] ?? SEPS.pipe;
+  const lab = Number(s.copy_labels) === 1;
+  return [['Tên', o.name], ['SĐT', o.phone], ['Địa chỉ', o.address], ['SL', `${o.qty || '?'} hộp`], ['Tổng tiền', vnd(o.total)]]
+    .map(([k, v]) => (lab ? `${k}: ${v}` : v)).join(sep);
+}
+
 /** Đánh dấu các đơn đã gửi cho kho qua Zalo (how: 'tự gửi' | 'chép lần lượt'). */
 export function markZaloSent(ids, user, how) {
   const list = [...new Set((Array.isArray(ids) ? ids : [ids]).map((x) => toInt(x)).filter(Boolean))].slice(0, 500);

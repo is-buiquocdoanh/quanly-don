@@ -1649,7 +1649,8 @@ async function zaloCard() {
       <div class="full zgap-est small muted"></div>
     </form>
     <div class="actions"><button class="btn sec" data-save>Lưu giãn cách</button></div>
-    <p class="note">Cách này không chính thức: Zalo có thể khóa tài khoản phụ. Khi đó vẫn gửi được bằng nút <b>Chép lần lượt</b> ở trang Đơn hàng.</p></div>`;
+    <p class="note">Cách này không chính thức: Zalo có thể khóa tài khoản phụ. Khi đó vẫn gửi được bằng nút <b>Chép lần lượt</b> ở trang Đơn hàng.</p>
+    <p class="small muted" style="margin:12px 0 0"><b>Chưa có Zalo phụ?</b> Dùng extension (bản 2.6.0 trở lên) trên <b>Zalo Web</b> (chat.zalo.me): mở nhóm kho → bấm nút <b>📦 Đơn báo kho</b> ở góc phải → <b>Gửi</b>. Extension gõ từng đơn vào ô chat và gửi bằng chính Zalo đang đăng nhập trên trình duyệt, cùng khoảng giãn cách ở trên.</p></div>`;
   // ước tính thời gian gửi, cập nhật khi gõ số giây
   const gapMin = $('[name=zalo_gap_min]', box);
   const gapMax = $('[name=zalo_gap_max]', box);

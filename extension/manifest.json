@@ -1,31 +1,81 @@
 {
   "manifest_version": 3,
   "name": "Bắt đơn Mess",
-  "version": "2.5.0",
-  "description": "Bôi đen đơn hàng trong Meta Business Suite, Ctrl+C là lưu vào web quản lý đơn, kiểm tra trùng SĐT.",
-  "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
-  "permissions": ["storage", "sidePanel"],
-  "host_permissions": ["https://script.google.com/*", "https://script.googleusercontent.com/*"],
-  "optional_host_permissions": ["https://*/*", "http://*/*"],
-  "background": { "service_worker": "background.js" },
+  "version": "2.6.0",
+  "description": "Bôi đen đơn hàng trong Meta Business Suite, Ctrl+C là lưu vào web quản lý đơn, kiểm tra trùng SĐT. Gửi đơn báo kho trên Zalo Web.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "https://script.google.com/*",
+    "https://script.googleusercontent.com/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
-      "matches": ["https://business.facebook.com/*", "https://www.facebook.com/*"],
-      "js": ["keys.js", "vnaddr.js", "parser.js", "content.js"],
+      "matches": [
+        "https://business.facebook.com/*",
+        "https://www.facebook.com/*"
+      ],
+      "js": [
+        "keys.js",
+        "vnaddr.js",
+        "parser.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://chat.zalo.me/*"
+      ],
+      "js": [
+        "zalo.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "action": {
     "default_title": "Bắt đơn Mess — mở bảng đơn hàng",
-    "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png" }
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
   },
   "web_accessible_resources": [
-    { "resources": ["icons/icon32.png", "vn-admin.json"], "matches": ["https://business.facebook.com/*", "https://www.facebook.com/*"] }
+    {
+      "resources": [
+        "icons/icon32.png",
+        "vn-admin.json"
+      ],
+      "matches": [
+        "https://business.facebook.com/*",
+        "https://www.facebook.com/*"
+      ]
+    }
   ],
-  "side_panel": { "default_path": "sidepanel.html" },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "commands": {
     "toggle-capture": {
-      "suggested_key": { "default": "Alt+Shift+B" },
+      "suggested_key": {
+        "default": "Alt+Shift+B"
+      },
       "description": "Bật / tắt bắt đơn"
     }
   },

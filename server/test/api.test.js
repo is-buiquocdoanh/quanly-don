@@ -570,3 +570,32 @@ test('extension: tải file .zip (chỉ chủ shop), mã API hiện lại đư�
   assert.ok(buf.includes(Buffer.from('quanly-don-extension/manifest.json')));
   assert.equal(buf.readUInt32LE(buf.length - 22), 0x06054b50); // có mục lục cuối file
 });
+
+test('Zalo Web (extension): lấy đơn Chờ gửi chưa báo kho kèm nội dung tin, đánh dấu từng đơn', async () => {
+  const tok = (await admin('GET', '/api/me/api-token')).token;
+  await admin('PUT', '/api/settings', { copy_sep: 'pipe', copy_labels: 0, zalo_gap_min: 3, zalo_gap_max: 5 });
+  const a = (await admin('POST', '/api/orders', { name: 'Zalo Web A', phone: '0915000111', address: 'Xã A, Tỉnh B', qty: 2, total: 130000 })).order;
+  const b = (await admin('POST', '/api/orders', { name: 'Zalo Web B', phone: '0915000222', address: 'Xã C, Tỉnh D', qty: 1, total: 95000 })).order;
+  let r = await ext({ action: 'zalo_pending', token: tok });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.gap, { min: 3, max: 5 });
+  const pa = r.orders.find((o) => o.id === a.id);
+  assert.equal(pa.text, 'Zalo Web A | 0915000111 | Xã A, Tỉnh B | 2 hộp | 130.000đ');
+  assert.ok(r.orders.findIndex((o) => o.id === a.id) < r.orders.findIndex((o) => o.id === b.id)); // đơn cũ trước
+  // đánh dấu A → A biến khỏi danh sách, B còn
+  assert.equal((await ext({ action: 'zalo_mark', token: tok, ids: [a.id] })).updated, 1);
+  r = await ext({ action: 'zalo_pending', token: tok });
+  assert.ok(!r.orders.some((o) => o.id === a.id));
+  assert.ok(r.orders.some((o) => o.id === b.id));
+  assert.ok((await admin('GET', '/api/orders/' + a.id)).events.some((e) => /Zalo Web/.test(e.action)));
+  // đơn không còn Chờ gửi thì không hiện
+  await admin('PATCH', '/api/orders/' + b.id, { status: 'huy' });
+  assert.ok(!(await ext({ action: 'zalo_pending', token: tok })).orders.some((o) => o.id === b.id));
+  // có ghi tên mục
+  await admin('PUT', '/api/settings', { copy_labels: 1, copy_sep: 'newline' });
+  const c = (await admin('POST', '/api/orders', { name: 'Zalo Web C', phone: '0915000333', address: 'Xã E', qty: 3, total: 195000 })).order;
+  r = await ext({ action: 'zalo_pending', token: tok });
+  assert.equal(r.orders.find((o) => o.id === c.id).text, 'Tên: Zalo Web C\nSĐT: 0915000333\nĐịa chỉ: Xã E\nSL: 3 hộp\nTổng tiền: 195.000đ');
+  assert.equal((await ext({ action: 'zalo_pending', token: 'sai' })).ok, false);
+  await admin('PUT', '/api/settings', { copy_labels: 0, copy_sep: 'pipe' });
+});
