@@ -40,14 +40,35 @@ export async function tokenPage() {
   const token = env('META_PAGE_TOKEN');
   if (!token) return null;
   if (tokenPageCache?.token === token && Date.now() - tokenPageCache.at < 10 * 60e3) return tokenPageCache.page;
-  let page;
-  try {
-    const res = await fetch(`${GRAPH}/me?fields=id,name&access_token=${encodeURIComponent(token)}`, { signal: AbortSignal.timeout(8000) });
-    const r = await res.json().catch(() => ({}));
-    page = r.id ? { id: String(r.id), name: r.name || '' } : { error: r.error?.message || `HTTP ${res.status}` };
-  } catch (e) {
-    page = { error: e.message };
+  const get = async (pathAndQuery, tok) => {
+    try {
+      const sep = pathAndQuery.includes('?') ? '&' : '?';
+      const res = await fetch(`${GRAPH}/${pathAndQuery}${sep}access_token=${encodeURIComponent(tok)}`, { signal: AbortSignal.timeout(8000) });
+      const r = await res.json().catch(() => ({}));
+      return r.error ? { error: r.error.message || `HTTP ${res.status}` } : r;
+    } catch (e) { return { error: e.message }; }
+  };
+  // 1) tên + id page (cần quyền pages_read_engagement — mã chỉ có pages_messaging sẽ lỗi, không sao)
+  const me = await get('me?fields=id,name', token);
+  // 2) mã thuộc app nào; 3) debug_token bằng "app id|khóa bí mật": biết quyền của mã, page id,
+  //    và biết META_APP_SECRET có đúng của app đó không (đổi sang app mới mà quên đổi 1 trong 3 mã là lỗi hay gặp)
+  const app = await get('app?fields=id,name', token);
+  let dbg = null;
+  let secretOk = null;
+  if (app.id && env('META_APP_SECRET')) {
+    const d = await get(`debug_token?input_token=${encodeURIComponent(token)}`, `${app.id}|${env('META_APP_SECRET')}`);
+    secretOk = !d.error;
+    dbg = d.data || null;
   }
+  const page = {
+    id: me.id ? String(me.id) : dbg?.profile_id ? String(dbg.profile_id) : '',
+    name: me.name || '',
+    app: app.id ? { id: String(app.id), name: app.name || '' } : null,
+    scopes: dbg?.scopes || null,
+    valid: dbg ? !!dbg.is_valid : null,
+    secret_ok: secretOk,
+  };
+  if (!page.id && !page.app) page.error = me.error || app.error || 'Mã không dùng được';
   tokenPageCache = { token, at: Date.now(), page };
   return page;
 }
@@ -94,7 +115,11 @@ export function seenPages() {
 export function verifyWebhook(query) {
   const token = env('META_VERIFY_TOKEN');
   if (!token) throw new HttpError(503, 'Server chưa đặt META_VERIFY_TOKEN');
-  if (query['hub.mode'] === 'subscribe' && query['hub.verify_token'] === token) return String(query['hub.challenge'] || '');
+  if (query['hub.mode'] === 'subscribe' && query['hub.verify_token'] === token) {
+    logProblem('verify', 'Meta xác minh URL webhook: thành công (app vừa bấm "Xác minh và lưu" đã trỏ về server này)');
+    return String(query['hub.challenge'] || '');
+  }
+  if (query['hub.mode'] === 'subscribe') logProblem('rejected', 'Meta xác minh URL webhook: SAI mã xác minh. Ô "Xác minh mã" ở Meta phải giống hệt META_VERIFY_TOKEN trên server.');
   throw new HttpError(403, 'Sai mã xác minh');
 }
 
@@ -148,7 +173,7 @@ export function saveEvents(body) {
 }
 
 export function listEvents(limit = 50) {
-  return db.prepare("SELECT id, at, page_id, sender_id, kind, text FROM meta_events WHERE kind IN ('message', 'echo', 'postback', 'standby', 'test', 'rejected', 'other') ORDER BY id DESC LIMIT ?")
+  return db.prepare("SELECT id, at, page_id, sender_id, kind, text FROM meta_events WHERE kind IN ('message', 'echo', 'postback', 'standby', 'test', 'rejected', 'other', 'verify') ORDER BY id DESC LIMIT ?")
     .all(Math.min(Number(limit) || 50, 200));
 }
 

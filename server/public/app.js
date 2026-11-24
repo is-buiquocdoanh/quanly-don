@@ -1543,13 +1543,19 @@ async function metaCard() {
   const tp = r.token_page;
   const other = tp?.id ? (r.seen_pages || []).filter((p) => p.page_id !== tp.id) : [];
   const pageName = (id) => (tp?.id === id ? tp.name : id);
-  const KIND = { message: 'Khách nhắn', echo: 'Page gửi', postback: 'Bấm nút', test: 'Tin mẫu (nút Thử nghiệm)', rejected: '⚠ Bị từ chối', other: '⚠ Lạ', standby: 'Khách nhắn (standby)' };
+  const KIND = { message: 'Khách nhắn', echo: 'Page gửi', postback: 'Bấm nút', test: 'Tin mẫu (nút Thử nghiệm)', rejected: '⚠ Bị từ chối', other: '⚠ Lạ', standby: 'Khách nhắn (standby)', verify: '✓ Xác minh URL' };
   box.innerHTML = `<h2>Messenger (thử nghiệm)</h2>
     <p class="small" style="margin-top:0">Kiểm tra app Meta có nhận / trả lời được <b>khách thật</b> không. URL gọi lại dán vào Meta → Webhooks → Page:</p>
     <form class="form"><label class="full">URL gọi lại<input readonly value="${esc(r.webhook_url)}"></label></form>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${ok(r.status.verify_token, 'META_VERIFY_TOKEN')}${ok(r.status.app_secret, 'META_APP_SECRET')}${ok(r.status.page_token, 'META_PAGE_TOKEN')}</div>
-    ${tp ? (tp.error ? `<div class="warn">META_PAGE_TOKEN không dùng được: ${esc(tp.error)}</div>`
-      : `<p class="small" style="margin:4px 0">Mã page đang dùng là của: <b>${esc(tp.name)}</b> <span class="mono muted">(${esc(tp.id)})</span></p>`) : ''}
+    ${tp ? (tp.error ? `<div class="warn">META_PAGE_TOKEN không dùng được: ${esc(tp.error)}</div>` : `<div class="small" style="margin:4px 0;line-height:1.7">
+      ${tp.app ? `<div>Mã page thuộc app: <b>${esc(tp.app.name)}</b> <span class="mono muted">(${esc(tp.app.id)})</span></div>` : ''}
+      ${tp.id ? `<div>Của page: <b>${esc(tp.name || '(không đọc được tên)')}</b> <span class="mono muted">(${esc(tp.id)})</span></div>` : ''}
+      ${tp.scopes ? `<div>Quyền của mã: ${tp.scopes.map((x) => `<span class="badge${x === 'pages_messaging' ? ' st-da_giao' : ''}">${esc(x)}</span>`).join(' ')}</div>` : ''}
+      </div>
+      ${tp.secret_ok === false ? `<div class="warn">META_APP_SECRET trên server <b>không phải khóa bí mật của app ${esc(tp.app?.name || '')}</b>. Meta sẽ ký tin nhắn bằng khóa của app này nên web sẽ từ chối hết. Copy lại khóa ở Cài đặt ứng dụng → Thông tin cơ bản của đúng app này.</div>` : ''}
+      ${tp.valid === false ? '<div class="warn">Mã page đã hết hạn hoặc bị thu hồi. Tạo mã mới ở Messenger → Cài đặt API.</div>' : ''}
+      ${tp.scopes && !tp.scopes.includes('pages_messaging') ? '<div class="warn">Mã page <b>thiếu quyền pages_messaging</b> nên không gửi được tin. Tạo lại mã và cho phép quyền nhắn tin.</div>' : ''}`) : ''}
     ${other.length ? `<div class="warn soft">Có tin đến từ page khác với page của mã (${other.map((p) => `<span class="mono">${esc(p.page_id)}</span>: ${p.n} tin`).join(', ')}). Mã người nhắn chỉ dùng được với đúng page họ nhắn vào, nên "Trả lời thử" các tin đó sẽ báo lỗi (#100). Muốn thử page nào thì đặt META_PAGE_TOKEN của page đó.</div>` : ''}
     ${tp?.id ? `<div class="actions" style="margin:6px 0"><button class="btn sec sm" id="metaSubs">Kiểm tra page đăng ký nhận tin</button></div><div id="metaSubsOut"></div>` : ''}
     ${r.events.some((e) => e.kind === 'standby') ? `<div class="warn soft">Có tin <b>standby</b>: page đang để một app/công cụ khác (Pancake, Botcake, ManyChat…) giữ quyền chính với hộp thư. App này chỉ xem được, chưa trả lời được. Muốn chatbot trả lời: Business Suite → Cài đặt → Hộp thư / Tin nhắn nâng cao → chọn app <b>trungsau_canxi</b> làm ứng dụng nhận tin chính.</div>` : ''}
