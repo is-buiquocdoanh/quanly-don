@@ -10,6 +10,21 @@ function addEvent(orderId, userId, action) {
     .run(orderId, nowVN(), userId ?? null, action);
 }
 
+/** Đánh dấu các đơn đã gửi cho kho qua Zalo (how: 'tự gửi' | 'chép lần lượt'). */
+export function markZaloSent(ids, user, how) {
+  const list = [...new Set((Array.isArray(ids) ? ids : [ids]).map((x) => toInt(x)).filter(Boolean))].slice(0, 500);
+  const at = nowVN();
+  let n = 0;
+  tx(() => {
+    for (const id of list) {
+      if (!db.prepare('UPDATE orders SET zalo_sent_at = ? WHERE id = ?').run(at, id).changes) continue;
+      addEvent(id, user?.id, `Gửi kho qua Zalo (${how})`);
+      n++;
+    }
+  });
+  return n;
+}
+
 export function getOrder(id) {
   const o = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
   if (!o) throw new HttpError(404, 'Không tìm thấy đơn');

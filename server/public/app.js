@@ -59,7 +59,7 @@ async function copyText(text, btn) {
     const old = btn.textContent;
     btn.classList.add('done'); btn.textContent = 'Đã chép';
     setTimeout(() => { btn.classList.remove('done'); btn.textContent = old; }, 1200);
-  } else toast('Đã chép');
+  } else if (btn !== false) toast('Đã chép'); // false = chép im lặng
 }
 
 function modal(title, html, { wide = false } = {}) {
@@ -225,7 +225,7 @@ $('#logout').addEventListener('click', async () => {
 
 // ================================================================ điều hướng
 const NAV = {
-  admin: [['dashboard', 'Tổng quan', 'Tổng quan'], ['orders', 'Đơn hàng', 'Đơn'], ['kho', 'Kho gửi hàng', 'Kho'], ['customers', 'Khách hàng', 'Khách'], ['finance', 'Thu chi', 'Thu chi'], ['website', 'Website', 'Web'], ['settings', 'Cài đặt', 'Cài đặt']],
+  admin: [['dashboard', 'Tổng quan', 'Tổng quan'], ['orders', 'Đơn hàng', 'Đơn'], ['kho', 'Kho gửi hàng', 'Kho'], ['customers', 'Khách hàng', 'Khách'], ['finance', 'Thu chi', 'Thu chi'], ['website', 'Website', 'Web'], ['messenger', 'Messenger', 'Chat'], ['settings', 'Cài đặt', 'Cài đặt']],
   kho: [['kho', 'Gửi hàng', 'Gửi hàng'], ['account', 'Tài khoản', 'Tài khoản']],
 };
 const ICONS = {
@@ -237,6 +237,7 @@ const ICONS = {
   settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
   website: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 3.8 5.6 3.8 9s-1.2 6.4-3.8 9c-2.6-2.6-3.8-5.6-3.8-9S9.4 5.6 12 3z"/>',
   account: '<circle cx="12" cy="8.5" r="4"/><path d="M4 20.5c1-4 4.2-6 8-6s7 2 8 6"/>',
+  messenger: '<path d="M12 3c-5 0-9 3.6-9 8.2 0 2.6 1.3 4.9 3.4 6.4V21l3.1-1.7c.8.2 1.6.3 2.5.3 5 0 9-3.6 9-8.2S17 3 12 3z"/><path d="M7.5 13.5l3-3 2.5 2 3.5-3"/>',
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[k] || ''}</svg>`;
 const VIEWS = {};
@@ -530,7 +531,7 @@ VIEWS.orders = async (root) => {
         <td class="right">${o.qty}</td>
         <td class="right nowrap">${money(o.total)}${o.cod_received ? '<div><span class="badge b-cod">COD về</span></div>' : ''}</td>
         <td class="small">${esc(o.page)}</td>
-        <td>${badge(o.status)}${o.return_reason ? `<div class="cell-sub">${esc(o.return_reason)}</div>` : ''}${o.dup_codes ? `<div><span class="badge b-dup" title="Trùng: ${esc(o.dup_codes)}">Trùng đơn</span></div>` : ''}</td>
+        <td>${badge(o.status)}${o.return_reason ? `<div class="cell-sub">${esc(o.return_reason)}</div>` : ''}${o.dup_codes ? `<div><span class="badge b-dup" title="Trùng: ${esc(o.dup_codes)}">Trùng đơn</span></div>` : ''}${o.zalo_sent_at ? `<div><span class="badge b-zalo" title="Gửi Zalo lúc ${esc(dt(o.zalo_sent_at))}">Đã báo Zalo</span></div>` : ''}</td>
         ${hasWh() ? `<td>${whBadge(o.kho_id)}</td>` : ''}
         <td class="small mono">${esc(o.tracking_code)}</td></tr>`).join('')}
       </tbody></table>`;
@@ -561,6 +562,8 @@ VIEWS.orders = async (root) => {
       ${hasWh() ? `<select id="bWh"><option value="-">Chia cho kho…</option>${whOptions('-', { noneLabel: 'Bỏ chia (chưa kho nào)' })}</select>` : ''}
       <button class="btn sm" id="bCod">Đánh dấu COD đã về</button>
       <button class="btn sm sec" id="bCopy">Chép</button>
+      <button class="btn sm" id="bZalo" title="Mỗi đơn 1 tin vào nhóm Zalo của kho (Cài đặt → Gửi đơn qua Zalo)">Gửi Zalo kho</button>
+      <button class="btn sm sec" id="bZcopy" title="Chép đơn 1 → dán vào Zalo, gửi → quay lại web là đơn tiếp theo đã được chép sẵn">Chép lần lượt</button>
       <span class="spacer"></span><button class="link" id="bClear">Bỏ chọn</button></div>`;
     const ids = [...ordState.selected];
     $('#bSt').addEventListener('change', async (e) => {
@@ -584,6 +587,10 @@ VIEWS.orders = async (root) => {
       if (r) { toast(`Đã đánh dấu COD ${r.updated} đơn`); ordState.selected.clear(); load(); }
     });
     $('#bCopy').addEventListener('click', (e) => copyText(ordersText(rows.filter((o) => ordState.selected.has(o.id))), e.currentTarget));
+    const picked = () => rows.filter((o) => ordState.selected.has(o.id));
+    const after = () => { ordState.selected.clear(); load(); };
+    $('#bZalo').addEventListener('click', () => zaloSend(picked(), after));
+    $('#bZcopy').addEventListener('click', () => zaloCopy(picked(), after));
     $('#bClear').addEventListener('click', () => { ordState.selected.clear(); render(); });
   }
 
@@ -1441,7 +1448,7 @@ VIEWS.settings = async (root) => {
           <div class="actions"><button class="btn sec" id="newTok">Tạo mã mới</button></div>
           <p class="muted small">Mã chỉ hiện 1 lần. Tạo mã mới thì mã cũ hết hiệu lực.</p>
         </div>
-        <div class="card" id="metaCard"><h2>Messenger (thử nghiệm)</h2><div class="loading">Đang tải…</div></div>
+        <div class="card" id="zaloCard"><h2>Gửi đơn qua Zalo</h2><div class="loading">Đang tải…</div></div>
         <div class="card"><h2>Sao lưu dữ liệu</h2>
           <p class="small">Server tự sao lưu mỗi ngày (giữ 30 bản) trong thư mục <code>data/backups</code>. Nên tải 1 bản về máy mỗi tuần.</p>
           <a class="btn sec" href="/api/backup">⬇ Tải bản sao lưu</a>
@@ -1555,8 +1562,166 @@ VIEWS.settings = async (root) => {
     } catch (err) { fail(err); }
   });
   bindPassword(root);
-  metaCard();
+  zaloCard();
 };
+
+// ================================================================ MESSENGER (webhook, chatbot)
+VIEWS.messenger = async (root) => {
+  root.innerHTML = `<h1>Messenger</h1>
+    <p class="muted small" style="margin:-6px 0 14px">Nhận tin khách nhắn vào page qua webhook, bước chuẩn bị cho chatbot. Hướng dẫn từng bước: thư mục <code>docs/chatbot</code>.</p>
+    <div class="card" id="metaCard" style="max-width:1100px"><h2>Messenger (thử nghiệm)</h2><div class="loading">Đang tải…</div></div>`;
+  await metaCard();
+};
+
+// ================================================================ ZALO (gửi đơn cho kho)
+// Thẻ trong Cài đặt: đăng nhập Zalo phụ bằng QR, chọn nhóm kho
+async function zaloCard() {
+  const box = $('#zaloCard');
+  if (!box) return;
+  const z = await api('GET', '/api/zalo').catch((e) => ({ error: e.message }));
+  if (!box.isConnected) return;
+  const head = '<h2>Gửi đơn qua Zalo</h2>';
+  if (z.error) { box.innerHTML = head + `<div class="warn">${esc(z.error)}</div>`; return; }
+  const waiting = ['starting', 'qr', 'scanned'].includes(z.status);
+  const logged = ['on', 'saved'].includes(z.status);
+  box.innerHTML = head + `
+    <p class="small" style="margin-top:0">Web tự gửi <b>mỗi đơn thành 1 tin</b> vào nhóm Zalo của kho, bằng một <b>tài khoản Zalo phụ</b> (đừng dùng Zalo chính).
+      Cách này không chính thức: Zalo có thể khóa tài khoản phụ. Khi đó vẫn dùng được nút <b>Chép lần lượt</b> ở trang Đơn hàng.</p>
+    ${z.error ? `<div class="warn soft">${esc(z.error)}</div>` : ''}
+    ${z.status === 'starting' ? '<div class="loading">Đang lấy mã QR…</div>' : ''}
+    ${z.status === 'qr' ? `<div style="text-align:center"><img alt="Mã QR đăng nhập Zalo" src="data:image/png;base64,${z.qr}" style="width:220px;max-width:100%;background:#fff;padding:8px;border-radius:8px">
+      <p class="small">Mở <b>Zalo phụ</b> trên điện thoại → biểu tượng <b>quét mã QR</b> → quét mã này → bấm <b>Đăng nhập</b>. Mã hết hạn sau khoảng 1 phút.</p></div>` : ''}
+    ${z.status === 'scanned' ? '<div class="loading">Đã quét. Bấm <b>Đăng nhập</b> trên điện thoại…</div>' : ''}
+    ${logged ? `<div class="small" style="line-height:1.8">Đang dùng Zalo: <b>${esc(z.account || '(không rõ tên)')}</b> ${z.status === 'on' ? '<span class="badge st-da_giao">✓ Sẵn sàng</span>' : '<span class="badge">Đã lưu phiên</span>'}<br>
+      Nhóm nhận đơn: ${z.group ? `<b>${esc(z.group.name)}</b>` : '<span class="neg">chưa chọn</span>'}</div>
+      <div id="zGroups"></div>` : ''}
+    <div class="actions">
+      ${logged ? '<button class="btn sec sm" id="zPick">Chọn nhóm nhận đơn</button><button class="btn sec sm" id="zOut">Đăng xuất Zalo</button>'
+        : waiting ? '<button class="btn sec sm" id="zCancel">Hủy</button>' : '<button class="btn sm" id="zIn">Đăng nhập Zalo bằng mã QR</button>'}
+    </div>`;
+  if (waiting) setTimeout(() => box.isConnected && zaloCard(), 2000);
+  $('#zIn', box)?.addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    try { await api('POST', '/api/zalo/login'); } catch (err) { fail(err); }
+    zaloCard();
+  });
+  $('#zCancel', box)?.addEventListener('click', async () => { await api('POST', '/api/zalo/logout').catch(fail); zaloCard(); });
+  $('#zOut', box)?.addEventListener('click', async () => {
+    if (!confirm('Đăng xuất Zalo khỏi web? Muốn gửi lại phải quét mã QR.')) return;
+    await api('POST', '/api/zalo/logout').catch(fail);
+    zaloCard();
+  });
+  $('#zPick', box)?.addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    const out = $('#zGroups', box);
+    out.innerHTML = '<div class="loading">Đang tải danh sách nhóm…</div>';
+    try {
+      const { groups } = await api('GET', '/api/zalo/groups');
+      out.innerHTML = groups.length ? `<form class="form" style="margin-top:8px"><label class="full">Nhóm của kho<select id="zSel">
+          ${groups.map((g) => `<option value="${esc(g.id)}" ${z.group?.id === g.id ? 'selected' : ''}>${esc(g.name)} (${g.members} người)</option>`).join('')}</select></label></form>
+          <div class="actions"><button class="btn sm" id="zSave">Lưu nhóm</button></div>`
+        : '<div class="warn soft">Zalo này chưa ở trong nhóm nào. Thêm Zalo phụ vào nhóm kho rồi bấm lại.</div>';
+      $('#zSave', out)?.addEventListener('click', async () => {
+        try { await api('POST', '/api/zalo/group', { id: $('#zSel', out).value }); toast('Đã lưu nhóm nhận đơn'); zaloCard(); } catch (err) { fail(err); }
+      });
+    } catch (err) { out.innerHTML = ''; fail(err); zaloCard(); }
+    e.target.disabled = false;
+  });
+}
+
+// Gửi tự động: mỗi đơn 1 tin, theo thứ tự đơn cũ trước. onDone(): tải lại danh sách.
+async function zaloSend(list, onDone) {
+  list = [...list].sort((a, b) => a.id - b.id);
+  const z = await api('GET', '/api/zalo').catch(fail);
+  if (!z) return;
+  if (!['on', 'saved'].includes(z.status) || !z.group) {
+    if (confirm('Chưa đăng nhập Zalo hoặc chưa chọn nhóm nhận đơn (Cài đặt → Gửi đơn qua Zalo).\n\nDùng "Chép lần lượt" thay thế?')) zaloCopy(list, onDone);
+    return;
+  }
+  const again = list.filter((o) => o.zalo_sent_at).length;
+  if (!confirm(`Gửi ${list.length} đơn vào nhóm "${z.group.name}", mỗi đơn 1 tin?${again ? `\n\n${again} đơn trong số này ĐÃ gửi Zalo trước đó, sẽ gửi lại.` : ''}`)) return;
+  let stop = false;
+  const m = modal('Gửi đơn qua Zalo', `<p id="zProg">Đang gửi…</p><div class="zbar"><i id="zBar"></i></div>
+    <div class="actions"><button class="btn sec" id="zStop">Dừng</button></div>`);
+  $('#zStop', m.el).addEventListener('click', () => { stop = true; m.close(); });
+  let sent = 0;
+  for (const o of list) {
+    if (stop || !m.el.isConnected) { stop = true; break; } // bấm Dừng hoặc ✕
+    $('#zProg', m.el).innerHTML = `Đang gửi đơn ${sent + 1}/${list.length}: <b>${esc(o.name)}</b>`;
+    $('#zBar', m.el).style.width = `${(sent / list.length) * 100}%`;
+    try {
+      await api('POST', '/api/zalo/send', { id: o.id, text: orderLine(o) });
+      sent++;
+    } catch (e) {
+      const rest = list.slice(sent);
+      m.el.innerHTML = `<div class="warn">${esc(e.message)}</div><p>Đã gửi ${sent}/${list.length} đơn. Còn ${rest.length} đơn chưa gửi.</p>
+        <div class="actions"><button class="btn sec" data-close>Đóng</button><button class="btn" id="zFall">Chép lần lượt ${rest.length} đơn còn lại</button></div>`;
+      $('#zFall', m.el).addEventListener('click', () => { m.close(); zaloCopy(rest, onDone); });
+      onDone && onDone();
+      return;
+    }
+  }
+  m.close();
+  toast(stop ? `Đã dừng: gửi ${sent}/${list.length} đơn` : `Đã gửi ${sent} đơn vào nhóm Zalo`);
+  onDone && onDone();
+}
+
+// Chép lần lượt (dự phòng): chép đơn 1 → bạn sang Zalo dán, gửi → quay lại web là đơn tiếp theo đã được chép sẵn.
+function zaloCopy(list, onDone) {
+  list = [...list].sort((a, b) => a.id - b.id);
+  document.querySelector('.zseq')?.remove();
+  const bar = document.createElement('div');
+  bar.className = 'zseq';
+  document.body.appendChild(bar);
+  let i = 0;
+  let left = false; // đã rời trang (sang Zalo) sau khi chép đơn hiện tại
+  const done = new Set();
+  const canShare = !!navigator.share && matchMedia('(pointer:coarse)').matches;
+  const draw = () => {
+    const o = list[i];
+    bar.innerHTML = `<div><b>Đơn ${i + 1}/${list.length} đã chép:</b> ${esc(o.name)} · ${esc(o.phone)}
+        <div class="small muted">${canShare ? 'Bấm <b>Chia sẻ</b> → Zalo → chọn nhóm kho → Gửi, rồi quay lại đây.' : 'Sang Zalo: <b>Ctrl+V</b>, <b>Enter</b>, rồi quay lại đây (Alt+Tab): đơn tiếp theo tự được chép.'}</div></div>
+      <span class="spacer"></span>
+      ${canShare ? '<button class="btn sm" data-z="share">Chia sẻ</button>' : ''}
+      <button class="btn sm sec" data-z="again">Chép lại</button>
+      <button class="btn sm sec" data-z="next">${i + 1 < list.length ? 'Đơn tiếp' : 'Xong'}</button>
+      <button class="btn sm sec" data-z="stop">Dừng</button>`;
+  };
+  const copyCur = () => copyText(orderLine(list[i]), false);
+  const finish = async () => {
+    window.removeEventListener('blur', onBlur);
+    window.removeEventListener('focus', onFocus);
+    bar.remove();
+    if (done.size) {
+      await api('POST', '/api/zalo/mark', { ids: [...done] }).catch(fail);
+      toast(`Đã chép ${done.size}/${list.length} đơn, đánh dấu đã báo kho qua Zalo`);
+    }
+    onDone && onDone();
+  };
+  const next = () => {
+    done.add(list[i].id);
+    left = false;
+    if (++i >= list.length) return finish();
+    copyCur(); draw();
+  };
+  const onBlur = () => { left = true; };
+  const onFocus = () => { if (left) setTimeout(next, 150); }; // đợi trang lấy lại focus rồi mới ghi clipboard
+  // điện thoại dùng nút Chia sẻ (bảng chia sẻ cũng làm mất focus → không tự nhảy đơn ở đây)
+  if (!canShare) {
+    window.addEventListener('blur', onBlur);
+    window.addEventListener('focus', onFocus);
+  }
+  bar.addEventListener('click', async (e) => {
+    const a = e.target.closest('[data-z]')?.dataset.z;
+    if (a === 'again') copyCur();
+    if (a === 'next') next();
+    if (a === 'stop') finish();
+    if (a === 'share') {
+      try { await navigator.share({ text: orderLine(list[i]) }); next(); } catch { /* bấm hủy */ }
+    }
+  });
+  copyCur(); draw();
+}
 
 // Thẻ kiểm tra Messenger webhook: tin Meta gửi tới + nút gửi tin trả lời thử
 async function metaCard() {

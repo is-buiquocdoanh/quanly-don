@@ -21,13 +21,13 @@ Ngay dưới ô URL webhook (Bước 2.3) có danh sách **trường**. Bật **
 
 → **Confirm**.
 
-Kiểm tra lại: web → **Cài đặt → Messenger** → **Kiểm tra page đăng ký nhận tin**. Phải thấy app của bạn kèm các trường vừa tick. Nút này báo lỗi `#200 ... pages_manage_metadata` thì bỏ qua được (xem bảng lỗi ở [Giai đoạn 8](../8-messenger.md#gặp-lỗi-thì-xem-ở-đây)).
+Kiểm tra lại: web → mục **Messenger** → **Kiểm tra page đăng ký nhận tin**. Phải thấy app của bạn kèm các trường vừa tick. Nút này báo lỗi `#200 ... pages_manage_metadata` thì bỏ qua được (xem bảng lỗi ở [Giai đoạn 8](../8-messenger.md#gặp-lỗi-thì-xem-ở-đây)).
 
 > Trang đang nối với **Pancake / Botcake / ManyChat**: app kia giữ quyền trả lời chính, app của bạn chỉ nhận tin dạng *standby*. Gỡ app kia trước, cách gỡ ở [Giai đoạn 8](../8-messenger.md#gỡ-pancake-hoặc-công-cụ-inbox-cũ-khỏi-page).
 
 ## 3.3. Thử với chính bạn
 
-Dùng tài khoản Facebook **có vai trò trong app** (admin) nhắn vào Trang → web → **Cài đặt → Messenger** → **Tải lại**:
+Dùng tài khoản Facebook **có vai trò trong app** (admin) nhắn vào Trang → web → mục **Messenger** → **Tải lại**:
 
 - Thấy dòng **Khách nhắn** kèm nội dung → chiều nhận chạy.
 - Bấm **Trả lời thử** → Messenger của bạn nhận tin → chiều gửi chạy.

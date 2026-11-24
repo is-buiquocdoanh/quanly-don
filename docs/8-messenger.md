@@ -24,21 +24,21 @@ cd ~/apps/quanly-don
 nano .env                      # thêm 3 dòng META_VERIFY_TOKEN=…, META_APP_SECRET=…, META_PAGE_TOKEN=…
 docker compose up -d           # nạp lại .env
 ```
-Vào web → **Cài đặt → Messenger (thử nghiệm)**: 3 mã phải hiện dấu ✓.
+Vào web → mục **Messenger** (menu bên trái): 3 mã phải hiện dấu ✓.
 
 > Ba mã này là bí mật: không gửi qua chat, không đưa lên GitHub (`.env` đã được git bỏ qua).
 
 ## 2. Nối webhook với web
 
 1. Meta → **Webhooks** → chọn **Page** ở cột trái.
-2. **URL gọi lại**: `https://don.doanhwork.com/api/meta/webhook` (copy ở thẻ Messenger trong Cài đặt).
+2. **URL gọi lại**: `https://don.doanhwork.com/api/meta/webhook` (copy ở mục **Messenger** của web).
 3. **Xác minh mã**: dán đúng `META_VERIFY_TOKEN` → **Xác minh và lưu**. Báo lỗi thì xem lại bước 1 (đã `docker compose up -d` chưa).
 4. Kéo xuống danh sách trường, tìm **messages** → bật **Đăng ký**.
 5. **Messenger → Cài đặt API Messenger** → mục *Webhooks*: ở dòng page, bấm **Thêm gói đăng ký** và tick **messages**.
 
 ## 3. Thử với chính bạn
 
-Dùng tài khoản Facebook của bạn (admin của app) nhắn vào page. Vào web → **Cài đặt → Messenger** → **Tải lại**: phải thấy dòng *Khách nhắn* với nội dung vừa gửi. Bấm **Trả lời thử**, Messenger của bạn nhận được tin là chiều gửi cũng chạy.
+Dùng tài khoản Facebook của bạn (admin của app) nhắn vào page. Vào web → mục **Messenger** → **Tải lại**: phải thấy dòng *Khách nhắn* với nội dung vừa gửi. Bấm **Trả lời thử**, Messenger của bạn nhận được tin là chiều gửi cũng chạy.
 
 ## 4. Thử với khách thật (bước quyết định)
 

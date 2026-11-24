@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Web quản lý đơn hàng, kho, thu chi — Node 24 + SQLite, chỉ dùng thêm @anthropic-ai/sdk cho AI đọc đơn",
+  "description": "Web quản lý đơn hàng, kho, thu chi — Node 24 + SQLite, dùng thêm @anthropic-ai/sdk (AI đọc đơn) và zca-js (gửi đơn qua Zalo)",
   "engines": {
     "node": ">=22.13"
   },
@@ -13,6 +13,7 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.12.0"
+    "@anthropic-ai/sdk": "^1.12.0",
+    "zca-js": "2.2.0"
   }
 }

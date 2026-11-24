@@ -13,7 +13,8 @@ import { getSite, saveSite, POLICIES, listPosts, getPost, savePost, deletePost }
 import { markdown } from './site/markdown.js';
 import { saveUpload, listUploads } from './site/uploads.js';
 import { metaStatus, listEvents, sendTest, tokenPage, seenPages, pageSubscriptions, subscribePage } from './meta.js';
-import { forKho } from './orders.js';
+import { forKho, getOrder, markZaloSent } from './orders.js';
+import { zaloStatus, startQR, logout, listGroups, chooseGroup, sendToGroup } from './zalo.js';
 
 const SESSION_DAYS = 30;
 const routes = [];
@@ -181,7 +182,7 @@ add('GET', '/api/report', 'admin', ({ query }) => report(query.from, query.to));
 
 add('PUT', '/api/settings', 'admin', ({ body }) => {
   for (const k of Object.keys(SETTING_DEFAULTS)) {
-    if (!(k in body)) continue;
+    if (!(k in body) || k.startsWith('zalo_')) continue; // nhóm Zalo chỉ đổi qua /api/zalo/group (có kiểm tra)
     let v = body[k];
     if (Array.isArray(SETTING_DEFAULTS[k])) {
       // tên page / lý do hoàn có thể chứa dấu phẩy ("Giao lâu, khách hủy") → chỉ tách theo xuống dòng
@@ -292,6 +293,23 @@ add('GET', '/api/meta/events', 'admin', async ({ baseUrl }) => ({
 add('GET', '/api/meta/subscriptions', 'admin', () => pageSubscriptions());
 add('POST', '/api/meta/subscribe', 'admin', () => subscribePage());
 add('POST', '/api/meta/test-reply', 'admin', async ({ body }) => sendTest(body.sender_id, body.text || 'Shop đã nhận được tin nhắn của bạn ạ (tin tự động thử nghiệm).'));
+
+// ---------------------------------------------------------------- Gửi đơn cho kho qua Zalo
+
+add('GET', '/api/zalo', 'admin', () => zaloStatus());
+add('POST', '/api/zalo/login', 'admin', async () => (await startQR(), zaloStatus()));
+add('POST', '/api/zalo/logout', 'admin', () => (logout(), zaloStatus()));
+add('GET', '/api/zalo/groups', 'admin', async () => ({ groups: await listGroups() }));
+add('POST', '/api/zalo/group', 'admin', async ({ body }) => chooseGroup(body.id));
+/** Gửi 1 đơn = 1 tin vào nhóm kho (trang Đơn hàng gọi lần lượt từng đơn để hiện tiến độ). */
+add('POST', '/api/zalo/send', 'admin', async ({ body, user }) => {
+  const o = getOrder(toInt(body.id));
+  const r = await sendToGroup(body.text);
+  markZaloSent([o.id], user, 'tự gửi');
+  return { ok: true, ...r };
+});
+/** Chép lần lượt (dự phòng khi không tự gửi được): chỉ đánh dấu đã báo kho. */
+add('POST', '/api/zalo/mark', 'admin', ({ body, user }) => ({ updated: markZaloSent(body.ids, user, 'chép lần lượt') }));
 
 // ---------------------------------------------------------------- Chia đơn cho tài khoản kho
 

@@ -8,7 +8,7 @@ ENV NODE_ENV=production \
 RUN apk add --no-cache tzdata
 
 WORKDIR /app
-# Thư viện ngoài duy nhất: @anthropic-ai/sdk (AI đọc đơn)
+# Thư viện ngoài: @anthropic-ai/sdk (AI đọc đơn), zca-js (gửi đơn qua Zalo, không chính thức)
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY src ./src

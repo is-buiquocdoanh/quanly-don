@@ -57,7 +57,7 @@ Lưu (Ctrl+O, Enter, Ctrl+X) rồi nạp lại:
 docker compose up -d
 ```
 
-Vào web → **Cài đặt → Messenger (thử nghiệm)**:
+Vào web → mục **Messenger** (menu bên trái):
 - 3 mã hiện **✓**.
 - Dòng *"Mã page đang dùng là của…"* hiện đúng tên Trang. Nếu báo **khóa bí mật không khớp app** thì `META_APP_SECRET` và `META_PAGE_TOKEN` đang thuộc 2 app khác nhau: lấy lại cả hai từ cùng một app.
 

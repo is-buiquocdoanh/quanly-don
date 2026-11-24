@@ -102,6 +102,8 @@ db.exec('CREATE INDEX IF NOT EXISTS idx_orders_kho ON orders(kho_id, status)');
 addColumn('orders', 'return_reason', "TEXT NOT NULL DEFAULT ''");
 // thời điểm khách bị đưa vào sổ đỏ (flag = 'bom')
 addColumn('customers', 'flagged_at', 'TEXT');
+// lúc đơn được gửi cho kho qua Zalo (tự gửi hoặc chép lần lượt) — để biết đơn nào đã báo kho
+addColumn('orders', 'zalo_sent_at', 'TEXT');
 {
   // nâng cấp: chỉ có 1 tài khoản kho thì mọi đơn chưa chia thuộc về tài khoản đó
   const act = db.prepare(`SELECT id FROM users WHERE role = 'kho' AND active = 1 LIMIT 2`).all();
@@ -123,6 +125,9 @@ export const SETTING_DEFAULTS = {
   copy_labels: 0,            // 1 = kèm nhãn "Tên:", "SĐT:"…
   // giá theo số hộp: extension + form tạo đơn tự điền tổng tiền khi đổi số lượng (mỗi dòng "số hộp = giá")
   price_table: '1 = 95000\n2 = 130000\n3 = 195000\n4 = 250000\n5 = 300000',
+  // nhóm Zalo nhận đơn (chọn ở Cài đặt → Gửi đơn qua Zalo; không sửa qua form Cài đặt chung)
+  zalo_group_id: '',
+  zalo_group_name: '',
 };
 
 export function getSettings() {

@@ -26,11 +26,11 @@ curl -s "https://don.doanhwork.com/api/meta/webhook?hub.mode=subscribe&hub.chall
 ## 2.3. Dán vào Meta
 
 1. App → **Cài đặt API Messenger** → **1. Định cấu hình webhooks** (app cũ: menu trái **Webhooks** → chọn **Page**).
-2. **URL gọi lại**: `https://don.doanhwork.com/api/meta/webhook` (copy ở thẻ Messenger trong Cài đặt của web cho khỏi gõ sai).
+2. **URL gọi lại**: `https://don.doanhwork.com/api/meta/webhook` (copy ở mục **Messenger** của web cho khỏi gõ sai).
 3. **Xác minh mã**: dán đúng `META_VERIFY_TOKEN`.
 4. Bấm **Xác minh và lưu**.
 
-Thành công thì web → **Cài đặt → Messenger** → **Tải lại** hiện dòng *Meta xác minh URL webhook: thành công*.
+Thành công thì web → mục **Messenger** → **Tải lại** hiện dòng *Meta xác minh URL webhook: thành công*.
 
 Meta báo *"Không thể xác thực URL gọi lại hoặc mã xác minh"* → làm lại 2.2. Nếu 2.2 ra `12345` mà Meta vẫn báo lỗi thì chuỗi dán vào Meta bị thừa dấu cách hoặc thiếu ký tự: copy lại.
 

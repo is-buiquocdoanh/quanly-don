@@ -1,6 +1,6 @@
 # Bước 5. Webhook im lặng: kiểm tra theo thứ tự
 
-Nhắn vào Trang mà web → **Cài đặt → Messenger** → **Tải lại** không thấy gì thì kiểm tra **lần lượt từ trên xuống**, dừng ở mục đầu tiên bị sai.
+Nhắn vào Trang mà web → mục **Messenger** → **Tải lại** không thấy gì thì kiểm tra **lần lượt từ trên xuống**, dừng ở mục đầu tiên bị sai.
 
 ## 5.1. Meta có gọi tới server không?
 

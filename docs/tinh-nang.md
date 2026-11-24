@@ -16,7 +16,28 @@ Website công khai ở doanhwork.com (sản phẩm, trang trại, blog, chính s
 | **Khách hàng** | Chủ shop | 3 tab: **Tất cả** (lịch sử mua theo SĐT, đánh dấu VIP), **Khách quen** (mua nhiều, mua thường xuyên), **Sổ đỏ** (SĐT tạo đơn ảo / phá / bom hàng, có cảnh báo khi đặt lại). Chi tiết ở mục [bên dưới](#lý-do-hoàn-sổ-đỏ-khách-quen) |
 | **Thu chi** | Chủ shop | Chi quảng cáo theo page, nhập hàng, ship, lương…; COD về và COD chờ về |
 | **Chia đơn cho kho** | Chủ shop | Mỗi tài khoản quyền **Kho** (chủ shop tạo, đưa cho 1 bên có hàng) **chỉ thấy đơn được chia cho mình**: không thấy đơn, mã vận đơn, ghi chú của kho khác, không thấy fanpage, link chat, giá vốn. Chỉ có 1 tài khoản kho thì mọi đơn tự vào kho đó. Nhiều kho: công tắc "Đơn mới giao cho…" ở trang Đơn hàng / Cài đặt để đổi kho khi hết hàng, kèm chuyển luôn các đơn chờ gửi. Chia từng đơn / hàng loạt. Tổng quan có bảng theo kho |
-| **Cài đặt** | Chủ shop | Giá theo số hộp (tự điền tổng tiền ở extension / form tạo đơn), giá vốn, danh mục thu chi, danh sách lý do hoàn, tài khoản kho (tạo, đặt lại mật khẩu, khóa, xóa tài khoản tạo nhầm), mã API cho extension, tải bản sao lưu |
+| **Gửi đơn qua Zalo** | Chủ shop | Ở trang Đơn hàng: tick đơn → **Gửi Zalo kho** (web tự gửi mỗi đơn 1 tin vào nhóm kho) hoặc **Chép lần lượt** (dự phòng). Đơn đã báo kho có nhãn **Đã báo Zalo**. Chi tiết ở mục [bên dưới](#gửi-đơn-cho-kho-qua-zalo) |
+| **Messenger** | Chủ shop | Tin khách nhắn vào page (webhook), nút trả lời thử, chẩn đoán mã page. Chuẩn bị cho chatbot: [docs/chatbot](chatbot/README.md) |
+| **Cài đặt** | Chủ shop | Giá theo số hộp (tự điền tổng tiền ở extension / form tạo đơn), giá vốn, danh mục thu chi, danh sách lý do hoàn, đăng nhập Zalo phụ + chọn nhóm kho, tài khoản kho (tạo, đặt lại mật khẩu, khóa, xóa tài khoản tạo nhầm), mã API cho extension, tải bản sao lưu |
+
+## Gửi đơn cho kho qua Zalo
+
+Dùng khi kho không dùng web, chỉ nhận đơn qua Zalo. Mỗi đơn là **một tin riêng**, nội dung giống nút **Chép** (đổi cách ngăn cách ở Cài đặt → *Khi bấm "Chép" một đơn*).
+
+**Cài một lần:**
+1. Dùng **một số Zalo phụ**, không dùng Zalo chính đang chat với khách. Thêm Zalo phụ vào nhóm của kho.
+2. Web → **Cài đặt → Gửi đơn qua Zalo** → **Đăng nhập Zalo bằng mã QR** → mở Zalo phụ trên điện thoại → quét mã → bấm **Đăng nhập**.
+3. **Chọn nhóm nhận đơn** → chọn nhóm kho → **Lưu nhóm**.
+
+**Hằng ngày:** trang **Đơn hàng** → tick các đơn → **Gửi Zalo kho**. Web gửi lần lượt, đơn cũ trước, mỗi tin cách nhau vài giây (20 đơn mất khoảng 1 phút). Gửi xong các đơn có nhãn **Đã báo Zalo**. Gửi lại đơn đã báo thì web hỏi trước.
+
+**Khi không tự gửi được** (Zalo phụ bị khóa, phiên hết hạn, Zalo đổi hệ thống): dùng **Chép lần lượt**.
+- Máy tính: web chép sẵn đơn 1 → sang Zalo **Ctrl+V**, **Enter** → quay lại web (Alt+Tab) là đơn 2 đã được chép sẵn, cứ thế đến hết.
+- Điện thoại: bấm **Chia sẻ** → Zalo → chọn nhóm kho → Gửi, rồi quay lại web bấm tiếp.
+
+Gửi tự động hỏng giữa chừng thì web báo đã gửi được bao nhiêu đơn và có nút **Chép lần lượt** phần còn lại.
+
+> Gửi tự động dùng thư viện **không chính thức** (zca-js), Zalo có thể khóa tài khoản phụ bất cứ lúc nào. Phiên đăng nhập lưu ở `data/zalo-session.json` trên server, không nằm trong database và bản sao lưu: mất thì quét QR lại. **Đăng xuất Zalo** trong Cài đặt sẽ xóa phiên này.
 
 ## Lý do hoàn, Sổ đỏ, Khách quen
 

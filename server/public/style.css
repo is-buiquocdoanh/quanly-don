@@ -590,3 +590,12 @@ textarea.md { width: 100%; font: 14px/1.6 ui-monospace, SFMono-Regular, Consolas
 .prose-admin img { max-width: 100%; border-radius: 8px; }
 .prose-admin ul, .prose-admin ol { padding-left: 1.3em; }
 .prod-row .form { margin-bottom: 4px; }
+
+/* ---- Zalo: nhãn đã báo kho, thanh tiến độ gửi, thanh "Chép lần lượt" */
+.b-zalo { background: var(--info-soft); color: var(--info); }
+.zbar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; margin: 4px 0 12px; }
+.zbar i { display: block; height: 100%; width: 0; background: var(--brand); transition: width .3s; }
+.zseq { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 60; width: min(760px, calc(100% - 32px));
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--card); border: 2px solid var(--brand);
+  border-radius: var(--r-lg); box-shadow: 0 10px 30px rgba(16, 24, 40, .18); padding: 12px 14px; }
+.zseq .small { margin-top: 2px; }

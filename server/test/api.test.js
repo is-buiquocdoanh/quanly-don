@@ -510,3 +510,28 @@ test('giá theo số hộp: mặc định, sửa trong Cài đặt, extension l�
   assert.equal((await ext({ action: 'prices', token: 'sai' })).ok, false);
   await admin('PUT', '/api/settings', { price_table: '1 = 95000\n2 = 130000\n3 = 195000\n4 = 250000\n5 = 300000' });
 });
+
+test('Zalo: chưa đăng nhập thì báo rõ, chép lần lượt đánh dấu đã báo kho, kho không gọi được, cài đặt chung không đổi được nhóm', async () => {
+  const st = await admin('GET', '/api/zalo');
+  assert.equal(st.status, 'off');
+  assert.equal(st.group, null);
+  const o = (await admin('POST', '/api/orders', { name: 'Khách Zalo', phone: '0912000111', address: 'Hà Nội', qty: 2, total: 130000 })).order;
+  // chưa chọn nhóm → không gửi, đơn chưa bị đánh dấu
+  const send = await admin('POST', '/api/zalo/send', { id: o.id, text: 'Khách Zalo | 0912000111' });
+  assert.equal(send.ok, false);
+  assert.match(send.error, /Chưa chọn nhóm/);
+  assert.equal((await admin('GET', '/api/orders/' + o.id)).order.zalo_sent_at, null);
+  // chép lần lượt → đánh dấu + ghi lịch sử
+  assert.equal((await admin('POST', '/api/zalo/mark', { ids: [o.id, 999999] })).updated, 1);
+  const d = await admin('GET', '/api/orders/' + o.id);
+  assert.ok(d.order.zalo_sent_at);
+  assert.ok(d.events.some((e) => /Gửi kho qua Zalo \(chép lần lượt\)/.test(e.action)));
+  // tài khoản kho không dùng được
+  assert.equal((await kho('GET', '/api/zalo')).ok, false);
+  assert.equal((await kho('POST', '/api/zalo/mark', { ids: [o.id] })).ok, false);
+  // nhóm chỉ đổi qua /api/zalo/group (có kiểm tra), PUT /api/settings bỏ qua
+  await admin('PUT', '/api/settings', { zalo_group_id: '123', zalo_group_name: 'Giả' });
+  assert.equal((await admin('GET', '/api/zalo')).group, null);
+  // chưa đăng nhập mà xem nhóm → báo đăng nhập
+  assert.match((await admin('GET', '/api/zalo/groups')).error, /Chưa đăng nhập Zalo/);
+});
