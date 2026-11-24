@@ -51,6 +51,8 @@
 
 ## Nhật ký
 
+- **24/11/2026 (trưa):** Webhook Messenger chạy: nhận được tin thật của page 950788948115276 (2 người khác nhau), nút Thử nghiệm OK. Page **Trứng sâu canxi toàn quốc** (1210722178801106) chưa về tin vì trước dùng **Pancake** (app nhận tin chính) → đang gỡ qua `facebook.com/settings/?tab=business_tools` (chỉ thấy khi mở bằng tài khoản cá nhân quản lý page). Mã page thiếu `pages_manage_metadata` nên nút kiểm tra đăng ký báo #200. Các lỗi đã gặp + cách sửa: `docs/8-messenger.md` mục "Gặp lỗi thì xem ở đây".
+
 - **24/11/2026:** Sửa lỗi giao diện cũ sau deploy: Cloudflare đặt Browser Cache TTL 4 giờ cho .js/.css. `serveStatic` giờ trả index.html (no-cache) với `?v=<sha1 10 ký tự>` cho mọi file .js/.css nên đổi file là trình duyệt tải bản mới. `npm test`: 14/14.
 
 - **24/11/2026 (tối):** Bắt đầu hướng chatbot Messenger (mức 2: tự trả lời). App Meta có sẵn: **trungsau_canxi** (loại Kinh doanh, đang ở chế độ Phát triển, `pages_messaging` = Standard access, đã gọi khoảng 10,7K lần qua n8n + ngrok trước đây; webhook cũ đã xóa). Thêm **webhook thử nghiệm** `src/meta.js`: `GET/POST /api/meta/webhook` (xác minh `META_VERIFY_TOKEN`, kiểm chữ ký `META_APP_SECRET`, lưu bảng `meta_events`), `GET /api/meta/events`, `POST /api/meta/test-reply` (cần `META_PAGE_TOKEN`), thẻ "Messenger (thử nghiệm)" trong Cài đặt. Trang privacy thêm mục Messenger + `#xoa-du-lieu`. Hướng dẫn: `docs/8-messenger.md`. ⏳ **Việc tiếp theo:** người dùng làm bước 4 của docs/8 (khách thật nhắn vào page) để biết có cần xin Advanced access không, rồi mới làm chatbot AI. Cần từ người dùng: bảng giá, câu hỏi thường gặp, cách xưng hô.

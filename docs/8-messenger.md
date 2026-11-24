@@ -51,6 +51,32 @@ Dùng tài khoản Facebook của bạn (admin của app) nhắn vào page. Vào
 
    Vẫn không thấy → cần xin quyền *Advanced access* cho `pages_messaging` (Xét duyệt ứng dụng → Quyền và tính năng).
 
+## Gặp lỗi thì xem ở đây
+
+Những lỗi đã gặp thật khi cài cho page của shop (24/11/2026):
+
+| Hiện tượng | Nguyên nhân | Cách sửa |
+|---|---|---|
+| Meta báo *"Không thể xác thực URL gọi lại hoặc mã xác minh"* | `META_VERIFY_TOKEN` trên server khác chuỗi dán ở Meta | Trên server: `docker exec quanly-don printenv META_VERIFY_TOKEN` phải ra đúng chuỗi đó. Trong `.env` chỉ 1 dòng, không ngoặc kép, không ghi chú cùng dòng |
+| Bấm **Thử nghiệm** thì web hiện *Tin mẫu*, nhưng nhắn thật vào page thì không thấy gì | Page **chưa đăng ký** nhận tin cho app, hoặc page đang bị **app khác giữ quyền chính** (ở shop này là **Pancake** dùng trước đây) | Gỡ Pancake (xem bên dưới), rồi Meta → Messenger → Cài đặt API Messenger → **2. Tạo mã truy cập** → dòng page → **Thêm đăng ký** → tick `messages`, `messaging_postbacks`, `message_echoes` → **Confirm** |
+| Web hiện dòng **⚠ Bị từ chối** | `META_APP_SECRET` sai | Copy lại *Khóa bí mật của ứng dụng* (Cài đặt ứng dụng → Thông tin cơ bản) vào `.env` trên server → `docker compose up -d` |
+| Web hiện **Khách nhắn (standby)** | Một app khác (Pancake, Botcake, ManyChat…) đang là **ứng dụng nhận tin chính** của page; app này chỉ được xem | Gỡ app kia, hoặc Business Suite → Cài đặt → Hộp thư / Nhắn tin nâng cao → *Ứng dụng nhận tin chính* = **trungsau_canxi** |
+| **Trả lời thử** báo *(#100) Không tìm thấy người dùng phù hợp (2018001)* | Mã người nhắn là **theo từng page**: người đó nhắn vào page A, còn `META_PAGE_TOKEN` là mã của page B | Thẻ Messenger có cột **Page** và dòng *"Mã page đang dùng là của…"*: đặt `META_PAGE_TOKEN` của đúng page có tin |
+| Nút **Kiểm tra page đăng ký nhận tin** báo *(#200) Requires pages_manage_metadata* | Mã page thiếu quyền `pages_manage_metadata` | Xét duyệt ứng dụng → Quyền và tính năng → thêm `pages_manage_metadata` (Standard access) → **tạo lại** mã page → thay `META_PAGE_TOKEN`. Nút này chỉ để tiện kiểm tra, không bắt buộc |
+| Deploy xong mà web vẫn giao diện cũ | Cloudflare cho trình duyệt giữ file .js/.css 4 giờ | Từ bản v1.2.1 web tự chống cache. Bản cũ hơn: Ctrl+F5 |
+
+### Gỡ Pancake (hoặc công cụ inbox cũ) khỏi page
+
+Mục **Tích hợp doanh nghiệp** chỉ hiện khi mở bằng **tài khoản Facebook cá nhân đang quản lý các page**, không hiện khi đang chuyển sang chế độ page:
+
+```
+https://www.facebook.com/settings/?tab=business_tools
+```
+
+Tìm **Pancake** (và **Botcake** nếu có) → **Gỡ**. Ngắt luôn page bên trong Pancake (trang chủ Pancake → page → Cài đặt → hủy kết nối / xóa trang) cho sạch. Gỡ xong nhắn thử lại vào page rồi bấm **Tải lại** trên web.
+
+> Nếu nhân viên còn trả lời khách bằng Pancake thì đừng gỡ: chỉ một app được quyền trả lời chính, chatbot và Pancake phải chia việc.
+
 ## Ghi chú
 
 - Meta chỉ cho trả lời trong **24 giờ** kể từ tin cuối của khách, nên bấm *Trả lời thử* sớm.
