@@ -95,6 +95,14 @@
   }
 
   // ---------------------------------------------------------------- giao diện (shadow DOM, không dính CSS của Zalo)
+  // icon nét (cùng kiểu icon "Kho" trên web quản lý đơn)
+  const svg = (size, body) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+  const ICON = {
+    box: (s) => svg(s, '<path d="M4 8l8-4.5L20 8v8l-8 4.5L4 16z"/><path d="M4 8l8 4.5L20 8M12 12.5v8"/>'),
+    reload: svg(16, '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>'),
+    min: svg(16, '<path d="M5 12h14"/>'),
+    send: svg(16, '<path d="M21 3L10 14"/><path d="M21 3l-7 18-4-7-7-4z"/>'),
+  };
   const host = document.createElement('div');
   host.id = 'qld-zalo-host';
   // đặt cao hơn thanh soạn tin của Zalo (không che ô chat + nút gửi)
@@ -103,12 +111,18 @@
   root.innerHTML = `<style>
     :host { all: initial; }
     * { box-sizing: border-box; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-    .pill { display: flex; align-items: center; gap: 8px; cursor: pointer; border: 0; border-radius: 999px; padding: 10px 16px; background: #16a34a; color: #fff; font: 600 14px system-ui; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
-    .pill .n { background: #fff; color: #15803d; border-radius: 999px; padding: 1px 8px; font-size: 12px; }
+    svg { display: block; flex: none; }
+    .pill { display: flex; align-items: center; gap: 8px; cursor: pointer; border: 0; border-radius: 999px; padding: 9px 14px 9px 10px; background: #16a34a; color: #fff; font: 600 14px system-ui; box-shadow: 0 6px 20px rgba(22,163,74,.35), 0 2px 6px rgba(0,0,0,.15); transition: transform .15s, background .15s; }
+    .pill:hover { background: #15803d; transform: translateY(-1px); }
+    .pill .ic { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,.2); display: grid; place-items: center; }
+    .pill .n { background: #fff; color: #15803d; border-radius: 999px; padding: 1px 8px; font-size: 12px; min-width: 22px; text-align: center; }
+    .logo { width: 30px; height: 30px; border-radius: 8px; background: #16a34a; color: #fff; display: grid; place-items: center; }
     .panel { width: 380px; max-height: min(600px, calc(100vh - 150px)); display: flex; flex-direction: column; background: #fff; color: #101828; border: 1px solid #d0d5dd; border-radius: 14px; box-shadow: 0 16px 40px rgba(16,24,40,.25); overflow: hidden; font-size: 13px; }
     .hd { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: #f9fafb; border-bottom: 1px solid #e4e7ec; }
     .hd b { font-size: 15px; flex: 1; }
-    .x { border: 0; background: none; cursor: pointer; font-size: 16px; color: #667085; padding: 2px 6px; }
+    .x { border: 0; background: none; cursor: pointer; color: #667085; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; }
+    .x:hover { background: #eaecf0; color: #101828; }
+    .btn { display: flex; align-items: center; justify-content: center; gap: 8px; }
     .sec { padding: 10px 14px; border-bottom: 1px solid #e4e7ec; }
     .row { display: flex; align-items: center; gap: 8px; }
     .muted { color: #667085; } .small { font-size: 12px; }
@@ -154,13 +168,13 @@
   function draw() {
     if (!st.open) {
       const n = st.loaded ? st.orders.length : '';
-      w.innerHTML = `<button class="pill" id="open">📦 Đơn báo kho ${n !== '' ? `<span class="n">${n}</span>` : ''}</button>`;
+      w.innerHTML = `<button class="pill" id="open" title="Gửi đơn báo kho vào chat đang mở"><span class="ic">${ICON.box(16)}</span>Đơn báo kho ${n !== '' ? `<span class="n">${n}</span>` : ''}</button>`;
       root.getElementById('open').onclick = () => { st.open = true; draw(); if (!st.loaded) load(); };
       return;
     }
     const left = st.orders.filter((o) => st.picked.has(o.id) && !st.done.has(o.id));
     w.innerHTML = `<div class="panel">
-      <div class="hd"><b>📦 Đơn báo kho</b><button class="x" id="reload" title="Tải lại">⟳</button><button class="x" id="min" title="Thu nhỏ">—</button></div>
+      <div class="hd"><span class="logo">${ICON.box(17)}</span><b>Đơn báo kho</b><button class="x" id="reload" title="Tải lại danh sách đơn">${ICON.reload}</button><button class="x" id="min" title="Thu nhỏ">${ICON.min}</button></div>
       <div class="sec">
         <div class="row"><span class="small muted">Nhóm kho</span><input type="text" id="grp" placeholder="Tên nhóm Zalo của kho (để kiểm tra mở đúng chat)" value="${esc(st.group)}"></div>
         <div class="chat small">${chatLine()}</div>
@@ -174,7 +188,7 @@
         ${st.msg ? `<div class="msg ${st.err ? 'err' : ''}">${esc(st.msg)}</div>` : ''}
         <div class="row">
           ${st.sending ? '<button class="btn s" id="stop" style="flex:1">Dừng</button>'
-            : `<button class="btn" id="go" style="flex:1" ${left.length ? '' : 'disabled'}>Gửi ${left.length} đơn vào chat đang mở</button>`}
+            : `<button class="btn" id="go" style="flex:1" ${left.length ? '' : 'disabled'}>${ICON.send}Gửi ${left.length} đơn vào chat đang mở</button>`}
         </div>
         <div class="small muted">Mỗi đơn 1 tin, cách nhau ngẫu nhiên ${st.gap.min}–${st.gap.max} giây (đổi ở web → Cài đặt → Chép &amp; gửi Zalo). Để tab Zalo này mở trên màn hình trong lúc gửi.</div>
       </div></div>`;
@@ -229,6 +243,7 @@
   }
 
   draw();
+  load(); // lấy sẵn số đơn chờ báo kho để hiện trên nút thu gọn
   // tên chat đổi khi bấm sang hội thoại khác → vẽ lại dòng "Chat đang mở"
   setInterval(() => { const el = st.open && root.querySelector('.chat'); if (el) el.innerHTML = chatLine(); }, 2000);
 })();
