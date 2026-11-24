@@ -14,6 +14,8 @@ Làm lần lượt từ trên xuống. Mỗi giai đoạn là một file ngắn,
 | 8 | [Messenger: kiểm tra trước khi làm chatbot](8-messenger.md) | Trước khi làm chatbot |
 | 9 | [Website giới thiệu (doanhwork.com)](9-website.md) | Một lần, rồi viết bài dần |
 
+Chatbot Messenger (làm sau giai đoạn 8): [**chatbot/**](chatbot/README.md): 5 bước từ tạo app Meta, cài webhook, đăng ký sự kiện, trả lời bằng Claude, đến cách kiểm tra khi webhook im lặng.
+
 Tra cứu thêm:
 
 - [Tính năng của web](tinh-nang.md): mỗi trang làm được gì, lý do hoàn, Sổ đỏ, Khách quen, đọc địa chỉ tự động.

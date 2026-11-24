@@ -4,6 +4,8 @@
 > **Làm khi nào:** trước khi làm chatbot tự trả lời.  
 > **Thời gian:** khoảng 20 phút.
 
+> **Hướng dẫn từng bước mới (gọn hơn, theo thứ tự làm):** [chatbot/](chatbot/README.md). File này giữ lại làm nhật ký và bảng lỗi đã gặp.
+
 Web có sẵn một địa chỉ webhook **bản thử nghiệm**: chỉ lưu tin nhắn Meta gửi tới và cho bấm gửi **1 tin trả lời thử bằng tay**. Chưa có AI, chưa tự trả lời ai.
 
 ## 1. Lấy 3 mã từ Meta
