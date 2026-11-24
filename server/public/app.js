@@ -1451,7 +1451,7 @@ VIEWS.settings = async (root) => {
           <label>Ghi tên mục<select name="copy_labels"><option value="0" ${Number(s.copy_labels) !== 1 ? 'selected' : ''}>Không, chỉ giá trị</option><option value="1" ${Number(s.copy_labels) === 1 ? 'selected' : ''}>Có (Tên: …, SĐT: …)</option></select></label>
           <div class="full copy-preview"><span class="fld-l">Xem trước</span><pre id="cpv"></pre></div>
         </form>${saveBtn}`)}
-      <section class="scard" id="zaloCard"><header><h2>Gửi đơn qua Zalo</h2></header><div class="scard-b"><div class="loading">Đang tải…</div></div></section>
+      <div id="zaloCard"><section class="scard"><header><h2>Gửi đơn báo kho qua Zalo</h2></header><div class="scard-b"><div class="loading">Đang tải…</div></div></section></div>
     </div>
 
     <div class="spanel" data-panel="kho">
@@ -1614,50 +1614,76 @@ VIEWS.messenger = async (root) => {
 };
 
 // ================================================================ ZALO (gửi đơn cho kho)
-// Thẻ trong Cài đặt: đăng nhập Zalo phụ bằng QR, chọn nhóm kho
+// Trong Cài đặt: 3 khung — cài đặt chung (giãn cách, tự chuyển Đã gửi), cách 1 extension trên Zalo Web,
+// cách 2 web tự gửi bằng Zalo phụ (đăng nhập QR, chọn nhóm). Lỗi của cách 2 không được che mất 2 khung kia.
 async function zaloCard() {
   const box = $('#zaloCard');
   if (!box) return;
-  const z = await api('GET', '/api/zalo').catch((e) => ({ error: e.message }));
+  const z = await api('GET', '/api/zalo').catch((e) => ({ loadError: e.message }));
   if (!box.isConnected) return;
-  const head = '<header><h2>Gửi đơn qua Zalo</h2><p>Web tự gửi <b>mỗi đơn thành 1 tin</b> vào nhóm Zalo của kho, bằng một <b>tài khoản Zalo phụ</b> (đừng dùng Zalo chính).</p></header><div class="scard-b">';
-  if (z.error) { box.innerHTML = head + `<div class="warn">${esc(z.error)}</div></div>`; return; }
+  if (z.loadError) {
+    box.innerHTML = `<section class="scard"><header><h2>Gửi đơn báo kho qua Zalo</h2></header><div class="scard-b"><div class="warn">${esc(z.loadError)}</div>
+      <div class="actions"><button class="btn sec" id="zRetry">Thử lại</button></div></div></section>`;
+    $('#zRetry', box).addEventListener('click', () => zaloCard());
+    return;
+  }
   const waiting = ['starting', 'qr', 'scanned'].includes(z.status);
   const logged = ['on', 'saved'].includes(z.status);
-  box.innerHTML = head + `
-    ${z.error ? `<div class="warn soft">${esc(z.error)}</div>` : ''}
-    ${!logged && !waiting ? '<p class="small muted" style="margin:0 0 4px">Chưa đăng nhập. Thêm Zalo phụ vào nhóm kho trước, rồi bấm nút bên dưới.</p>' : ''}
-    ${z.status === 'starting' ? '<div class="loading">Đang lấy mã QR…</div>' : ''}
-    ${z.status === 'qr' ? `<div style="text-align:center"><img alt="Mã QR đăng nhập Zalo" src="data:image/png;base64,${z.qr}" style="width:220px;max-width:100%;background:#fff;padding:8px;border-radius:8px">
-      <p class="small">Mở <b>Zalo phụ</b> trên điện thoại → biểu tượng <b>quét mã QR</b> → quét mã này → bấm <b>Đăng nhập</b>. Mã hết hạn sau khoảng 1 phút.</p></div>` : ''}
-    ${z.status === 'scanned' ? '<div class="loading">Đã quét. Bấm <b>Đăng nhập</b> trên điện thoại…</div>' : ''}
-    ${logged ? `<dl class="kv">
-        <dt>Tài khoản Zalo</dt><dd><b>${esc(z.account || '(không rõ tên)')}</b> ${z.status === 'on' ? '<span class="badge st-da_giao">✓ Sẵn sàng</span>' : '<span class="badge">Đã lưu phiên</span>'}</dd>
-        <dt>Nhóm nhận đơn</dt><dd>${z.group ? `<b>${esc(z.group.name)}</b>` : '<span class="neg">Chưa chọn</span>'}</dd>
-      </dl>
-      <div id="zGroups"></div>` : ''}
-    <div class="actions">
-      ${logged ? '<button class="btn sec" id="zOut" style="margin-right:auto">Đăng xuất Zalo</button><button class="btn" id="zPick">Chọn nhóm nhận đơn</button>'
-        : waiting ? '<button class="btn sec" id="zCancel">Hủy</button>' : '<button class="btn" id="zIn">Đăng nhập Zalo bằng mã QR</button>'}
-    </div>
-    <div class="sub-h">Khi gửi đơn qua Zalo</div>
-    <form class="form sform zgap" onsubmit="return false">
-      <div class="full fld"><span class="fld-l">Giãn cách giữa các đơn</span></div>
-      <label><span>Từ <span class="opt">(giây)</span></span>
-        <input name="zalo_gap_min" type="number" min="2" max="60" step="1" inputmode="numeric" value="${Number(z.gap?.min) || 3}"></label>
-      <label><span>Đến <span class="opt">(giây, tối đa 60)</span></span>
-        <input name="zalo_gap_max" type="number" min="2" max="60" step="1" inputmode="numeric" value="${Number(z.gap?.max) || 5}"></label>
-      <div class="full zgap-est small muted"></div>
-      <label class="full">Báo kho xong thì đơn
-        <select name="zalo_auto_shipped">
-          <option value="0" ${Number(S.settings.zalo_auto_shipped) === 1 ? '' : 'selected'}>Giữ "Chờ gửi" (chỉ gắn nhãn Đã báo Zalo)</option>
-          <option value="1" ${Number(S.settings.zalo_auto_shipped) === 1 ? 'selected' : ''}>Tự chuyển sang "Đã gửi"</option>
-        </select>
-        <span class="hint" style="margin:2px 0 0">Áp dụng cho cả 3 cách: tự gửi bằng Zalo phụ, Chép lần lượt, extension trên Zalo Web. Đơn chuyển "Đã gửi" sẽ tính giờ gửi như khi bấm tay.</span></label>
-    </form>
-    <div class="actions"><button class="btn sec" data-save>Lưu</button></div>
-    <p class="note">Cách này không chính thức: Zalo có thể khóa tài khoản phụ. Khi đó vẫn gửi được bằng nút <b>Chép lần lượt</b> ở trang Đơn hàng.</p>
-    <p class="small muted" style="margin:12px 0 0"><b>Chưa có Zalo phụ?</b> Dùng extension (bản 2.6.0 trở lên) trên <b>Zalo Web</b> (chat.zalo.me): mở nhóm kho → bấm nút <b>📦 Đơn báo kho</b> ở góc phải → <b>Gửi</b>. Extension gõ từng đơn vào ô chat và gửi bằng chính Zalo đang đăng nhập trên trình duyệt, cùng khoảng giãn cách ở trên.</p></div>`;
+  const expired = z.status === 'expired';
+  const auto = Number(S.settings.zalo_auto_shipped) === 1;
+  box.innerHTML = `
+    <section class="scard"><header><h2>Khi gửi đơn báo kho qua Zalo</h2><p>Mỗi đơn là <b>1 tin</b> vào nhóm Zalo của kho. Áp dụng cho mọi cách gửi: extension trên Zalo Web, web tự gửi bằng Zalo phụ, Chép lần lượt.</p></header>
+    <div class="scard-b">
+      <form class="form sform zgap" onsubmit="return false">
+        <div class="full fld"><span class="fld-l">Giãn cách giữa các đơn</span></div>
+        <label><span>Từ <span class="opt">(giây)</span></span>
+          <input name="zalo_gap_min" type="number" min="2" max="60" step="1" inputmode="numeric" value="${Number(z.gap?.min) || 3}"></label>
+        <label><span>Đến <span class="opt">(giây, tối đa 60)</span></span>
+          <input name="zalo_gap_max" type="number" min="2" max="60" step="1" inputmode="numeric" value="${Number(z.gap?.max) || 5}"></label>
+        <div class="full zgap-est small muted"></div>
+        <label class="full">Báo kho xong thì đơn
+          <select name="zalo_auto_shipped">
+            <option value="0" ${auto ? '' : 'selected'}>Giữ "Chờ gửi" (chỉ gắn nhãn Đã báo Zalo)</option>
+            <option value="1" ${auto ? 'selected' : ''}>Tự chuyển sang "Đã gửi"</option>
+          </select>
+          <span class="hint" style="margin:2px 0 0">Đơn chuyển "Đã gửi" được ghi giờ gửi và lịch sử như khi bấm tay. Đơn không còn ở Chờ gửi (vd đã Hủy) thì giữ nguyên.</span></label>
+      </form>
+      <div class="actions"><button class="btn" data-save>Lưu</button></div>
+    </div></section>
+
+    <section class="scard"><header><h2>Cách 1 · Extension trên Zalo Web <span class="badge st-da_giao" style="vertical-align:2px">Không cần đăng nhập ở đây</span></h2>
+      <p>Extension "Bắt đơn Mess" (bản <b>2.6.2</b> trở lên) gõ từng đơn vào ô chat và gửi bằng <b>chính Zalo đang đăng nhập trên trình duyệt</b>.</p></header>
+    <div class="scard-b">
+      <ol class="steps" style="margin:0">
+        <li>Mở <a href="https://chat.zalo.me" target="_blank" rel="noopener">chat.zalo.me</a>, bấm vào <b>nhóm kho</b>.</li>
+        <li>Bấm nút <b>Đơn báo kho</b> ở góc phải (số trên nút = số đơn Chờ gửi chưa báo kho).</li>
+        <li>Lần đầu: gõ tên nhóm kho vào ô <b>Nhóm kho</b> để extension kiểm tra mở đúng chat.</li>
+        <li>Bấm <b>Gửi N đơn vào chat đang mở</b>. Để tab Zalo mở trên màn hình trong lúc gửi.</li>
+      </ol>
+    </div></section>
+
+    <section class="scard"><header><h2>Cách 2 · Web tự gửi bằng Zalo phụ</h2>
+      <p>Server đăng nhập một <b>tài khoản Zalo phụ</b> (đừng dùng Zalo chính) và tự gửi khi bấm <b>Gửi Zalo kho</b> ở trang Đơn hàng, không cần mở Zalo.</p></header>
+    <div class="scard-b">
+      ${expired ? `<div class="warn soft" style="margin:0 0 12px">Phiên Zalo phụ đã hết hạn hoặc bị đăng xuất (thường do đăng xuất trên điện thoại, hoặc mở Zalo Web của số đó ở chỗ khác). Bấm <b>Đăng nhập lại bằng mã QR</b> rồi quét bằng Zalo phụ.</div>`
+        : z.error ? `<div class="warn soft" style="margin:0 0 12px">${esc(z.error)}</div>` : ''}
+      ${!logged && !waiting && !expired ? '<p class="small muted" style="margin:0 0 4px">Chưa đăng nhập. Thêm Zalo phụ vào nhóm kho trước, rồi bấm nút bên dưới.</p>' : ''}
+      ${z.status === 'starting' ? '<div class="loading">Đang lấy mã QR…</div>' : ''}
+      ${z.status === 'qr' ? `<div style="text-align:center"><img alt="Mã QR đăng nhập Zalo" src="data:image/png;base64,${z.qr}" style="width:220px;max-width:100%;background:#fff;padding:8px;border-radius:8px">
+        <p class="small">Mở <b>Zalo phụ</b> trên điện thoại → biểu tượng <b>quét mã QR</b> → quét mã này → bấm <b>Đăng nhập</b>. Mã hết hạn sau khoảng 1 phút.</p></div>` : ''}
+      ${z.status === 'scanned' ? '<div class="loading">Đã quét. Bấm <b>Đăng nhập</b> trên điện thoại…</div>' : ''}
+      ${logged ? `<dl class="kv">
+          <dt>Tài khoản Zalo</dt><dd><b>${esc(z.account || '(không rõ tên)')}</b> ${z.status === 'on' ? '<span class="badge st-da_giao">✓ Sẵn sàng</span>' : '<span class="badge">Đã lưu phiên</span>'}</dd>
+          <dt>Nhóm nhận đơn</dt><dd>${z.group ? `<b>${esc(z.group.name)}</b>` : '<span class="neg">Chưa chọn</span>'}</dd>
+        </dl>
+        <div id="zGroups"></div>` : ''}
+      <div class="actions">
+        ${logged ? '<button class="btn sec" id="zOut" style="margin-right:auto">Đăng xuất Zalo</button><button class="btn" id="zPick">Chọn nhóm nhận đơn</button>'
+          : waiting ? '<button class="btn sec" id="zCancel">Hủy</button>'
+          : `${expired ? '<button class="btn sec" id="zOut" style="margin-right:auto" title="Xóa phiên cũ đã hết hạn">Xóa phiên cũ</button>' : ''}<button class="btn" id="zIn">${expired ? 'Đăng nhập lại bằng mã QR' : 'Đăng nhập Zalo bằng mã QR'}</button>`}
+      </div>
+      <p class="note">Cách này không chính thức: Zalo có thể đăng xuất / khóa tài khoản phụ. Khi đó dùng Cách 1, hoặc nút <b>Chép lần lượt</b> ở trang Đơn hàng.</p>
+    </div></section>`;
   // ước tính thời gian gửi, cập nhật khi gõ số giây
   const gapMin = $('[name=zalo_gap_min]', box);
   const gapMax = $('[name=zalo_gap_max]', box);
