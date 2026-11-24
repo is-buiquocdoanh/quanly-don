@@ -121,6 +121,8 @@ export const SETTING_DEFAULTS = {
   active_kho: 0,             // tài khoản kho đang nhận đơn mới (0 = tự động nếu chỉ có 1 tài khoản kho)
   copy_sep: 'pipe',          // ký tự ngăn cách khi chép đơn: pipe | dash | semi | tab | newline
   copy_labels: 0,            // 1 = kèm nhãn "Tên:", "SĐT:"…
+  // giá theo số hộp: extension + form tạo đơn tự điền tổng tiền khi đổi số lượng (mỗi dòng "số hộp = giá")
+  price_table: '1 = 95000\n2 = 130000\n3 = 195000\n4 = 250000\n5 = 300000',
 };
 
 export function getSettings() {
@@ -136,6 +138,20 @@ export function getSetting(key) {
 export function setSetting(key, value) {
   db.prepare('INSERT INTO settings(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
     .run(key, JSON.stringify(value));
+}
+
+/** "2 = 130000" / "2: 130k" / "2 hộp 130k" (mỗi dòng 1 mức) → { 2: 130000, … } */
+export function parsePriceTable(text) {
+  const out = {};
+  for (const line of String(text || '').split(/[\n;]+/)) {
+    const m = line.match(/^\s*(\d{1,3})\s*(?:hộp|hop|h)?\s*[=:\-–→>]*\s*([\d.,]+)\s*(k|nghìn|ngàn|ng)?\s*đ?\s*$/i);
+    if (!m) continue;
+    let v = Number(m[2].replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.'));
+    if (m[3] || v < 1000) v *= 1000;
+    const qty = Number(m[1]);
+    if (qty > 0 && v > 0) out[qty] = Math.round(v);
+  }
+  return out;
 }
 
 /** Chạy fn trong 1 transaction. */

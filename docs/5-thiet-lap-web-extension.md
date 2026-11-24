@@ -31,6 +31,7 @@ Cập nhật extension sau này: lấy code mới về máy (`git pull`), vào `
 | Việc | Cách làm |
 |---|---|
 | Lưu đơn | Bôi đen tin chốt đơn → **Ctrl+C** → kiểm tra → **Enter** |
+| Tổng tiền tự điền | Có **số lượng** mà tin nhắn không ghi tiền (hoặc bạn gõ / đổi số lượng) → tổng tiền tự lấy theo **web → Cài đặt → Giá theo số hộp** (mặc định 1 hộp 95k, 2 hộp 130k, 3 hộp 195k, 4 hộp 250k, 5 hộp 300k). Tin nhắn đã ghi tiền thì giữ nguyên; tự gõ ô tổng tiền thì không bị ghi đè; số hộp ngoài bảng giá thì ô tổng tiền để trống (vàng) để tự điền. Form *Tạo đơn* trên web cũng vậy. Cần extension **2.5.0** trở lên |
 | AI đọc đơn | Tự chạy khi mở khung (vài giây): thêm dấu, mở rộng viết tắt (x → Xã, h → Huyện…), tách tên / SĐT / địa chỉ / số lượng / tiền từ tin lộn xộn, báo thông tin còn thiếu. Ô bạn đã sửa thì AI không ghi đè. Tắt ở trang Tùy chọn của extension |
 | Đoạn không có SĐT | Bôi đen → **Alt+S** (phím mở khung) |
 | Page tự điền | Web → Cài đặt → **Các page Facebook**: nhập tên các page **giống hệt tên trên Facebook**. Extension nhận page đang mở theo tên page hiện trên màn hình Business Suite; không nhận ra thì chọn 1 lần ở **Page đang mở** trong bảng bên cạnh (nhớ theo mã page và theo tab) |

@@ -625,6 +625,17 @@ function orderFields(o = {}) {
 let addrReady = null;
 const loadAddr = () => (addrReady ||= fetch('/vn-admin.json').then((r) => r.json()).then((d) => VnAddr.load(d)).catch(() => { addrReady = null; }));
 
+// bảng giá theo số hộp (Cài đặt) → giá của 1 số lượng, hoặc 0 nếu không có trong bảng
+function priceFor(qty) {
+  const n = parseInt(String(qty || '').replace(/\D/g, ''), 10);
+  if (!n) return 0;
+  for (const line of String(S.settings.price_table || '').split(/[\n;]+/)) {
+    const m = line.match(/^\s*(\d{1,3})\s*(?:hộp|hop|h)?\s*[=:\-–→>]*\s*(.+)$/i);
+    if (m && Number(m[1]) === n) return OrderParser.parseMoney(m[2]) || 0;
+  }
+  return 0;
+}
+
 function orderForm(prefill, onDone) {
   const m = modal('Tạo đơn mới', `
     <label class="small muted" style="font-weight:600">Dán tin nhắn chốt đơn (tự điền các ô bên dưới)</label>
@@ -640,6 +651,7 @@ function orderForm(prefill, onDone) {
     const p = OrderParser.parse(e.target.value);
     set('name', p.name); set('phone', p.phone); set('address', p.address); set('product', p.product);
     set('qty', p.qty); set('total', p.total ? num(p.total) : ''); set('note', p.note);
+    if (!p.total) autoTotal(); // tin nhắn đã ghi tổng tiền thì giữ nguyên
     const h = p.hints || { warnings: [], missing: [] };
     const L = { name: 'tên', phone: 'SĐT', address: 'địa chỉ', detail: 'số nhà / thôn', ward: 'xã / phường', qty: 'số lượng', total: 'tổng tiền' };
     const miss = h.missing.map((x) => L[x]).filter(Boolean);
@@ -660,6 +672,17 @@ function orderForm(prefill, onDone) {
     $('#save', m.el).textContent = r.matches.length ? 'Vẫn lưu (đơn trùng)' : 'Lưu đơn';
   }
   f.elements.phone.addEventListener('change', checkDup);
+  // tổng tiền tự theo bảng giá (Cài đặt → Giá theo số hộp) khi đổi số lượng, trừ khi đã tự gõ tổng tiền
+  let totalTyped = false;
+  let autoFilled = false; // tổng tiền hiện tại do bảng giá điền
+  f.elements.total.addEventListener('input', () => { totalTyped = true; });
+  function autoTotal() {
+    if (totalTyped) return;
+    const price = priceFor(f.elements.qty.value);
+    if (price) { f.elements.total.value = num(price); autoFilled = true; }
+    else if (autoFilled) { f.elements.total.value = ''; autoFilled = false; } // số hộp ngoài bảng giá: xóa giá cũ để tự điền
+  }
+  f.elements.qty.addEventListener('input', autoTotal);
   $('#save', m.el).addEventListener('click', async () => {
     const d = formData(f);
     d.total = OrderParser.parseMoney(d.total);
@@ -1392,6 +1415,9 @@ VIEWS.settings = async (root) => {
           <label>Giá vốn 1 hộp (để tính lãi)<input name="cost_per_unit" value="${num(s.cost_per_unit)}" inputmode="numeric"></label>
           <label>Kiểm tra trùng SĐT trong (ngày)<input name="dup_days" value="${s.dup_days}" inputmode="numeric"></label>
           <label class="full">Sản phẩm mặc định<input name="default_product" value="${esc(s.default_product)}"></label>
+          <label class="full">Giá theo số hộp (tự điền tổng tiền khi nhập số lượng ở extension và form tạo đơn)
+            <textarea name="price_table" rows="5" placeholder="1 = 95000&#10;2 = 130000">${esc(s.price_table || '')}</textarea>
+            <span class="hint" style="margin:4px 0 0">Mỗi dòng: <b>số hộp = giá</b>, vd <code>2 = 130000</code> hoặc <code>2 = 130k</code>. Số hộp không có trong bảng thì tự điền tay. Gõ tay ô tổng tiền thì không bị ghi đè.</span></label>
           <div class="full fld"><span class="fld-l">Các page Facebook của shop</span>${UI.tags('fb_pages', s.fb_pages || [], 'Nhập tên page, nhấn Enter (vd: Trứng Sâu Canxi Miền Bắc)')}
             <span class="hint" style="margin:4px 0 0">Extension dùng danh sách này để tự điền page cho từng đơn.</span></div>
           <div class="full fld"><span class="fld-l">Danh mục chi</span>${UI.tags('chi_categories', s.chi_categories, 'Thêm danh mục chi, nhấn Enter')}</div>

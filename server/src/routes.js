@@ -1,4 +1,4 @@
-import { db, getSettings, setSetting, SETTING_DEFAULTS, tx } from './db.js';
+import { db, getSettings, setSetting, SETTING_DEFAULTS, tx, parsePriceTable } from './db.js';
 import {
   nowVN, todayVN, daysAgoVN, normalizePhone, toInt, str, bad, HttpError, isDate,
   hashPassword, verifyPassword, randomToken,
@@ -85,7 +85,7 @@ add('POST', '/api/logout', 'none', ({ sid, setCookie }) => {
 
 add('GET', '/api/bootstrap', 'any', ({ user }) => ({
   user: publicUser(user),
-  settings: user.role === 'admin' ? getSettings() : (({ shop_name, default_product, copy_sep, copy_labels, return_reasons }) => ({ shop_name, default_product, copy_sep, copy_labels, return_reasons }))(getSettings()),
+  settings: user.role === 'admin' ? getSettings() : (({ shop_name, default_product, copy_sep, copy_labels, return_reasons, price_table }) => ({ shop_name, default_product, copy_sep, copy_labels, return_reasons, price_table }))(getSettings()),
   pages: user.role === 'admin' ? listPages() : [],
   khos: user.role === 'admin' ? listKho() : [],
   statuses: STATUS,
@@ -188,6 +188,7 @@ add('PUT', '/api/settings', 'admin', ({ body }) => {
       v = (Array.isArray(v) ? v : String(v).split(k === 'fb_pages' || k === 'return_reasons' ? /\n/ : /[\n,]/)).map((x) => str(x, 60)).filter(Boolean);
     } else if (typeof SETTING_DEFAULTS[k] === 'number') v = toInt(v);
     else v = str(v, 300);
+    if (k === 'price_table' && v && !Object.keys(parsePriceTable(v)).length) throw bad('Bảng giá không đọc được. Mỗi dòng ghi: số hộp = giá, ví dụ 2 = 130000');
     if (k === 'active_kho') v = khoIdOrNull(v) || 0;
     if (k === 'copy_sep' && !['pipe', 'dash', 'semi', 'tab', 'newline'].includes(v)) v = 'pipe';
     if (k === 'copy_labels') v = v ? 1 : 0;
@@ -344,6 +345,8 @@ add('POST', '/api/ext', 'none', async ({ body, baseUrl }) => {
     }
     case 'pages':
       return { ok: true, pages: listPages() };
+    case 'prices': // giá theo số hộp (extension tự điền tổng tiền); extension cũ không gọi → không ảnh hưởng
+      return { ok: true, prices: parsePriceTable(getSettings().price_table) };
     case 'check': {
       const c = getCustomerByPhone(body.order?.phone);
       return { ok: true, matches: findDups(body.order?.phone).map((d) => extOrder(d)), customer: c && { flag: c.flag, note: c.note } };

@@ -16,7 +16,7 @@ Website công khai ở doanhwork.com (sản phẩm, trang trại, blog, chính s
 | **Khách hàng** | Chủ shop | 3 tab: **Tất cả** (lịch sử mua theo SĐT, đánh dấu VIP), **Khách quen** (mua nhiều, mua thường xuyên), **Sổ đỏ** (SĐT tạo đơn ảo / phá / bom hàng, có cảnh báo khi đặt lại). Chi tiết ở mục [bên dưới](#lý-do-hoàn-sổ-đỏ-khách-quen) |
 | **Thu chi** | Chủ shop | Chi quảng cáo theo page, nhập hàng, ship, lương…; COD về và COD chờ về |
 | **Chia đơn cho kho** | Chủ shop | Mỗi tài khoản quyền **Kho** (chủ shop tạo, đưa cho 1 bên có hàng) **chỉ thấy đơn được chia cho mình**: không thấy đơn, mã vận đơn, ghi chú của kho khác, không thấy fanpage, link chat, giá vốn. Chỉ có 1 tài khoản kho thì mọi đơn tự vào kho đó. Nhiều kho: công tắc "Đơn mới giao cho…" ở trang Đơn hàng / Cài đặt để đổi kho khi hết hàng, kèm chuyển luôn các đơn chờ gửi. Chia từng đơn / hàng loạt. Tổng quan có bảng theo kho |
-| **Cài đặt** | Chủ shop | Giá vốn, danh mục thu chi, danh sách lý do hoàn, tài khoản kho (tạo, đặt lại mật khẩu, khóa, xóa tài khoản tạo nhầm), mã API cho extension, tải bản sao lưu |
+| **Cài đặt** | Chủ shop | Giá theo số hộp (tự điền tổng tiền ở extension / form tạo đơn), giá vốn, danh mục thu chi, danh sách lý do hoàn, tài khoản kho (tạo, đặt lại mật khẩu, khóa, xóa tài khoản tạo nhầm), mã API cho extension, tải bản sao lưu |
 
 ## Lý do hoàn, Sổ đỏ, Khách quen
 

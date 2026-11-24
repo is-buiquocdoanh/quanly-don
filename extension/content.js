@@ -131,6 +131,17 @@
     const fresh = api('pages').then((r) => { if (r && r.ok) { chrome.storage.local.set({ knownPages: r.pages }); return r.pages; } return cached; });
     return cached.length ? cached : fresh; // lần đầu chưa có thì chờ lấy từ web
   }
+  // giá theo số hộp (web → Cài đặt → Giá theo số hộp): dùng bản đã lưu ngay, cập nhật ngầm từ web.
+  // Web bản cũ chưa có bảng giá → dùng giá mặc định.
+  const DEFAULT_PRICES = { 1: 95000, 2: 130000, 3: 195000, 4: 250000, 5: 300000 };
+  async function knownPrices() {
+    const { knownPrices: cached } = await chrome.storage.local.get('knownPrices');
+    const fresh = api('prices').then((r) => {
+      if (r && r.ok && r.prices && Object.keys(r.prices).length) { chrome.storage.local.set({ knownPrices: r.prices }); return r.prices; }
+      return cached || DEFAULT_PRICES;
+    }).catch(() => cached || DEFAULT_PRICES);
+    return cached || fresh;
+  }
 
   // Tên page của shop đang hiện trên màn hình (ảnh đại diện, nhãn, chữ) — không phụ thuộc đường dẫn.
   // Chỉ nhận khi 1 page vượt hẳn các page khác, không thì trả ''.
@@ -213,7 +224,7 @@
   async function openPanel(order, rawText = '') {
     closePanel();
     const aid = assetId();
-    const pages = await knownPages();
+    const [pages, prices] = await Promise.all([knownPages(), knownPrices()]);
     const det = await detectPage(pages);
     order.page = det.page;
     order.link = location.href;
@@ -282,6 +293,28 @@
     // ô người dùng đã tự sửa thì AI không ghi đè
     const edited = new Set();
     root.addEventListener('input', (e) => { const n = e.target.name; if (n) { edited.add(n); e.target.classList.remove('miss', 'by-ai'); } });
+
+    // tổng tiền tự theo bảng giá khi có số lượng mà chưa có tổng tiền / khi đổi số lượng — trừ khi đã tự gõ tổng tiền
+    let autoFilled = false; // tổng tiền hiện tại do bảng giá điền
+    function autoTotal() {
+      if (edited.has('total')) return;
+      const qty = parseInt(String(f('qty').value).replace(/\D/g, ''), 10);
+      const price = qty && prices[qty];
+      if (!price) {
+        // số hộp ngoài bảng giá: xóa giá cũ do bảng giá điền, tô vàng để tự điền
+        if (autoFilled) { f('total').value = ''; f('total').classList.remove('by-ai'); f('total').classList.add('miss'); f('total').title = ''; autoFilled = false; }
+        return;
+      }
+      autoFilled = true;
+      f('total').value = price.toLocaleString('vi-VN');
+      f('total').classList.remove('miss');
+      f('total').classList.add('by-ai');
+      f('total').title = `Theo bảng giá: ${qty} hộp = ${price.toLocaleString('vi-VN')}đ (gõ tay để đổi)`;
+      const chk = $('.chk');
+      if (chk && !chk.hidden) chk.innerHTML = chk.innerHTML.replace(/(, )?tổng tiền/, '').replace('<b>Thiếu: </b>', '<b>Kiểm tra lại</b>');
+    }
+    f('qty').addEventListener('input', autoTotal);
+    if (!f('total').value) autoTotal(); // tin nhắn có số hộp mà không ghi tiền
 
     const saveBtn = $('.save');
     let hasDup = false;
@@ -424,6 +457,7 @@
       if (a.product) put('product', a.product);
       put('qty', a.qty || '');
       put('total', a.total ? a.total.toLocaleString('vi-VN') : '');
+      if (!a.total && a.qty) autoTotal(); // AI đọc ra số hộp mà tin nhắn không ghi tiền → theo bảng giá
       if (a.note) put('note', f('note').value && !edited.has('note') ? f('note').value + '; ' + a.note : a.note);
       if (!a.phone && a.phone_raw && !edited.has('phone')) { f('phone').value = a.phone_raw; f('phone').classList.add('miss'); }
       for (const [k, m] of [['name', 'name'], ['phone', 'phone'], ['qty', 'qty'], ['total', 'total']]) if (a.missing.includes(m) && !edited.has(k)) f(k).classList.add('miss');

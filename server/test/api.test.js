@@ -494,3 +494,19 @@ test('cài đặt: lý do hoàn có dấu phẩy không bị tách đôi; page F
   assert.deepEqual(s.return_reasons, ['Đơn ảo / cố tình phá', 'Giao lâu, khách hủy']);
   assert.deepEqual(s.fb_pages, ['Page A', 'Page B, chi nhánh 2']);
 });
+
+test('giá theo số hộp: mặc định, sửa trong Cài đặt, extension lấy được; bảng sai thì báo lỗi', async () => {
+  const tok = (await admin('POST', '/api/me/api-token')).token;
+  // mặc định
+  let r = await ext({ action: 'prices', token: tok });
+  assert.deepEqual(r.prices, { 1: 95000, 2: 130000, 3: 195000, 4: 250000, 5: 300000 });
+  // sửa: nhiều kiểu viết
+  await admin('PUT', '/api/settings', { price_table: '1 = 99k\n2: 135.000\n3 hộp 200k\n10 = 550000' });
+  r = await ext({ action: 'prices', token: tok });
+  assert.deepEqual(r.prices, { 1: 99000, 2: 135000, 3: 200000, 10: 550000 });
+  assert.equal((await admin('PUT', '/api/settings', { price_table: 'linh tinh' })).ok, false);
+  // kho cũng nhận được bảng giá (form tạo đơn), sai mã API thì không
+  assert.match((await kho('GET', '/api/bootstrap')).settings.price_table, /10 = 550000/);
+  assert.equal((await ext({ action: 'prices', token: 'sai' })).ok, false);
+  await admin('PUT', '/api/settings', { price_table: '1 = 95000\n2 = 130000\n3 = 195000\n4 = 250000\n5 = 300000' });
+});
