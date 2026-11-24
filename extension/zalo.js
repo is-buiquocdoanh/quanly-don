@@ -24,7 +24,20 @@
     return list[0] || null;
   }
   const inputText = (el) => (el.innerText || el.textContent || '').replace(/​/g, '').trim();
-  /** Tên cuộc chat đang mở: chữ to nhất ở dải trên cùng, bên phải danh sách hội thoại. */
+  // nằm trong vùng cuộn được (khung tin nhắn, danh sách hội thoại) → không phải tiêu đề chat
+  function inScroller(el) {
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const oy = getComputedStyle(p).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight + 4) return true;
+    }
+    return false;
+  }
+  // chữ đang thật sự hiện ra (không bị thanh tiêu đề / ghim che mất)
+  function onTop(el, r) {
+    const h = document.elementFromPoint(r.left + Math.min(r.width / 2, 12), r.top + r.height / 2);
+    return !!h && (h === el || el.contains(h) || h.contains(el));
+  }
+  /** Tên cuộc chat đang mở: chữ to nhất ở dải trên cùng, bên phải danh sách hội thoại, ngoài khung tin nhắn. */
   function chatName() {
     const inp = chatInput();
     const minLeft = inp ? inp.getBoundingClientRect().left - 40 : innerWidth * 0.3;
@@ -33,9 +46,10 @@
     for (const el of document.querySelectorAll('div, span, h1, h2, h3, p')) {
       if (el.children.length || el.closest('#qld-zalo-host')) continue;
       const t = (el.textContent || '').trim();
-      if (t.length < 2 || t.length > 80) continue;
+      if (t.length < 2 || t.length > 80 || !/\p{L}.*\p{L}/u.test(t)) continue; // phải có chữ cái, không lấy emoji 📍
       const r = el.getBoundingClientRect();
-      if (r.top < 0 || r.top > 90 || r.left < minLeft || r.width < 10) continue;
+      if (r.top < 0 || r.top > 130 || r.left < minLeft || r.width < 10) continue;
+      if (inScroller(el) || !onTop(el, r)) continue;
       const fs = parseFloat(getComputedStyle(el).fontSize) || 0;
       const fw = parseInt(getComputedStyle(el).fontWeight, 10) || 400;
       const score = fs + (fw >= 600 ? 2 : 0);
@@ -134,7 +148,7 @@
     const want = norm(st.group);
     const match = !want ? null : !!name && (norm(name).includes(want) || want.includes(norm(name)));
     return `Chat đang mở: ${name ? `<b>${esc(name)}</b>` : '<span class="muted">không đọc được tên</span>'}`
-      + (match === true ? ' <span class="ok">✓ đúng nhóm</span>' : match === false ? ' <span class="bad">✗ không phải nhóm kho</span>' : '');
+      + (match === true ? ' <span class="ok">✓ đúng nhóm</span>' : match === false ? ' <span class="bad">✗ không khớp tên nhóm kho</span>' : '');
   }
 
   function draw() {
@@ -181,10 +195,10 @@
     const name = chatName();
     const want = norm(st.group);
     if (want) {
+      // tên đọc được không khớp (hoặc không đọc được) → hỏi lại, phòng khi extension đọc nhầm tên trên giao diện Zalo
       if (!name || !(norm(name).includes(want) || want.includes(norm(name)))) {
-        st.msg = `Chat đang mở${name ? ` ("${name}")` : ''} không phải nhóm "${st.group}". Mở đúng nhóm kho rồi bấm lại.`;
-        st.err = true;
-        return draw();
+        const ok = confirm(`Extension đọc tên chat đang mở là: ${name ? `"${name}"` : '(không đọc được)'}\nkhông khớp nhóm kho "${st.group}".\n\nNhìn lên đầu khung chat: nếu ĐÚNG là nhóm kho thì bấm OK để vẫn gửi ${list.length} đơn.\nKhông phải thì bấm Hủy, mở đúng nhóm kho rồi bấm lại.`);
+        if (!ok) return;
       }
     } else if (!confirm(`Gửi ${list.length} đơn vào cuộc chat đang mở${name ? `: "${name}"` : ''}?\n\nMẹo: nhập tên nhóm kho ở ô "Nhóm kho" để extension tự kiểm tra mở đúng chat.`)) return;
 
