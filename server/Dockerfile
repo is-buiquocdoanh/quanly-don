@@ -1,3 +1,9 @@
+# Bước phụ: lấy thư mục Chrome extension nếu deploy.sh có chép vào (để web cho tải file .zip).
+# deploy.sh cũ không chép → /out rỗng, web vẫn chạy, chỉ báo "chưa kèm extension".
+FROM node:24-alpine AS ext
+COPY . /ctx
+RUN mkdir -p /out && if [ -f /ctx/extension/manifest.json ]; then cp -r /ctx/extension /out/extension; fi
+
 FROM node:24-alpine
 
 ENV NODE_ENV=production \
@@ -14,6 +20,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY src ./src
 COPY public ./public
 COPY site ./site
+COPY --from=ext /out/ ./
 
 RUN mkdir -p /data && chown node:node /data
 USER node

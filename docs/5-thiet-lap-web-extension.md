@@ -9,21 +9,26 @@
 1. Đăng nhập bằng `admin` và mật khẩu đã đặt trong `.env`, rồi vào **Cài đặt → Đổi mật khẩu**.
 2. **Cài đặt → Cửa hàng**: nhập **giá vốn 1 hộp** để web tính lãi.
 3. **Cài đặt → Tài khoản → Thêm tài khoản**: tạo tài khoản quyền **Kho** cho người gửi hàng. Tạo nhầm thì bấm **Xóa** ở dòng tài khoản đó rồi tạo lại.
-4. **Cài đặt → Chrome extension → Tạo mã mới**: copy mã `ext_…`.
+4. **Cài đặt → Extension & bảo mật → Tạo mã mới** (chỉ lần đầu): mã `ext_…` luôn hiện ở đó, có nút **Chép**.
 
 ## 2. Cài extension vào Chrome
 
-1. Mở `chrome://extensions` và bật **Chế độ dành cho nhà phát triển**.
-2. Bấm **Tải tiện ích đã giải nén** và chọn thư mục `extension`.
-3. Ghim icon extension lên thanh công cụ (biểu tượng 🧩 → 📌). Bấm icon để mở **bảng đơn hàng bên cạnh**: bảng luôn mở khi làm việc trên Facebook, tự cập nhật khi lưu đơn.
+Cài được trên **bao nhiêu máy cũng được** (ở nhà, ở công ty…), mọi máy dùng **chung 1 mã API**, đơn đều về chung một chỗ.
 
-Cập nhật extension sau này: lấy code mới về máy (`git pull`), vào `chrome://extensions` bấm ⟳ (Tải lại) trên extension rồi F5 trang Facebook.
+1. Web → **Cài đặt → Extension & bảo mật → ⬇ Tải extension**. Giải nén file `.zip` vào một thư mục **cố định**, ví dụ `D:\quanly-don-extension`. Đừng để trong thư mục Tải xuống rồi lỡ tay xóa.
+2. Mở `chrome://extensions` và bật **Chế độ dành cho nhà phát triển**.
+3. Bấm **Tải tiện ích đã giải nén** và chọn thư mục vừa giải nén.
+4. Ghim icon extension lên thanh công cụ (biểu tượng 🧩 → 📌). Bấm icon để mở **bảng đơn hàng bên cạnh**: bảng luôn mở khi làm việc trên Facebook, tự cập nhật khi lưu đơn.
+
+**Cập nhật extension sau này** (làm trên từng máy): tải lại file ở web, giải nén **đè** vào đúng thư mục cũ, vào `chrome://extensions` bấm ⟳ (Tải lại) trên extension rồi F5 trang Facebook. Cài sang thư mục khác thì Chrome coi là extension mới, phải nhập lại địa chỉ web và mã API.
+
+> **Không bấm "Tạo mã mới"** trừ khi mã bị lộ: mã cũ hết hiệu lực ngay, **mọi máy** phải dán lại mã mới.
 
 ## 3. Nối extension với web
 
 1. Ở `chrome://extensions`, tìm **Bắt đơn Mess**, bấm **Chi tiết → Tùy chọn tiện ích**:
    - Địa chỉ web: `https://don.doanhwork.com`
-   - Mã API: mã `ext_…` đã copy ở mục 1
+   - Mã API: mã `ext_…` ở web → Cài đặt → Extension & bảo mật (bấm **Chép**)
 2. Bấm **Lưu & kiểm tra kết nối**, rồi **Cho phép** khi Chrome hỏi quyền. Phải thấy ✅.
 
 ## 4. Dùng extension hằng ngày

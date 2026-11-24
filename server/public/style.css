@@ -651,3 +651,11 @@ textarea.md { width: 100%; font: 14px/1.6 ui-monospace, SFMono-Regular, Consolas
 @media (max-width: 560px) { .zgap-est { align-self: start; } }
 .actbar .dd-btn { height: 32px; font-size: 13px; font-weight: 600; }
 @media (max-width: 560px) { .actbar-meta { display: none; } .actbar { padding-left: 12px; } }
+/* khung Chrome extension trong Cài đặt */
+.ext-dl { margin-bottom: 14px; }
+.steps { margin: 0 0 10px; padding-left: 20px; font-size: 13px; line-height: 1.7; color: var(--ink-2); }
+.steps code, .scard-b p code { font-size: 12px; background: var(--hover); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.copyrow { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 12px; }
+.copyrow label { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500; color: var(--ink-2); }
+.copyrow input { width: 100%; color: var(--ink); }
+.copyrow .btn { height: 40px; flex: none; }

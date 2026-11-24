@@ -546,3 +546,27 @@ test('Zalo: chưa đăng nhập thì báo rõ, chép lần lượt đánh dấu 
   // chưa đăng nhập mà xem nhóm → báo đăng nhập
   assert.match((await admin('GET', '/api/zalo/groups')).error, /Chưa đăng nhập Zalo/);
 });
+
+test('extension: tải file .zip (chỉ chủ shop), mã API hiện lại được để dán nhiều máy', async () => {
+  // mã API: GET trả đúng mã đang dùng, dùng được cho extension; tạo mã mới thì mã cũ hết hiệu lực
+  const t1 = (await admin('POST', '/api/me/api-token')).token;
+  const g = await admin('GET', '/api/me/api-token');
+  assert.equal(g.token, t1);
+  assert.match(g.extension.version, /^\d+\.\d+/);
+  assert.equal((await ext({ action: 'ping', token: g.token })).ok, true);
+  const t2 = (await admin('POST', '/api/me/api-token')).token;
+  assert.equal((await admin('GET', '/api/me/api-token')).token, t2);
+  assert.equal((await ext({ action: 'ping', token: t1 })).ok, false);
+  assert.equal((await kho('GET', '/api/me/api-token')).ok, false);
+  // tải zip: cần đăng nhập chủ shop
+  assert.equal((await fetch(BASE + '/api/extension.zip')).status, 401);
+  const login = await fetch(BASE + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'admin', password: 'test123' }) });
+  const cookie = login.headers.get('set-cookie').split(';')[0];
+  const r = await fetch(BASE + '/api/extension.zip', { headers: { Cookie: cookie } });
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('content-disposition'), /quanly-don-extension-\d/);
+  const buf = Buffer.from(await r.arrayBuffer());
+  assert.equal(buf.readUInt32LE(0), 0x04034b50); // "PK.."
+  assert.ok(buf.includes(Buffer.from('quanly-don-extension/manifest.json')));
+  assert.equal(buf.readUInt32LE(buf.length - 22), 0x06054b50); // có mục lục cuối file
+});

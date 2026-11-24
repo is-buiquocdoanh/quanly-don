@@ -14,6 +14,7 @@ import { markdown } from './site/markdown.js';
 import { saveUpload, listUploads } from './site/uploads.js';
 import { metaStatus, listEvents, sendTest, tokenPage, seenPages, pageSubscriptions, subscribePage } from './meta.js';
 import { forKho, getOrder, markZaloSent } from './orders.js';
+import { extInfo } from './extzip.js';
 import { zaloStatus, startQR, logout, listGroups, chooseGroup, sendToGroup } from './zalo.js';
 
 const SESSION_DAYS = 30;
@@ -329,6 +330,11 @@ add('POST', '/api/kho/move', 'admin', ({ body, user }) => {
 });
 
 /** Tạo mã API mới cho extension (của chính tài khoản đang đăng nhập). */
+/** Mã API đang dùng (hiện luôn để chép sang nhiều máy; 1 mã dùng được cho bao nhiêu máy cũng được) + bản extension có trên server. */
+add('GET', '/api/me/api-token', 'admin', ({ user }) => ({
+  token: db.prepare('SELECT api_token FROM users WHERE id = ?').get(user.id)?.api_token || '',
+  extension: extInfo(),
+}));
 add('POST', '/api/me/api-token', 'admin', ({ user }) => {
   const token = 'ext_' + randomToken(24);
   db.prepare('UPDATE users SET api_token = ? WHERE id = ?').run(token, user.id);

@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { db, DATA_DIR, backupTo } from './db.js';
+import { extZip, extInfo } from './extzip.js';
 import { match, userFromSession } from './routes.js';
 import { HttpError, hashPassword, randomToken, nowVN, todayVN } from './util.js';
 import { verifyWebhook, checkSignature, saveEvents, logProblem } from './meta.js';
@@ -212,6 +213,22 @@ const server = http.createServer(async (req, res) => {
         'Content-Disposition': `attachment; filename="don-${todayVN()}.db"`,
       });
       fs.createReadStream(file).pipe(res).on('close', () => fs.rm(file, () => {}));
+      return;
+    }
+
+    // Tải Chrome extension (.zip) để cài trên máy khác
+    if (req.method === 'GET' && pathname === '/api/extension.zip') {
+      const user = userFromSession(sid);
+      if (!user || user.role !== 'admin') throw new HttpError(401, 'Cần đăng nhập admin');
+      const buf = extZip();
+      if (!buf) throw new HttpError(404, 'Bản web này chưa kèm extension');
+      res.writeHead(200, {
+        'Content-Type': 'application/zip',
+        'Content-Length': buf.length,
+        'Content-Disposition': `attachment; filename="quanly-don-extension-${extInfo()?.version || ''}.zip"`,
+        'Cache-Control': 'no-store',
+      });
+      res.end(buf);
       return;
     }
 

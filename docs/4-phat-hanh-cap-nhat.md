@@ -40,6 +40,17 @@ Mỗi lần deploy, script làm các việc sau:
 
 Thời gian web tạm ngừng khi đổi phiên bản chỉ khoảng 2–5 giây.
 
+### Cập nhật chính file `deploy.sh`
+
+`deploy.sh` trên server là bản chép ra lúc cài, **không tự cập nhật**. Khi có thay đổi ở `deploy/deploy.sh` (ví dụ từ v1.6.0: kèm file extension vào web để tải ở Cài đặt), lấy bản mới theo đúng phiên bản sắp deploy:
+```bash
+cd ~/apps/quanly-don
+git -C src fetch --tags --force origin
+git -C src show v1.6.0:deploy/deploy.sh > deploy.sh && chmod +x deploy.sh
+./deploy.sh v1.6.0
+```
+Quên bước này thì web vẫn chạy bình thường, chỉ thiếu nút tải extension (Cài đặt báo "chưa kèm file extension").
+
 ## 3. Lần chạy đầu tiên
 ```bash
 ~/apps/quanly-don/deploy.sh v1.0.0     # hoặc ./deploy.sh nếu chưa có tag nào

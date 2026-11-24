@@ -67,7 +67,9 @@ build_image() {
   commit="$(git_src rev-parse --short "$ref^{commit}")"
   tmp="$(mktemp -d)"
   log "Build image $IMAGE:$ver (commit $commit)…"
+  # kèm thư mục extension vào bản build để web cho tải file .zip (Cài đặt → Extension)
   if ! { git_src archive "$ref" server | tar -x -C "$tmp" &&
+         { git_src archive "$ref" extension 2>/dev/null | tar -x -C "$tmp/server" || true; } &&
          docker build -t "$IMAGE:$ver" \
            --label "quanly-don.version=$ver" --label "quanly-don.commit=$commit" \
            "$tmp/server"; }; then

@@ -1412,7 +1412,7 @@ VIEWS.finance = async (root) => {
 // ================================================================ CÀI ĐẶT
 const setState = { tab: 'ban' };
 VIEWS.settings = async (root) => {
-  const [u, sp] = await Promise.all([api('GET', '/api/users'), api('GET', '/api/kho')]);
+  const [u, sp, tk] = await Promise.all([api('GET', '/api/users'), api('GET', '/api/kho'), api('GET', '/api/me/api-token').catch(() => ({ token: '', extension: null }))]);
   S.khos = sp.khos.map(({ waiting, shipped, ...w }) => w);
   const s = S.settings;
   const sample = { name: 'Bùi Thanh Tâm', phone: '0949047192', address: 'Xã Nghĩa Đàn, Nghệ An', qty: 2, total: 240000 };
@@ -1493,10 +1493,21 @@ VIEWS.settings = async (root) => {
     </div>
 
     <div class="spanel" data-panel="khac">
-      ${T('Chrome extension (bắt đơn Ctrl+C)', 'Nhập 2 dòng này vào phần Cài đặt của extension.', `
-        <form class="form"><label class="full">Địa chỉ web<input readonly value="${esc(location.origin)}"></label>
-        <label class="full">Mã API<input readonly id="tok" placeholder="Bấm “Tạo mã mới”"></label></form>
-        <div class="actions"><span class="muted small" style="margin-right:auto">Mã chỉ hiện 1 lần. Tạo mã mới thì mã cũ hết hiệu lực.</span><button class="btn sec" id="newTok">Tạo mã mới</button></div>`)}
+      ${T('Chrome extension (bắt đơn Ctrl+C)', 'Cài được trên <b>bao nhiêu máy cũng được</b> (ở nhà, ở công ty…): mọi máy nhập cùng địa chỉ web và mã API bên dưới, đơn đều về chung một chỗ.', `
+        <div class="ext-dl">
+          ${tk.extension ? `<a class="btn" href="/api/extension.zip" download>⬇ Tải extension (bản ${esc(tk.extension.version)})</a>`
+            : '<span class="warn soft" style="margin:0">Bản web này chưa kèm file extension. Trên server chép lại deploy.sh mới rồi deploy lại (xem docs/4-phat-hanh-cap-nhat.md).</span>'}
+        </div>
+        <ol class="steps">
+          <li>Giải nén file vừa tải vào một thư mục <b>cố định</b> (vd <code>D:\\quanly-don-extension</code>). Đừng để trong thư mục Tải xuống rồi xóa.</li>
+          <li>Mở Chrome, vào <code>chrome://extensions</code> → bật <b>Chế độ dành cho nhà phát triển</b> (góc phải).</li>
+          <li>Bấm <b>Tải tiện ích đã giải nén</b> → chọn thư mục vừa giải nén.</li>
+          <li>Bấm biểu tượng extension → <b>Cài đặt</b> → dán 2 dòng bên dưới.</li>
+        </ol>
+        <p class="small muted" style="margin:0 0 14px">Có bản mới: tải lại file, giải nén <b>đè</b> vào đúng thư mục cũ, rồi bấm ⟳ ở <code>chrome://extensions</code>. Máy nào cũng làm như vậy.</p>
+        <div class="copyrow"><label>Địa chỉ web<input readonly value="${esc(location.origin)}"></label><button class="btn sec" data-cp="${esc(location.origin)}">Chép</button></div>
+        <div class="copyrow"><label>Mã API<input readonly id="tok" class="mono" value="${esc(tk.token)}" placeholder="Chưa có mã: bấm “Tạo mã mới”"></label><button class="btn sec" id="cpTok" ${tk.token ? '' : 'disabled'}>Chép</button></div>
+        <div class="actions"><span class="muted small" style="margin-right:auto">Tạo mã mới thì mã cũ hết hiệu lực: <b>mọi máy</b> đang dùng mã cũ phải dán lại mã mới.</span><button class="btn sec" id="newTok">Tạo mã mới</button></div>`)}
       ${T('Sao lưu dữ liệu', 'Server tự sao lưu mỗi ngày (giữ 30 bản). Nên tải thêm 1 bản về máy thỉnh thoảng.', `
         <a class="btn sec" href="/api/backup">⬇ Tải bản sao lưu</a>`)}
       ${passwordCard()}
@@ -1554,10 +1565,12 @@ VIEWS.settings = async (root) => {
   $('#goUn')?.addEventListener('click', () => { ordState.kho = 'none'; ordState.status = 'moi'; });
 
   $('#newTok').addEventListener('click', async () => {
-    if (!confirm('Tạo mã mới? Mã cũ (nếu có) sẽ hết hiệu lực.')) return;
+    if (!confirm('Tạo mã mới? Mã cũ sẽ hết hiệu lực: mọi máy đang cài extension phải dán lại mã mới.')) return;
     const r = await api('POST', '/api/me/api-token').catch(fail);
-    if (r) { $('#tok').value = r.token; $('#tok').select(); copyText(r.token); }
+    if (r) { $('#tok').value = r.token; $('#cpTok').disabled = false; copyText(r.token); }
   });
+  $('#cpTok').addEventListener('click', (e) => copyText($('#tok').value, e.currentTarget));
+  root.addEventListener('click', (e) => { const b = e.target.closest('[data-cp]'); if (b) copyText(b.dataset.cp, b); });
   $('#newUser').addEventListener('submit', async (e) => {
     e.preventDefault();
     try { await api('POST', '/api/users', formData(e.target)); toast('Đã tạo tài khoản'); route(); } catch (err) { fail(err); }
