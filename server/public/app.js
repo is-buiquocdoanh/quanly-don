@@ -1294,15 +1294,21 @@ async function metaCard() {
   if (!box.isConnected) return;
   if (r.error) { box.innerHTML = `<h2>Messenger (thử nghiệm)</h2><div class="warn">${esc(r.error)}</div>`; return; }
   const ok = (v, label) => `<span class="badge ${v ? 'st-da_giao' : 'st-huy'}">${v ? '✓' : '✗'} ${label}</span>`;
+  const tp = r.token_page;
+  const other = tp?.id ? (r.seen_pages || []).filter((p) => p.page_id !== tp.id) : [];
+  const pageName = (id) => (tp?.id === id ? tp.name : id);
   const KIND = { message: 'Khách nhắn', echo: 'Page gửi', postback: 'Bấm nút', test: 'Tin mẫu (nút Thử nghiệm)', rejected: '⚠ Bị từ chối', other: '⚠ Lạ' };
   box.innerHTML = `<h2>Messenger (thử nghiệm)</h2>
     <p class="small" style="margin-top:0">Kiểm tra app Meta có nhận / trả lời được <b>khách thật</b> không. URL gọi lại dán vào Meta → Webhooks → Page:</p>
     <form class="form"><label class="full">URL gọi lại<input readonly value="${esc(r.webhook_url)}"></label></form>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${ok(r.status.verify_token, 'META_VERIFY_TOKEN')}${ok(r.status.app_secret, 'META_APP_SECRET')}${ok(r.status.page_token, 'META_PAGE_TOKEN')}</div>
+    ${tp ? (tp.error ? `<div class="warn">META_PAGE_TOKEN không dùng được: ${esc(tp.error)}</div>`
+      : `<p class="small" style="margin:4px 0">Mã page đang dùng là của: <b>${esc(tp.name)}</b> <span class="mono muted">(${esc(tp.id)})</span></p>`) : ''}
+    ${other.length ? `<div class="warn soft">Có tin đến từ page khác với page của mã (${other.map((p) => `<span class="mono">${esc(p.page_id)}</span>: ${p.n} tin`).join(', ')}). Mã người nhắn chỉ dùng được với đúng page họ nhắn vào, nên "Trả lời thử" các tin đó sẽ báo lỗi (#100). Muốn thử page nào thì đặt META_PAGE_TOKEN của page đó.</div>` : ''}
     <div class="actions" style="margin-top:4px"><span class="muted small">${r.events.length ? `${r.events.length} tin gần nhất` : 'Chưa nhận được tin nào'}</span><span class="spacer"></span><button class="btn sec sm" id="metaReload">Tải lại</button></div>
-    ${r.events.length ? `<div class="table-wrap" style="max-height:320px;overflow:auto"><table><thead><tr><th>Lúc</th><th>Loại</th><th>Người</th><th>Nội dung</th><th></th></tr></thead><tbody>
-      ${r.events.map((e) => `<tr><td class="small nowrap">${dt(e.at)}</td><td class="small">${KIND[e.kind] || e.kind}</td><td class="mono small">${esc(e.sender_id)}</td>
-        <td class="small${e.kind === 'rejected' || e.kind === 'other' ? ' neg' : ''}">${esc(e.text)}</td><td>${e.kind === 'message' ? `<button class="btn sm sec" data-reply="${esc(e.sender_id)}">Trả lời thử</button>` : ''}</td></tr>`).join('')}
+    ${r.events.length ? `<div class="table-wrap" style="max-height:320px;overflow:auto"><table><thead><tr><th>Lúc</th><th>Page</th><th>Loại</th><th>Người</th><th>Nội dung</th><th></th></tr></thead><tbody>
+      ${r.events.map((e) => `<tr><td class="small nowrap">${dt(e.at)}</td><td class="small${tp?.id && e.page_id && e.page_id !== tp.id ? ' neg' : ''}">${esc(pageName(e.page_id))}</td><td class="small">${KIND[e.kind] || e.kind}</td><td class="mono small">${esc(e.sender_id)}</td>
+        <td class="small${e.kind === 'rejected' || e.kind === 'other' ? ' neg' : ''}">${esc(e.text)}</td><td>${e.kind === 'message' && (!tp?.id || e.page_id === tp.id) ? `<button class="btn sm sec" data-reply="${esc(e.sender_id)}">Trả lời thử</button>` : ''}</td></tr>`).join('')}
       </tbody></table></div>` : ''}`;
   $('#metaReload', box).addEventListener('click', () => metaCard());
   if (box.dataset.bound) return; // thẻ được vẽ lại nhiều lần, chỉ gắn sự kiện 1 lần

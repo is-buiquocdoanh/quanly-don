@@ -34,6 +34,29 @@ export function metaStatus() {
   };
 }
 
+// Mã page (META_PAGE_TOKEN) là của page nào: mã người nhắn chỉ dùng được với ĐÚNG page họ nhắn vào.
+let tokenPageCache = null;
+export async function tokenPage() {
+  const token = env('META_PAGE_TOKEN');
+  if (!token) return null;
+  if (tokenPageCache?.token === token && Date.now() - tokenPageCache.at < 10 * 60e3) return tokenPageCache.page;
+  let page;
+  try {
+    const res = await fetch(`${GRAPH}/me?fields=id,name&access_token=${encodeURIComponent(token)}`, { signal: AbortSignal.timeout(8000) });
+    const r = await res.json().catch(() => ({}));
+    page = r.id ? { id: String(r.id), name: r.name || '' } : { error: r.error?.message || `HTTP ${res.status}` };
+  } catch (e) {
+    page = { error: e.message };
+  }
+  tokenPageCache = { token, at: Date.now(), page };
+  return page;
+}
+
+/** Các page đang gửi tin về (theo sự kiện đã nhận), để so với page của mã. */
+export function seenPages() {
+  return db.prepare("SELECT page_id, COUNT(*) n, MAX(at) last FROM meta_events WHERE page_id <> '' AND kind IN ('message', 'echo', 'postback') GROUP BY page_id ORDER BY last DESC").all();
+}
+
 /** GET: Meta gọi 1 lần khi bấm "Xác minh và lưu" → trả lại hub.challenge nếu đúng mã. */
 export function verifyWebhook(query) {
   const token = env('META_VERIFY_TOKEN');
