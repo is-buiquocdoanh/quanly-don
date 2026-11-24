@@ -1640,15 +1640,22 @@ async function zaloCard() {
       ${logged ? '<button class="btn sec" id="zOut" style="margin-right:auto">Đăng xuất Zalo</button><button class="btn" id="zPick">Chọn nhóm nhận đơn</button>'
         : waiting ? '<button class="btn sec" id="zCancel">Hủy</button>' : '<button class="btn" id="zIn">Đăng nhập Zalo bằng mã QR</button>'}
     </div>
-    <div class="sub-h">Giãn cách giữa các đơn</div>
+    <div class="sub-h">Khi gửi đơn qua Zalo</div>
     <form class="form sform zgap" onsubmit="return false">
+      <div class="full fld"><span class="fld-l">Giãn cách giữa các đơn</span></div>
       <label><span>Từ <span class="opt">(giây)</span></span>
         <input name="zalo_gap_min" type="number" min="2" max="60" step="1" inputmode="numeric" value="${Number(z.gap?.min) || 3}"></label>
       <label><span>Đến <span class="opt">(giây, tối đa 60)</span></span>
         <input name="zalo_gap_max" type="number" min="2" max="60" step="1" inputmode="numeric" value="${Number(z.gap?.max) || 5}"></label>
       <div class="full zgap-est small muted"></div>
+      <label class="full">Báo kho xong thì đơn
+        <select name="zalo_auto_shipped">
+          <option value="0" ${Number(S.settings.zalo_auto_shipped) === 1 ? '' : 'selected'}>Giữ "Chờ gửi" (chỉ gắn nhãn Đã báo Zalo)</option>
+          <option value="1" ${Number(S.settings.zalo_auto_shipped) === 1 ? 'selected' : ''}>Tự chuyển sang "Đã gửi"</option>
+        </select>
+        <span class="hint" style="margin:2px 0 0">Áp dụng cho cả 3 cách: tự gửi bằng Zalo phụ, Chép lần lượt, extension trên Zalo Web. Đơn chuyển "Đã gửi" sẽ tính giờ gửi như khi bấm tay.</span></label>
     </form>
-    <div class="actions"><button class="btn sec" data-save>Lưu giãn cách</button></div>
+    <div class="actions"><button class="btn sec" data-save>Lưu</button></div>
     <p class="note">Cách này không chính thức: Zalo có thể khóa tài khoản phụ. Khi đó vẫn gửi được bằng nút <b>Chép lần lượt</b> ở trang Đơn hàng.</p>
     <p class="small muted" style="margin:12px 0 0"><b>Chưa có Zalo phụ?</b> Dùng extension (bản 2.6.0 trở lên) trên <b>Zalo Web</b> (chat.zalo.me): mở nhóm kho → bấm nút <b>📦 Đơn báo kho</b> ở góc phải → <b>Gửi</b>. Extension gõ từng đơn vào ô chat và gửi bằng chính Zalo đang đăng nhập trên trình duyệt, cùng khoảng giãn cách ở trên.</p></div>`;
   // ước tính thời gian gửi, cập nhật khi gõ số giây

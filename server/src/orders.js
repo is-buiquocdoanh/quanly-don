@@ -25,13 +25,22 @@ export function markZaloSent(ids, user, how) {
   const list = [...new Set((Array.isArray(ids) ? ids : [ids]).map((x) => toInt(x)).filter(Boolean))].slice(0, 500);
   const at = nowVN();
   let n = 0;
+  const done = [];
   tx(() => {
     for (const id of list) {
       if (!db.prepare('UPDATE orders SET zalo_sent_at = ? WHERE id = ?').run(at, id).changes) continue;
       addEvent(id, user?.id, `Gửi kho qua Zalo (${how})`);
+      done.push(id);
       n++;
     }
   });
+  // Cài đặt "báo kho xong thì chuyển Đã gửi": đơn đang Chờ gửi → Đã gửi (qua updateOrder để ghi giờ gửi + lịch sử như bấm tay)
+  if (Number(getSettings().zalo_auto_shipped) === 1 && user) {
+    for (const id of done) {
+      const o = db.prepare('SELECT status FROM orders WHERE id = ?').get(id);
+      if (o?.status === 'moi') updateOrder(id, { status: 'da_gui' }, user);
+    }
+  }
   return n;
 }
 

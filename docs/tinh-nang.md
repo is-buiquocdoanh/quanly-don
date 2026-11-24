@@ -31,6 +31,8 @@ Dùng khi kho không dùng web, chỉ nhận đơn qua Zalo. Mỗi đơn là **m
 
 **Hằng ngày:** trang **Đơn hàng** → tick các đơn → **Gửi Zalo kho**. Web gửi lần lượt, đơn cũ trước, mỗi tin cách nhau vài giây (20 đơn mất khoảng 1 phút). Gửi xong các đơn có nhãn **Đã báo Zalo**. Gửi lại đơn đã báo thì web hỏi trước.
 
+**Báo kho xong thì đơn tự chuyển "Đã gửi"** (mặc định tắt): Cài đặt → Chép & gửi Zalo → *Khi gửi đơn qua Zalo* → **Báo kho xong thì đơn: Tự chuyển sang "Đã gửi"**. Áp dụng cho cả 3 cách gửi bên dưới; đơn được ghi giờ gửi và lịch sử "Chờ gửi → Đã gửi" như khi bấm tay. Đơn không còn ở Chờ gửi (vd đã Hủy) thì không bị đổi.
+
 **Gửi trên Zalo Web bằng extension** (không cần Zalo phụ, dùng Zalo đang đăng nhập ở trình duyệt). Cần extension **2.6.0** trở lên, tải ở Cài đặt → Extension & bảo mật.
 1. Mở https://chat.zalo.me, bấm vào **nhóm kho**.
 2. Bấm nút **📦 Đơn báo kho** ở góc phải: hiện các đơn **Chờ gửi chưa báo Zalo** trong 7 ngày gần nhất, đơn cũ trước, tick sẵn hết. Bỏ tick đơn nào không muốn gửi.

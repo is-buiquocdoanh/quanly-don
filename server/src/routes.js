@@ -193,7 +193,7 @@ add('PUT', '/api/settings', 'admin', ({ body }) => {
     if (k === 'price_table' && v && !Object.keys(parsePriceTable(v)).length) throw bad('Bảng giá không đọc được. Mỗi dòng ghi: số hộp = giá, ví dụ 2 = 130000');
     if (k === 'active_kho') v = khoIdOrNull(v) || 0;
     if (k === 'copy_sep' && !['pipe', 'dash', 'semi', 'tab', 'newline'].includes(v)) v = 'pipe';
-    if (k === 'copy_labels') v = v ? 1 : 0;
+    if (k === 'copy_labels' || k === 'zalo_auto_shipped') v = v ? 1 : 0;
     // ≤ 60 giây: mỗi đơn là 1 request chờ hết khoảng giãn cách, Cloudflare cắt request quá 100 giây
     if (k === 'zalo_gap_min' || k === 'zalo_gap_max') v = Math.min(60, Math.max(2, v || SETTING_DEFAULTS[k]));
     setSetting(k, v);

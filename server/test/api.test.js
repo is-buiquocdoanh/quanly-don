@@ -599,3 +599,32 @@ test('Zalo Web (extension): lấy đơn Chờ gửi chưa báo kho kèm nội du
   assert.equal((await ext({ action: 'zalo_pending', token: 'sai' })).ok, false);
   await admin('PUT', '/api/settings', { copy_labels: 0, copy_sep: 'pipe' });
 });
+
+test('Zalo: cài đặt "báo kho xong thì chuyển Đã gửi" (mặc định tắt), áp dụng cho chép lần lượt và Zalo Web', async () => {
+  const tok = (await admin('GET', '/api/me/api-token')).token;
+  const mk = async (n) => (await admin('POST', '/api/orders', { name: 'Auto ' + n, phone: '09160001' + (10 + n), address: 'Xã A', qty: 1, total: 95000 })).order;
+  // mặc định tắt: chỉ gắn nhãn, vẫn Chờ gửi
+  assert.equal((await admin('GET', '/api/bootstrap')).settings.zalo_auto_shipped, 0);
+  const a = await mk(1);
+  await admin('POST', '/api/zalo/mark', { ids: [a.id] });
+  assert.equal((await admin('GET', '/api/orders/' + a.id)).order.status, 'moi');
+  // bật: chép lần lượt + Zalo Web → Đã gửi, có giờ gửi + lịch sử
+  await admin('PUT', '/api/settings', { zalo_auto_shipped: 1 });
+  const b = await mk(2);
+  const c = await mk(3);
+  await admin('POST', '/api/zalo/mark', { ids: [b.id] });
+  await ext({ action: 'zalo_mark', token: tok, ids: [c.id] });
+  for (const o of [b, c]) {
+    const d = await admin('GET', '/api/orders/' + o.id);
+    assert.equal(d.order.status, 'da_gui');
+    assert.ok(d.order.shipped_at);
+    assert.ok(d.order.zalo_sent_at);
+    assert.ok(d.events.some((e) => /Chờ gửi → Đã gửi/.test(e.action)));
+  }
+  // đơn đã Hủy thì không bị đổi
+  const h = await mk(4);
+  await admin('PATCH', '/api/orders/' + h.id, { status: 'huy' });
+  await admin('POST', '/api/zalo/mark', { ids: [h.id] });
+  assert.equal((await admin('GET', '/api/orders/' + h.id)).order.status, 'huy');
+  await admin('PUT', '/api/settings', { zalo_auto_shipped: 0 });
+});
