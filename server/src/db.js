@@ -128,7 +128,9 @@ export const SETTING_DEFAULTS = {
   // nhóm Zalo nhận đơn (chọn ở Cài đặt → Gửi đơn qua Zalo; không sửa qua form Cài đặt chung)
   zalo_group_id: '',
   zalo_group_name: '',
-  zalo_gap_sec: 3,           // số giây giãn cách giữa 2 đơn khi tự gửi Zalo (2–60)
+  // giãn cách giữa 2 đơn khi tự gửi Zalo: mỗi lần lấy ngẫu nhiên trong khoảng [min, max] giây (2–60)
+  zalo_gap_min: 3,
+  zalo_gap_max: 5,
 };
 
 export function getSettings() {

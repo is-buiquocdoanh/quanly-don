@@ -9,8 +9,15 @@ import { DATA_DIR, getSettings, setSetting } from './db.js';
 import { bad, str } from './util.js';
 
 const FILE = path.join(DATA_DIR, 'zalo-session.json');
-// giãn cách giữa 2 tin: Cài đặt → zalo_gap_sec (2–60 giây), cộng thêm ngẫu nhiên tới 1,5 giây cho giống người gửi
-const gapMs = () => Math.min(60, Math.max(2, Number(getSettings().zalo_gap_sec) || 3)) * 1000;
+// giãn cách giữa 2 tin: mỗi lần lấy ngẫu nhiên trong khoảng Cài đặt zalo_gap_min – zalo_gap_max giây (2–60), cho giống người gửi
+const clampSec = (v, d) => Math.min(60, Math.max(2, Number(v) || d));
+function gapMs() {
+  const s = getSettings();
+  let a = clampSec(s.zalo_gap_min, 3);
+  let b = clampSec(s.zalo_gap_max, 5);
+  if (a > b) [a, b] = [b, a];
+  return (a + Math.random() * (b - a)) * 1000;
+}
 
 // status: off (chưa đăng nhập) | starting | qr (đang chờ quét) | scanned (đã quét, chờ bấm Đăng nhập trên điện thoại)
 //         | on (sẵn sàng) | expired (phiên hết hạn, quét lại) | error
@@ -41,7 +48,7 @@ export function zaloStatus() {
     account: st.name || readSession()?.name || '',
     error: st.error,
     group: s.zalo_group_id ? { id: s.zalo_group_id, name: s.zalo_group_name } : null,
-    gap_sec: s.zalo_gap_sec,
+    gap: { min: s.zalo_gap_min, max: s.zalo_gap_max },
   };
 }
 
@@ -136,7 +143,7 @@ export function sendToGroup(text) {
   const groupId = getSettings().zalo_group_id;
   if (!groupId) return Promise.reject(bad('Chưa chọn nhóm Zalo nhận đơn (Cài đặt → Gửi đơn qua Zalo).'));
   const job = queue.then(async () => {
-    const wait = st.lastSend + gapMs() + Math.random() * 1500 - Date.now();
+    const wait = st.lastSend + gapMs() - Date.now();
     if (wait > 0) await sleep(wait);
     const { ThreadType } = await zca();
     const r = await withApi((api) => api.sendMessage(msg, groupId, ThreadType.Group));

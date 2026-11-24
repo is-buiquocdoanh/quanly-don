@@ -194,9 +194,12 @@ add('PUT', '/api/settings', 'admin', ({ body }) => {
     if (k === 'copy_sep' && !['pipe', 'dash', 'semi', 'tab', 'newline'].includes(v)) v = 'pipe';
     if (k === 'copy_labels') v = v ? 1 : 0;
     // ≤ 60 giây: mỗi đơn là 1 request chờ hết khoảng giãn cách, Cloudflare cắt request quá 100 giây
-    if (k === 'zalo_gap_sec') v = Math.min(60, Math.max(2, v || 3));
+    if (k === 'zalo_gap_min' || k === 'zalo_gap_max') v = Math.min(60, Math.max(2, v || SETTING_DEFAULTS[k]));
     setSetting(k, v);
   }
+  // khoảng giãn cách nhập ngược (từ 8 đến 4) → đổi lại cho đúng thứ tự
+  const g = getSettings();
+  if (g.zalo_gap_min > g.zalo_gap_max) { setSetting('zalo_gap_min', g.zalo_gap_max); setSetting('zalo_gap_max', g.zalo_gap_min); }
   return { settings: getSettings() };
 });
 

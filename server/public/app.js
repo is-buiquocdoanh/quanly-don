@@ -1626,24 +1626,30 @@ async function zaloCard() {
     </div>
     <div class="sub-h">Giãn cách giữa các đơn</div>
     <form class="form sform zgap" onsubmit="return false">
-      <label><span>Mỗi đơn cách nhau <span class="opt">(giây, từ 2 đến 60)</span></span>
-        <input name="zalo_gap_sec" type="number" min="2" max="60" step="1" inputmode="numeric" value="${Number(z.gap_sec) || 3}"></label>
-      <div class="zgap-est small muted"></div>
+      <label><span>Từ <span class="opt">(giây)</span></span>
+        <input name="zalo_gap_min" type="number" min="2" max="60" step="1" inputmode="numeric" value="${Number(z.gap?.min) || 3}"></label>
+      <label><span>Đến <span class="opt">(giây, tối đa 60)</span></span>
+        <input name="zalo_gap_max" type="number" min="2" max="60" step="1" inputmode="numeric" value="${Number(z.gap?.max) || 5}"></label>
+      <div class="full zgap-est small muted"></div>
     </form>
     <div class="actions"><button class="btn sec" data-save>Lưu giãn cách</button></div>
     <p class="note">Cách này không chính thức: Zalo có thể khóa tài khoản phụ. Khi đó vẫn gửi được bằng nút <b>Chép lần lượt</b> ở trang Đơn hàng.</p></div>`;
   // ước tính thời gian gửi, cập nhật khi gõ số giây
-  const gapIn = $('[name=zalo_gap_sec]', box);
+  const gapMin = $('[name=zalo_gap_min]', box);
+  const gapMax = $('[name=zalo_gap_max]', box);
   const est = () => {
-    const g = Math.min(60, Math.max(2, Number(gapIn.value) || 3));
-    const sec = Math.round(19 * (g + 0.75));
-    $('.zgap-est', box).textContent = `Web cộng thêm ngẫu nhiên tới 1,5 giây cho giống người gửi. Gửi 20 đơn mất khoảng ${sec < 90 ? sec + ' giây' : Math.round(sec / 60) + ' phút'}. Lo Zalo chặn thì tăng số giây lên.`;
+    let a = Math.min(60, Math.max(2, Number(gapMin.value) || 3));
+    let b = Math.min(60, Math.max(2, Number(gapMax.value) || 5));
+    if (a > b) [a, b] = [b, a];
+    const sec = Math.round(19 * (a + b) / 2);
+    $('.zgap-est', box).textContent = `Mỗi đơn chờ ngẫu nhiên ${a === b ? a : `${a}–${b}`} giây rồi mới gửi, cho giống người gửi. Gửi 20 đơn mất khoảng ${sec < 90 ? sec + ' giây' : Math.round(sec / 60) + ' phút'}. Lo Zalo chặn thì tăng số giây lên.`;
   };
-  gapIn.addEventListener('input', est);
+  gapMin.addEventListener('input', est);
+  gapMax.addEventListener('input', est);
   est();
   if (waiting) {
     // đang chờ quét QR: hỏi lại trạng thái mỗi 2 giây (đang gõ số giây thì đợi, không vẽ lại mất chữ)
-    const tick = () => { if (!box.isConnected) return; if (document.activeElement === gapIn) return setTimeout(tick, 2000); zaloCard(); };
+    const tick = () => { if (!box.isConnected) return; if (box.querySelector('.zgap')?.contains(document.activeElement)) return setTimeout(tick, 2000); zaloCard(); };
     setTimeout(tick, 2000);
   }
   $('#zIn', box)?.addEventListener('click', async (e) => {
@@ -1693,7 +1699,7 @@ async function zaloSend(list, onDone) {
   let sent = 0;
   for (const o of list) {
     if (stop || !m.el.isConnected) { stop = true; break; } // bấm Dừng hoặc ✕
-    $('#zProg', m.el).innerHTML = `Đang gửi đơn ${sent + 1}/${list.length}: <b>${esc(o.name)}</b><div class="small muted">Mỗi đơn cách nhau khoảng ${Number(z.gap_sec) || 3} giây (đổi ở Cài đặt → Chép & gửi Zalo)</div>`;
+    $('#zProg', m.el).innerHTML = `Đang gửi đơn ${sent + 1}/${list.length}: <b>${esc(o.name)}</b><div class="small muted">Mỗi đơn cách nhau ngẫu nhiên ${z.gap?.min}–${z.gap?.max} giây (đổi ở Cài đặt → Chép & gửi Zalo)</div>`;
     $('#zBar', m.el).style.width = `${(sent / list.length) * 100}%`;
     try {
       await api('POST', '/api/zalo/send', { id: o.id, text: orderLine(o) });
