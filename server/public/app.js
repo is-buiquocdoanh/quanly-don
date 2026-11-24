@@ -1297,7 +1297,7 @@ async function metaCard() {
   const tp = r.token_page;
   const other = tp?.id ? (r.seen_pages || []).filter((p) => p.page_id !== tp.id) : [];
   const pageName = (id) => (tp?.id === id ? tp.name : id);
-  const KIND = { message: 'Khách nhắn', echo: 'Page gửi', postback: 'Bấm nút', test: 'Tin mẫu (nút Thử nghiệm)', rejected: '⚠ Bị từ chối', other: '⚠ Lạ' };
+  const KIND = { message: 'Khách nhắn', echo: 'Page gửi', postback: 'Bấm nút', test: 'Tin mẫu (nút Thử nghiệm)', rejected: '⚠ Bị từ chối', other: '⚠ Lạ', standby: 'Khách nhắn (standby)' };
   box.innerHTML = `<h2>Messenger (thử nghiệm)</h2>
     <p class="small" style="margin-top:0">Kiểm tra app Meta có nhận / trả lời được <b>khách thật</b> không. URL gọi lại dán vào Meta → Webhooks → Page:</p>
     <form class="form"><label class="full">URL gọi lại<input readonly value="${esc(r.webhook_url)}"></label></form>
@@ -1305,12 +1305,31 @@ async function metaCard() {
     ${tp ? (tp.error ? `<div class="warn">META_PAGE_TOKEN không dùng được: ${esc(tp.error)}</div>`
       : `<p class="small" style="margin:4px 0">Mã page đang dùng là của: <b>${esc(tp.name)}</b> <span class="mono muted">(${esc(tp.id)})</span></p>`) : ''}
     ${other.length ? `<div class="warn soft">Có tin đến từ page khác với page của mã (${other.map((p) => `<span class="mono">${esc(p.page_id)}</span>: ${p.n} tin`).join(', ')}). Mã người nhắn chỉ dùng được với đúng page họ nhắn vào, nên "Trả lời thử" các tin đó sẽ báo lỗi (#100). Muốn thử page nào thì đặt META_PAGE_TOKEN của page đó.</div>` : ''}
+    ${tp?.id ? `<div class="actions" style="margin:6px 0"><button class="btn sec sm" id="metaSubs">Kiểm tra page đăng ký nhận tin</button></div><div id="metaSubsOut"></div>` : ''}
+    ${r.events.some((e) => e.kind === 'standby') ? `<div class="warn soft">Có tin <b>standby</b>: page đang để một app/công cụ khác (Pancake, Botcake, ManyChat…) giữ quyền chính với hộp thư. App này chỉ xem được, chưa trả lời được. Muốn chatbot trả lời: Business Suite → Cài đặt → Hộp thư / Tin nhắn nâng cao → chọn app <b>trungsau_canxi</b> làm ứng dụng nhận tin chính.</div>` : ''}
     <div class="actions" style="margin-top:4px"><span class="muted small">${r.events.length ? `${r.events.length} tin gần nhất` : 'Chưa nhận được tin nào'}</span><span class="spacer"></span><button class="btn sec sm" id="metaReload">Tải lại</button></div>
     ${r.events.length ? `<div class="table-wrap" style="max-height:320px;overflow:auto"><table><thead><tr><th>Lúc</th><th>Page</th><th>Loại</th><th>Người</th><th>Nội dung</th><th></th></tr></thead><tbody>
       ${r.events.map((e) => `<tr><td class="small nowrap">${dt(e.at)}</td><td class="small${tp?.id && e.page_id && e.page_id !== tp.id ? ' neg' : ''}">${esc(pageName(e.page_id))}</td><td class="small">${KIND[e.kind] || e.kind}</td><td class="mono small">${esc(e.sender_id)}</td>
         <td class="small${e.kind === 'rejected' || e.kind === 'other' ? ' neg' : ''}">${esc(e.text)}</td><td>${e.kind === 'message' && (!tp?.id || e.page_id === tp.id) ? `<button class="btn sm sec" data-reply="${esc(e.sender_id)}">Trả lời thử</button>` : ''}</td></tr>`).join('')}
       </tbody></table></div>` : ''}`;
   $('#metaReload', box).addEventListener('click', () => metaCard());
+  const showSubs = (s) => {
+    const mine = s.apps.find((a) => a.id === s.app.id);
+    const missing = mine ? s.want.filter((f) => !mine.fields.includes(f)) : s.want;
+    $('#metaSubsOut', box).innerHTML = `<div class="${mine && !missing.length ? '' : 'warn soft'}" style="font-size:13px;margin-bottom:8px">
+      ${s.apps.length ? s.apps.map((a) => `<div><b>${esc(a.name || a.id)}</b>${a.id === s.app.id ? ' <span class="badge st-da_giao">app này</span>' : ' <span class="badge">app khác</span>'}: ${a.fields.length ? esc(a.fields.join(', ')) : '<i>không nhận trường nào</i>'}</div>`).join('') : '<div>Page <b>chưa đăng ký app nào</b> nhận tin.</div>'}
+      ${mine && !missing.length ? '<div style="margin-top:6px">✓ Page đã đăng ký đủ cho app này.</div>'
+        : `<div style="margin-top:6px">App này ${mine ? `còn thiếu: <b>${esc(missing.join(', '))}</b>` : '<b>chưa được page đăng ký</b>'}.</div><button class="btn sm" id="metaSubDo" style="margin-top:6px">Đăng ký page nhận tin cho app này</button>`}
+    </div>`;
+    $('#metaSubDo', box)?.addEventListener('click', async (e) => {
+      e.target.disabled = true;
+      try { showSubs(await api('POST', '/api/meta/subscribe')); toast('Đã đăng ký. Nhắn thử vào page rồi bấm Tải lại.'); } catch (err) { fail(err); e.target.disabled = false; }
+    });
+  };
+  $('#metaSubs', box)?.addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    try { showSubs(await api('GET', '/api/meta/subscriptions')); } catch (err) { fail(err); } finally { e.target.disabled = false; }
+  });
   if (box.dataset.bound) return; // thẻ được vẽ lại nhiều lần, chỉ gắn sự kiện 1 lần
   box.dataset.bound = '1';
   box.addEventListener('click', async (e) => {

@@ -52,9 +52,42 @@ export async function tokenPage() {
   return page;
 }
 
+async function graph(method, pathAndQuery, token) {
+  const sep = pathAndQuery.includes('?') ? '&' : '?';
+  const res = await fetch(`${GRAPH}/${pathAndQuery}${sep}access_token=${encodeURIComponent(token)}`, { method, signal: AbortSignal.timeout(10000) });
+  const r = await res.json().catch(() => ({}));
+  if (!res.ok || r.error) {
+    const e = r.error || {};
+    throw bad(`Meta từ chối: ${e.message || res.status}${e.code ? ` (mã ${e.code}${e.error_subcode ? '/' + e.error_subcode : ''})` : ''}`);
+  }
+  return r;
+}
+
+const WANT_FIELDS = ['messages', 'messaging_postbacks', 'message_echoes', 'standby'];
+
+/** Page (của META_PAGE_TOKEN) đang đăng ký những app nào, nhận những trường nào. */
+export async function pageSubscriptions() {
+  const token = env('META_PAGE_TOKEN');
+  if (!token) throw bad('Server chưa đặt META_PAGE_TOKEN');
+  const [r, app] = await Promise.all([graph('GET', 'me/subscribed_apps', token), graph('GET', 'app?fields=id,name', token).catch(() => ({}))]);
+  return {
+    app: { id: String(app.id || ''), name: app.name || '' },  // app của mã page = app này
+    want: WANT_FIELDS,
+    apps: (r.data || []).map((a) => ({ id: String(a.id || ''), name: a.name || '', fields: a.subscribed_fields || [] })),
+  };
+}
+
+/** Đăng ký page nhận tin cho app (giống bấm "Thêm đăng ký" trên Meta). */
+export async function subscribePage() {
+  const token = env('META_PAGE_TOKEN');
+  if (!token) throw bad('Server chưa đặt META_PAGE_TOKEN');
+  await graph('POST', `me/subscribed_apps?subscribed_fields=${WANT_FIELDS.join(',')}`, token);
+  return pageSubscriptions();
+}
+
 /** Các page đang gửi tin về (theo sự kiện đã nhận), để so với page của mã. */
 export function seenPages() {
-  return db.prepare("SELECT page_id, COUNT(*) n, MAX(at) last FROM meta_events WHERE page_id <> '' AND kind IN ('message', 'echo', 'postback') GROUP BY page_id ORDER BY last DESC").all();
+  return db.prepare("SELECT page_id, COUNT(*) n, MAX(at) last FROM meta_events WHERE page_id <> '' AND kind IN ('message', 'echo', 'postback', 'standby') GROUP BY page_id ORDER BY last DESC").all();
 }
 
 /** GET: Meta gọi 1 lần khi bấm "Xác minh và lưu" → trả lại hub.challenge nếu đúng mã. */
@@ -94,9 +127,14 @@ export function saveEvents(body) {
   let n = 0;
   for (const entry of body.entry || []) {
     // tin thật đến ở entry.messaging; nút "Thử nghiệm" của Meta gửi dạng entry.changes[{ field: 'messages', value }]
-    const list = [...(entry.messaging || []), ...(entry.changes || []).filter((c) => c.field === 'messages' && c.value).map((c) => ({ ...c.value, test: true }))];
+    // entry.standby: một app/công cụ khác (Pancake, inbox của page…) đang giữ quyền chính, app này chỉ được xem
+    const list = [
+      ...(entry.messaging || []),
+      ...(entry.standby || []).map((m) => ({ ...m, standby: true })),
+      ...(entry.changes || []).filter((c) => c.field === 'messages' && c.value).map((c) => ({ ...c.value, test: true })),
+    ];
     for (const m of list) {
-      const kind = m.test ? 'test' : m.message ? (m.message.is_echo ? 'echo' : 'message') : m.postback ? 'postback' : m.read ? 'read' : m.delivery ? 'delivery' : 'other';
+      const kind = m.test ? 'test' : m.standby && m.message && !m.message.is_echo ? 'standby' : m.message ? (m.message.is_echo ? 'echo' : 'message') : m.postback ? 'postback' : m.read ? 'read' : m.delivery ? 'delivery' : 'other';
       const text = m.message?.text || m.postback?.title || (m.message?.attachments ? `[${m.message.attachments.map((a) => a.type).join(', ')}]` : '');
       // tin echo (page tự gửi đi): người nhận mới là khách
       const who = kind === 'echo' ? m.recipient?.id : m.sender?.id;
@@ -110,7 +148,7 @@ export function saveEvents(body) {
 }
 
 export function listEvents(limit = 50) {
-  return db.prepare("SELECT id, at, page_id, sender_id, kind, text FROM meta_events WHERE kind IN ('message', 'echo', 'postback', 'test', 'rejected', 'other') ORDER BY id DESC LIMIT ?")
+  return db.prepare("SELECT id, at, page_id, sender_id, kind, text FROM meta_events WHERE kind IN ('message', 'echo', 'postback', 'standby', 'test', 'rejected', 'other') ORDER BY id DESC LIMIT ?")
     .all(Math.min(Number(limit) || 50, 200));
 }
 

@@ -366,3 +366,16 @@ test('Messenger webhook: tin mẫu của nút "Thử nghiệm" và lần bị t�
   assert.equal(ev[1].kind, 'test');
   assert.equal(ev[1].text, 'test_message');
 });
+
+test('Messenger webhook: tin standby (app khác giữ quyền chính) vẫn hiện, kiểm tra đăng ký báo thiếu mã page', async () => {
+  const { createHmac } = await import('node:crypto');
+  const body = JSON.stringify({ object: 'page', entry: [{ id: '222', time: 1, standby: [
+    { sender: { id: '700007' }, recipient: { id: '222' }, timestamp: 1, message: { mid: 's1', text: 'Còn hàng không shop' } },
+  ] }] });
+  const sig = 'sha256=' + createHmac('sha256', 'secret-xyz').update(body).digest('hex');
+  assert.equal((await fetch(BASE + '/api/meta/webhook', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Hub-Signature-256': sig }, body })).status, 200);
+  const ev = (await admin('GET', '/api/meta/events')).events;
+  assert.deepEqual([ev[0].kind, ev[0].sender_id, ev[0].page_id, ev[0].text], ['standby', '700007', '222', 'Còn hàng không shop']);
+  assert.match((await admin('GET', '/api/meta/subscriptions')).error, /META_PAGE_TOKEN/);
+  assert.match((await admin('POST', '/api/meta/subscribe')).error, /META_PAGE_TOKEN/);
+});

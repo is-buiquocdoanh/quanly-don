@@ -9,7 +9,7 @@ import {
 } from './orders.js';
 import { listKho, khoIdOrNull, adoptUnassigned, khoName } from './kho.js';
 import { aiEnabled, aiParse } from './ai.js';
-import { metaStatus, listEvents, sendTest, tokenPage, seenPages } from './meta.js';
+import { metaStatus, listEvents, sendTest, tokenPage, seenPages, pageSubscriptions, subscribePage } from './meta.js';
 import { forKho } from './orders.js';
 
 const SESSION_DAYS = 30;
@@ -267,6 +267,8 @@ add('GET', '/api/meta/events', 'admin', async ({ baseUrl }) => ({
   status: metaStatus(), token_page: await tokenPage(), seen_pages: seenPages(),
   events: listEvents(50), webhook_url: baseUrl + '/api/meta/webhook',
 }));
+add('GET', '/api/meta/subscriptions', 'admin', () => pageSubscriptions());
+add('POST', '/api/meta/subscribe', 'admin', () => subscribePage());
 add('POST', '/api/meta/test-reply', 'admin', async ({ body }) => sendTest(body.sender_id, body.text || 'Shop đã nhận được tin nhắn của bạn ạ (tin tự động thử nghiệm).'));
 
 // ---------------------------------------------------------------- Chia đơn cho tài khoản kho
