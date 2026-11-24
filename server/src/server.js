@@ -1,6 +1,7 @@
 process.env.TZ ||= 'Asia/Ho_Chi_Minh';
 
 import http from 'node:http';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -81,10 +82,36 @@ function send(res, status, obj, headers = {}) {
   res.end(body);
 }
 
+// Cloudflare cho trình duyệt giữ file .js/.css tới 4 giờ, nên sau mỗi lần deploy có người vẫn chạy giao diện cũ.
+// Cách chữa: index.html (không cache) gọi file kèm ?v=<mã nội dung>; file đổi → mã đổi → trình duyệt tải file mới.
+const assetHash = new Map(); // tên file → { mtime, v }
+function assetVersion(name) {
+  const file = path.join(PUBLIC_DIR, name);
+  let st;
+  try { st = fs.statSync(file); } catch { return ''; }
+  const c = assetHash.get(name);
+  if (c && c.mtime === st.mtimeMs) return c.v;
+  const v = crypto.createHash('sha1').update(fs.readFileSync(file)).digest('hex').slice(0, 10);
+  assetHash.set(name, { mtime: st.mtimeMs, v });
+  return v;
+}
+function indexHtml() {
+  return fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8')
+    .replace(/(src|href)="\/([\w.-]+\.(?:js|css))"/g, (m, attr, name) => {
+      const v = assetVersion(name);
+      return v ? `${attr}="/${name}?v=${v}"` : m;
+    });
+}
+
 function serveStatic(req, res, pathname) {
   let file = path.join(PUBLIC_DIR, path.normalize(decodeURIComponent(pathname)).replace(/^([/\\])+/, ''));
   if (!file.startsWith(PUBLIC_DIR)) { res.writeHead(403); res.end(); return; }
   if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(PUBLIC_DIR, 'index.html');
+  if (file === path.join(PUBLIC_DIR, 'index.html')) {
+    res.writeHead(200, { 'Content-Type': MIME['.html'], 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });
+    res.end(indexHtml());
+    return;
+  }
   const ext = path.extname(file);
   res.writeHead(200, {
     'Content-Type': MIME[ext] || 'application/octet-stream',

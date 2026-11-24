@@ -331,3 +331,21 @@ test('Messenger webhook: xác minh, kiểm chữ ký, lưu tin', async () => {
   assert.match((await admin('POST', '/api/meta/test-reply', { sender_id: '900001' })).error, /META_PAGE_TOKEN/);
   assert.equal((await kho('GET', '/api/meta/events')).ok, false);
 });
+
+test('giao diện: index.html gọi file kèm ?v=<mã nội dung> để không dính cache cũ sau khi deploy', async () => {
+  const r = await fetch(BASE + '/');
+  assert.equal(r.headers.get('cache-control'), 'no-cache');
+  const html = await r.text();
+  const m = html.match(/src="\/app\.js\?v=([0-9a-f]{10})"/);
+  assert.ok(m, 'app.js phải có ?v=');
+  assert.match(html, /href="\/style\.css\?v=[0-9a-f]{10}"/);
+  // mã = 10 ký tự đầu sha1 của nội dung file
+  const { createHash } = await import('node:crypto');
+  const want = createHash('sha1').update(fs.readFileSync(path.resolve(import.meta.dirname, '../public/app.js'))).digest('hex').slice(0, 10);
+  assert.equal(m[1], want);
+  const js = await fetch(BASE + '/app.js?v=' + m[1]);
+  assert.equal(js.status, 200);
+  assert.match(js.headers.get('content-type'), /javascript/);
+  // đường dẫn lạ vẫn trả về trang chủ (đã gắn ?v=)
+  assert.match(await (await fetch(BASE + '/khong-co')).text(), /app\.js\?v=/);
+});
