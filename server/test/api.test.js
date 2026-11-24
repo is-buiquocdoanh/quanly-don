@@ -486,3 +486,11 @@ test('website: chỉ lưu mục đã sửa, mục chưa sửa vẫn theo nội d
   // bài mẫu đã đăng sẵn
   assert.match((await siteGet('/blog/huong-dan-ap-trung-ruoi-linh-den-nuoi-sau-canxi-tai-nha')).body, /<table>/);
 });
+
+test('cài đặt: lý do hoàn có dấu phẩy không bị tách đôi; page Facebook giữ nguyên sau khi lưu cài đặt khác', async () => {
+  await admin('PUT', '/api/settings', { return_reasons: 'Đơn ảo / cố tình phá\nGiao lâu, khách hủy', fb_pages: 'Page A\nPage B, chi nhánh 2' });
+  await admin('PUT', '/api/settings', { shop_name: 'Shop khác' }); // lưu cài đặt khác không được xóa danh sách page
+  const s = (await admin('GET', '/api/bootstrap')).settings;
+  assert.deepEqual(s.return_reasons, ['Đơn ảo / cố tình phá', 'Giao lâu, khách hủy']);
+  assert.deepEqual(s.fb_pages, ['Page A', 'Page B, chi nhánh 2']);
+});

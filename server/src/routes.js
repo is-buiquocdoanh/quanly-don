@@ -184,7 +184,8 @@ add('PUT', '/api/settings', 'admin', ({ body }) => {
     if (!(k in body)) continue;
     let v = body[k];
     if (Array.isArray(SETTING_DEFAULTS[k])) {
-      v = (Array.isArray(v) ? v : String(v).split(k === 'fb_pages' ? /\n/ : /[\n,]/)).map((x) => str(x, 60)).filter(Boolean);
+      // tên page / lý do hoàn có thể chứa dấu phẩy ("Giao lâu, khách hủy") → chỉ tách theo xuống dòng
+      v = (Array.isArray(v) ? v : String(v).split(k === 'fb_pages' || k === 'return_reasons' ? /\n/ : /[\n,]/)).map((x) => str(x, 60)).filter(Boolean);
     } else if (typeof SETTING_DEFAULTS[k] === 'number') v = toInt(v);
     else v = str(v, 300);
     if (k === 'active_kho') v = khoIdOrNull(v) || 0;
