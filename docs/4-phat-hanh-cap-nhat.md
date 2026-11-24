@@ -46,9 +46,10 @@ Thời gian web tạm ngừng khi đổi phiên bản chỉ khoảng 2–5 giây
 ```bash
 cd ~/apps/quanly-don
 git -C src fetch --tags --force origin
-git -C src show v1.6.0:deploy/deploy.sh > deploy.sh && chmod +x deploy.sh
+git -C src show v1.6.0:deploy/deploy.sh > deploy.sh.new && mv deploy.sh.new deploy.sh && chmod +x deploy.sh
 ./deploy.sh v1.6.0
 ```
+Ghi ra `deploy.sh.new` trước rồi mới đổi tên: nếu lệnh `git show` lỗi (vd tag chưa được push) thì `deploy.sh` cũ vẫn còn nguyên. Ghi thẳng `> deploy.sh` mà lỗi thì file bị **trống**; khi đó lấy lại bản đang chạy bằng `git -C src show <bản đang chạy>:deploy/deploy.sh > deploy.sh.new && mv deploy.sh.new deploy.sh && chmod +x deploy.sh`.
 Quên bước này thì web vẫn chạy bình thường, chỉ thiếu nút tải extension (Cài đặt báo "chưa kèm file extension").
 
 ## 3. Lần chạy đầu tiên
