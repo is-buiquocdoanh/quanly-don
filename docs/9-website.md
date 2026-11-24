@@ -37,21 +37,35 @@ Trang chủ có: số liệu nổi bật, *Sâu canxi là gì*, bảng dinh dư�
 
 `npm run dev` như Giai đoạn 1, rồi mở **http://site.localhost:3000** (Chrome / Edge tự hiểu `*.localhost`). Web quản lý vẫn ở http://localhost:3000.
 
-## 3. Nối tên miền gốc trên Cloudflare (làm 1 lần, trên trình duyệt)
+## 3. Nối tên miền gốc trên Cloudflare (✅ đã làm 24/11/2026)
 
-1. **Cloudflare → doanhwork.com → DNS → Records**: xóa bản ghi `A doanhwork.com` (IP trang chờ của Vietnix) và `CNAME www` nếu có. **Giữ nguyên** bản ghi TXT `google-site-verification=…`.
-2. **Zero Trust → Networks → Tunnels → quanly-don → Public Hostname → Add a public hostname**:
+1. **Cloudflare → doanhwork.com → DNS → Records**: xóa bản ghi `A doanhwork.com → 103.200.23.139` (trang chờ của Vietnix; còn bản ghi này thì `doanhwork.com` vẫn hiện trang Vietnix) và `CNAME www` nếu có. Bấm vào dòng → **Edit** → **Delete**. **Giữ nguyên** bản ghi TXT `google-site-verification=…`.
+2. **Zero Trust → Networks → Tunnels → quanly-don**. Giao diện mới không còn mục *Public Hostname*: ở sơ đồ **Routes** bấm **+ Add route** → **Published application**:
 
    | Subdomain | Domain | Service |
    |---|---|---|
    | *(để trống)* | `doanhwork.com` | HTTP → `web:3000` |
    | `www` | `doanhwork.com` | HTTP → `web:3000` |
 
-3. Đợi 1–2 phút rồi mở https://doanhwork.com.
+3. Kiểm tra lại **DNS → Records** phải có: `doanhwork.com | Tunnel | quanly-don`, `www.doanhwork.com | Tunnel | quanly-don`, `don.doanhwork.com | Tunnel | quanly-don`, và dòng TXT của Google.
+4. Đợi 1–2 phút rồi mở https://doanhwork.com bằng **tab ẩn danh** (trình duyệt có thể còn nhớ trang Vietnix).
+
+Kiểm tra nhanh bằng lệnh (máy nào cũng được):
+```bash
+curl -sI https://doanhwork.com | head -1            # HTTP/2 200
+curl -sI https://www.doanhwork.com | grep -i location   # → https://doanhwork.com/
+curl -s https://doanhwork.com/api/orders -o /dev/null -w "%{http_code}
+"   # 404: không lộ API quản lý
+```
+
+Cloudflare có hiện khuyến nghị *"Email cannot reach @doanhwork.com"*: shop không dùng email theo tên miền nên bỏ qua.
 
 Không cần sửa `.env`: server mặc định coi `doanhwork.com`, `www.doanhwork.com` là website công khai. Đổi tên miền khác thì đặt `SITE_HOSTS=ten-mien.vn,www.ten-mien.vn` trong `.env`.
 
 ## 4. Viết nội dung
+
+> **Việc đầu tiên sau khi lên mạng:** vào **Website → Thông tin shop** điền SĐT và link Messenger (`https://m.me/<tên-page>`). Chưa điền thì website **không hiện nút liên hệ / đặt hàng** nào.
+
 
 Vào web quản lý → **Website**:
 

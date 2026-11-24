@@ -62,7 +62,7 @@ Vào **SSL/TLS**:
 1. Mở https://one.dash.cloudflare.com, vào **Networks → Tunnels → Create a tunnel**.
 2. Chọn **Cloudflared**, đặt tên `quanly-don`, rồi bấm **Save tunnel**.
 3. Ở bước cài đặt, chọn **Docker**. Trong lệnh hiện ra, **copy chuỗi dài sau chữ `--token`**. Đây là `TUNNEL_TOKEN`, sẽ dán vào `.env` ở [Giai đoạn 3](3-cai-dat-server.md). *Không cần* chạy lệnh đó.
-4. Bấm **Next**, sang mục **Public Hostname**:
+4. Bấm **Next**, sang mục **Public Hostname** (giao diện mới: vào tunnel → **Routes** → **+ Add route** → **Published application**, các ô giống hệt):
 
    | Ô | Giá trị |
    |---|---|
@@ -73,9 +73,16 @@ Vào **SSL/TLS**:
 
 5. Bấm **Save**. Cloudflare sẽ tự tạo bản ghi DNS `don.doanhwork.com` trỏ vào tunnel.
 
-> **Muốn web chạy thẳng ở `doanhwork.com`, không có `don.`?** Để trống ô Subdomain. Trước khi lưu, hãy xóa bản ghi `A doanhwork.com` có sẵn ở mục 1.3, nếu không Cloudflare sẽ báo trùng. Khi đó, mọi chỗ ghi `don.doanhwork.com` trong các tài liệu đổi thành `doanhwork.com`.
+> Tên miền gốc `doanhwork.com` và `www` dùng cho **website giới thiệu**, nối cùng tunnel này: xem [Giai đoạn 9](9-website.md), mục 3.
 
 Trạng thái tunnel sẽ chuyển sang **HEALTHY** sau khi bạn chạy web lần đầu ở [Giai đoạn 4](4-phat-hanh-cap-nhat.md).
+
+### Đổi token Tunnel (khi token bị lộ)
+Token Tunnel là bí mật: ai có nó là chạy được máy chủ giả nhận truy cập vào tên miền của bạn. Chỉ để trong `.env` trên server, **không bao giờ** ghi vào `.env.example` hay file nào lên GitHub.
+
+1. Cloudflare **Zero Trust → Networks → Tunnels → quanly-don** → ô **Refresh token** bên phải → **Rotate token** → copy token mới.
+2. Trên server: `cd ~/apps/quanly-don && nano .env` → thay dòng `TUNNEL_TOKEN=` → `docker compose up -d`.
+3. Tunnel phải trở lại **Healthy**. Web gián đoạn vài phút giữa bước 1 và 2, nên làm lúc ít đơn.
 
 ---
 
