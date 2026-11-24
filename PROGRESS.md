@@ -51,6 +51,11 @@
 
 ## Nhật ký
 
+- **24/11/2026 (tối):** Bắt đầu hướng chatbot Messenger (mức 2: tự trả lời). App Meta có sẵn: **trungsau_canxi** (loại Kinh doanh, đang ở chế độ Phát triển, `pages_messaging` = Standard access, đã gọi khoảng 10,7K lần qua n8n + ngrok trước đây; webhook cũ đã xóa). Thêm **webhook thử nghiệm** `src/meta.js`: `GET/POST /api/meta/webhook` (xác minh `META_VERIFY_TOKEN`, kiểm chữ ký `META_APP_SECRET`, lưu bảng `meta_events`), `GET /api/meta/events`, `POST /api/meta/test-reply` (cần `META_PAGE_TOKEN`), thẻ "Messenger (thử nghiệm)" trong Cài đặt. Trang privacy thêm mục Messenger + `#xoa-du-lieu`. Hướng dẫn: `docs/8-messenger.md`. ⏳ **Việc tiếp theo:** người dùng làm bước 4 của docs/8 (khách thật nhắn vào page) để biết có cần xin Advanced access không, rồi mới làm chatbot AI. Cần từ người dùng: bảng giá, câu hỏi thường gặp, cách xưng hô.
+- **24/11/2026:** Nút Xóa tài khoản: chặn nếu tài khoản đã tự tạo đơn / thao tác đơn / nhập thu chi; nếu chỉ được chia đơn mà tạo chưa quá 24 giờ thì cho xóa, đơn trả về "Chưa chia" (sửa trường hợp tài khoản kho đầu tiên tạo nhầm tự ôm hết đơn).
+
+- **24/11/2026:** Thêm nút **Xóa** tài khoản (`DELETE /api/users/:id`): chỉ xóa được tài khoản chưa có đơn (kho_id / created_by), thao tác (order_events) hay thu chi; có rồi thì báo lỗi, gợi ý Khóa. Không tự xóa mình. Xóa tài khoản kho đang nhận đơn mới thì `active_kho` về 0. `npm test`: 12/12.
+
 - **24/11/2026:** Chia tài liệu thành thư mục `docs/` theo từng giai đoạn (mục lục: `docs/README.md`), bỏ `DEPLOY.md`. README gốc chỉ còn giới thiệu ngắn và link.
 
 - **23/11/2026 (tối):** Sửa lỗi mã đơn trùng khi một ngày quá 999 đơn (`nextCode` so theo độ dài trước). Thêm `deploy/backup-gdrive.sh`: nén bản sao lưu mới nhất, đưa lên Google Drive bằng rclone mỗi tuần (cron 3:30 sáng Chủ nhật), giữ 365 ngày; hướng dẫn ở `docs/6-sao-luu.md`. ✅ 24/11/2026 đã cài trên server thật (Google Cloud project riêng, xác minh doanhwork.com, app ở chế độ In production), 2 bản đầu đã lên Drive. `npm test`: 11/11 qua. Đo dung lượng: khoảng 1,2 KB mỗi đơn, nên 100 đơn/ngày ≈ 45 MB/năm.

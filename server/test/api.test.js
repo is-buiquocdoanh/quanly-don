@@ -31,7 +31,7 @@ const ext = (body) => fetch(BASE + '/api/ext', { method: 'POST', headers: { 'Con
 before(async () => {
   proc = spawn(process.execPath, ['src/server.js'], {
     cwd: path.resolve(import.meta.dirname, '..'),
-    env: { ...process.env, ANTHROPIC_API_KEY: '', PORT: String(PORT), DATA_DIR: DATA, ADMIN_PASSWORD: 'test123' },
+    env: { ...process.env, ANTHROPIC_API_KEY: '', PORT: String(PORT), DATA_DIR: DATA, ADMIN_PASSWORD: 'test123', META_VERIFY_TOKEN: 'verify-abc', META_APP_SECRET: 'secret-xyz', META_PAGE_TOKEN: '' },
     stdio: 'ignore',
   });
   for (let i = 0; i < 50; i++) {
@@ -276,4 +276,58 @@ test('mã đơn: quá 999 đơn một ngày vẫn không trùng', async () => {
   const b = (await admin('POST', '/api/orders', { name: 'A', phone: '0955000555', address: 'Hà Nội', qty: 1, total: 1 })).order;
   assert.equal(a.code, prefix + '1000');
   assert.equal(b.code, prefix + '1001');
+});
+
+test('xóa tài khoản: chỉ xóa được tài khoản tạo nhầm, chưa có dữ liệu', async () => {
+  const users = async () => (await admin('GET', '/api/users')).users;
+  assert.equal((await admin('POST', '/api/users', { username: 'kho.nham', password: 'abc123', role: 'kho' })).ok, true);
+  const nham = (await users()).find((u) => u.username === 'kho.nham');
+  // tạo nhầm, chưa có gì → xóa được, đăng nhập không được nữa
+  assert.equal((await admin('DELETE', '/api/users/' + nham.id)).ok, true);
+  assert.ok(!(await users()).some((u) => u.id === nham.id));
+  const c = client();
+  assert.equal((await c('POST', '/api/login', { username: 'kho.nham', password: 'abc123' })).ok, false);
+  // tạo lại cùng tên đăng nhập được
+  assert.equal((await admin('POST', '/api/users', { username: 'kho.nham', password: 'abc123', role: 'kho' })).ok, true);
+  // tài khoản kho đã có đơn → không xóa được, gợi ý Khóa
+  const khoUser = (await users()).find((u) => u.username === 'kho');
+  const r = await admin('DELETE', '/api/users/' + khoUser.id);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /Khóa/);
+  // không tự xóa chính mình
+  const me = (await users()).find((u) => u.username === 'admin');
+  assert.equal((await admin('DELETE', '/api/users/' + me.id)).ok, false);
+  // kho không gọi được API xóa
+  const k2 = (await users()).find((u) => u.username === 'kho.nham');
+  assert.equal((await kho('DELETE', '/api/users/' + k2.id)).ok, false);
+});
+
+test('Messenger webhook: xác minh, kiểm chữ ký, lưu tin', async () => {
+  const { createHmac } = await import('node:crypto');
+  const W = BASE + '/api/meta/webhook';
+  // Meta xác minh URL
+  let r = await fetch(W + '?hub.mode=subscribe&hub.verify_token=verify-abc&hub.challenge=12345');
+  assert.equal(r.status, 200);
+  assert.equal(await r.text(), '12345');
+  assert.equal((await fetch(W + '?hub.mode=subscribe&hub.verify_token=sai&hub.challenge=1')).status, 403);
+  // tin nhắn có chữ ký đúng → lưu
+  const body = JSON.stringify({ object: 'page', entry: [{ id: '111', time: 1, messaging: [
+    { sender: { id: '900001' }, recipient: { id: '111' }, timestamp: 1, message: { mid: 'm1', text: 'Shop ơi còn trứng không' } },
+    { sender: { id: '111' }, recipient: { id: '900001' }, timestamp: 2, message: { mid: 'm2', text: 'Dạ còn ạ', is_echo: true } },
+  ] }] });
+  const sig = 'sha256=' + createHmac('sha256', 'secret-xyz').update(body).digest('hex');
+  r = await fetch(W, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Hub-Signature-256': sig }, body });
+  assert.equal(r.status, 200);
+  // chữ ký sai → từ chối, không lưu
+  r = await fetch(W, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Hub-Signature-256': 'sha256=' + '0'.repeat(64) }, body });
+  assert.equal(r.status, 401);
+  const ev = await admin('GET', '/api/meta/events');
+  assert.equal(ev.events.length, 2);
+  assert.deepEqual(ev.events.map((e) => [e.kind, e.sender_id]), [['echo', '900001'], ['message', '900001']]);
+  assert.equal(ev.events[1].text, 'Shop ơi còn trứng không');
+  assert.deepEqual(ev.status, { verify_token: true, app_secret: true, page_token: false });
+  assert.match(ev.webhook_url, /\/api\/meta\/webhook$/);
+  // chưa có mã page → gửi thử báo lỗi rõ ràng; kho không xem được
+  assert.match((await admin('POST', '/api/meta/test-reply', { sender_id: '900001' })).error, /META_PAGE_TOKEN/);
+  assert.equal((await kho('GET', '/api/meta/events')).ok, false);
 });

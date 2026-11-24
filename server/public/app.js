@@ -1169,6 +1169,7 @@ VIEWS.settings = async (root) => {
           <div class="actions"><button class="btn sec" id="newTok">Tạo mã mới</button></div>
           <p class="muted small">Mã chỉ hiện 1 lần. Tạo mã mới thì mã cũ hết hiệu lực.</p>
         </div>
+        <div class="card" id="metaCard"><h2>Messenger (thử nghiệm)</h2><div class="loading">Đang tải…</div></div>
         <div class="card"><h2>Sao lưu dữ liệu</h2>
           <p class="small">Server tự sao lưu mỗi ngày (giữ 30 bản) trong thư mục <code>data/backups</code>. Nên tải 1 bản về máy mỗi tuần.</p>
           <a class="btn sec" href="/api/backup">⬇ Tải bản sao lưu</a>
@@ -1196,7 +1197,7 @@ VIEWS.settings = async (root) => {
       <div class="table-wrap" style="border:0"><table><thead><tr><th>Tên đăng nhập</th><th>Tên hiển thị</th><th>Quyền</th><th>Trạng thái</th><th></th></tr></thead><tbody>
       ${u.users.map((x) => `<tr><td class="mono">${esc(x.username)}</td><td>${esc(x.display_name)}</td><td>${x.role === 'admin' ? 'Chủ shop' : 'Kho'}</td>
         <td>${x.active ? '<span class="badge st-da_giao">Hoạt động</span>' : '<span class="badge st-huy">Đã khóa</span>'}</td>
-        <td class="nowrap">${x.id === S.user.id ? '<span class="muted small">(bạn)</span>' : `<button class="btn sm sec" data-pw="${x.id}">Đặt lại mật khẩu</button> <button class="btn sm ${x.active ? 'danger' : 'sec'}" data-active="${x.id}" data-v="${x.active ? 0 : 1}">${x.active ? 'Khóa' : 'Mở khóa'}</button>`}</td></tr>`).join('')}
+        <td class="nowrap">${x.id === S.user.id ? '<span class="muted small">(bạn)</span>' : `<button class="btn sm sec" data-pw="${x.id}">Đặt lại mật khẩu</button> <button class="btn sm ${x.active ? 'danger' : 'sec'}" data-active="${x.id}" data-v="${x.active ? 0 : 1}">${x.active ? 'Khóa' : 'Mở khóa'}</button> <button class="btn sm sec" data-deluser="${x.id}" data-name="${esc(x.display_name || x.username)}" title="Chỉ xóa được tài khoản chưa có đơn hay thao tác nào (tạo nhầm)">Xóa</button>`}</td></tr>`).join('')}
       </tbody></table></div>
       <h2 style="margin-top:14px">Thêm tài khoản</h2>
       <form class="toolbar" id="newUser" style="margin:0">
@@ -1260,7 +1261,15 @@ VIEWS.settings = async (root) => {
     if (mv) return moveForm(Number(mv.dataset.movesup));
     const pw = e.target.dataset.pw;
     const ac = e.target.dataset.active;
+    const del = e.target.dataset.deluser;
     try {
+      if (del) {
+        if (!confirm(`Xóa hẳn tài khoản "${e.target.dataset.name}"? Không khôi phục được.`)) return;
+        await api('DELETE', '/api/users/' + del);
+        toast('Đã xóa tài khoản');
+        route();
+        return;
+      }
       if (pw) {
         const p = prompt('Mật khẩu mới (≥ 6 ký tự):');
         if (!p) return;
@@ -1274,7 +1283,40 @@ VIEWS.settings = async (root) => {
     } catch (err) { fail(err); }
   });
   bindPassword(root);
+  metaCard();
 };
+
+// Thẻ kiểm tra Messenger webhook: tin Meta gửi tới + nút gửi tin trả lời thử
+async function metaCard() {
+  const box = $('#metaCard');
+  if (!box) return;
+  const r = await api('GET', '/api/meta/events').catch((e) => ({ error: e.message }));
+  if (!box.isConnected) return;
+  if (r.error) { box.innerHTML = `<h2>Messenger (thử nghiệm)</h2><div class="warn">${esc(r.error)}</div>`; return; }
+  const ok = (v, label) => `<span class="badge ${v ? 'st-da_giao' : 'st-huy'}">${v ? '✓' : '✗'} ${label}</span>`;
+  const KIND = { message: 'Khách nhắn', echo: 'Page gửi', postback: 'Bấm nút' };
+  box.innerHTML = `<h2>Messenger (thử nghiệm)</h2>
+    <p class="small" style="margin-top:0">Kiểm tra app Meta có nhận / trả lời được <b>khách thật</b> không. URL gọi lại dán vào Meta → Webhooks → Page:</p>
+    <form class="form"><label class="full">URL gọi lại<input readonly value="${esc(r.webhook_url)}"></label></form>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${ok(r.status.verify_token, 'META_VERIFY_TOKEN')}${ok(r.status.app_secret, 'META_APP_SECRET')}${ok(r.status.page_token, 'META_PAGE_TOKEN')}</div>
+    <div class="actions" style="margin-top:4px"><span class="muted small">${r.events.length ? `${r.events.length} tin gần nhất` : 'Chưa nhận được tin nào'}</span><span class="spacer"></span><button class="btn sec sm" id="metaReload">Tải lại</button></div>
+    ${r.events.length ? `<div class="table-wrap" style="max-height:320px;overflow:auto"><table><thead><tr><th>Lúc</th><th>Loại</th><th>Người</th><th>Nội dung</th><th></th></tr></thead><tbody>
+      ${r.events.map((e) => `<tr><td class="small nowrap">${dt(e.at)}</td><td class="small">${KIND[e.kind] || e.kind}</td><td class="mono small">${esc(e.sender_id)}</td>
+        <td class="small">${esc(e.text)}</td><td>${e.kind === 'message' ? `<button class="btn sm sec" data-reply="${esc(e.sender_id)}">Trả lời thử</button>` : ''}</td></tr>`).join('')}
+      </tbody></table></div>` : ''}`;
+  $('#metaReload', box).addEventListener('click', () => metaCard());
+  if (box.dataset.bound) return; // thẻ được vẽ lại nhiều lần, chỉ gắn sự kiện 1 lần
+  box.dataset.bound = '1';
+  box.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-reply]');
+    if (!b) return;
+    const text = prompt('Nội dung gửi thử cho người này:', 'Shop đã nhận được tin nhắn của bạn ạ (tin tự động thử nghiệm).');
+    if (!text) return;
+    b.disabled = true;
+    try { await api('POST', '/api/meta/test-reply', { sender_id: b.dataset.reply, text }); toast('Đã gửi. Người đó nhận được là app trả lời được khách này.'); setTimeout(metaCard, 1500); }
+    catch (err) { fail(err); b.disabled = false; }
+  });
+}
 
 function passwordCard() {
   return `<div class="card"><h2>Đổi mật khẩu của bạn</h2>

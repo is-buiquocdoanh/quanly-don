@@ -11,6 +11,7 @@ Làm lần lượt từ trên xuống. Mỗi giai đoạn là một file ngắn,
 | 5 | [Thiết lập web, extension, điện thoại](5-thiet-lap-web-extension.md) | Một lần |
 | 6 | [Sao lưu (server + Google Drive)](6-sao-luu.md) | Một lần (Google Drive) |
 | 7 | [Vận hành hằng ngày và xử lý sự cố](7-van-hanh-su-co.md) | Khi cần tra cứu |
+| 8 | [Messenger: kiểm tra trước khi làm chatbot](8-messenger.md) | Trước khi làm chatbot |
 
 Tra cứu thêm:
 

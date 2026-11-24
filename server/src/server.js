@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { db, DATA_DIR, backupTo } from './db.js';
 import { match, userFromSession } from './routes.js';
 import { HttpError, hashPassword, randomToken, nowVN, todayVN } from './util.js';
+import { verifyWebhook, checkSignature, saveEvents } from './meta.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public');
@@ -122,6 +123,25 @@ const server = http.createServer(async (req, res) => {
         'Content-Disposition': `attachment; filename="don-${todayVN()}.db"`,
       });
       fs.createReadStream(file).pipe(res).on('close', () => fs.rm(file, () => {}));
+      return;
+    }
+
+    // Webhook Messenger: Meta gọi trực tiếp (không có cookie), xác thực bằng mã xác minh / chữ ký
+    if (pathname === '/api/meta/webhook') {
+      if (req.method === 'GET') {
+        const challenge = verifyWebhook(Object.fromEntries(url.searchParams));
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end(challenge);
+        return;
+      }
+      if (req.method !== 'POST') throw new HttpError(405, 'Chỉ nhận GET / POST');
+      const raw = await readBody(req, 2e6);
+      checkSignature(raw, req.headers['x-hub-signature-256']);
+      let body;
+      try { body = JSON.parse(raw); } catch { throw new HttpError(400, 'JSON không hợp lệ'); }
+      saveEvents(body);
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end('EVENT_RECEIVED');
       return;
     }
 

@@ -1,6 +1,6 @@
 import { db, getSettings, setSetting, SETTING_DEFAULTS, tx } from './db.js';
 import {
-  nowVN, todayVN, normalizePhone, toInt, str, bad, HttpError, isDate,
+  nowVN, todayVN, daysAgoVN, normalizePhone, toInt, str, bad, HttpError, isDate,
   hashPassword, verifyPassword, randomToken,
 } from './util.js';
 import {
@@ -9,6 +9,7 @@ import {
 } from './orders.js';
 import { listKho, khoIdOrNull, adoptUnassigned, khoName } from './kho.js';
 import { aiEnabled, aiParse } from './ai.js';
+import { metaStatus, listEvents, sendTest } from './meta.js';
 import { forKho } from './orders.js';
 
 const SESSION_DAYS = 30;
@@ -229,6 +230,41 @@ add('PATCH', '/api/users/:id', 'admin', ({ params, body, user }) => {
     return { ok: true };
   });
 });
+
+/** Xóa tài khoản tạo nhầm. Chỉ xóa được khi tài khoản chưa có dữ liệu gắn với nó; có rồi thì dùng Khóa để giữ lịch sử. */
+add('DELETE', '/api/users/:id', 'admin', ({ params, user }) => {
+  const id = toInt(params.id);
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  if (!u) throw new HttpError(404, 'Không tìm thấy tài khoản');
+  if (id === user.id) throw bad('Không thể tự xóa tài khoản của chính mình');
+  const n = (sql) => db.prepare(sql).get(id).n;
+  // việc chính tài khoản này đã làm → giữ lại để biết ai làm gì
+  const used = [
+    [n('SELECT COUNT(*) n FROM orders WHERE created_by = ?'), 'đơn do tài khoản này tạo'],
+    [n('SELECT COUNT(*) n FROM order_events WHERE user_id = ?'), 'thao tác trên đơn'],
+    [n('SELECT COUNT(*) n FROM transactions WHERE created_by = ?'), 'khoản thu chi'],
+  ].filter(([c]) => c > 0);
+  // đơn chỉ được CHIA cho tài khoản (kể cả web tự chia khi đây là tài khoản kho duy nhất): tài khoản mới tạo
+  // trong 24 giờ thì coi là tạo nhầm, cho xóa và trả đơn về "Chưa chia"; tài khoản cũ hơn thì đó là lịch sử bên gửi hàng
+  const assigned = n('SELECT COUNT(*) n FROM orders WHERE kho_id = ?');
+  if (assigned && u.created_at < daysAgoVN(1)) used.push([assigned, 'đơn được chia cho tài khoản này']);
+  if (used.length) {
+    throw bad(`Không xóa được "${u.display_name || u.username}" vì đã có ${used.map(([c, t]) => `${c} ${t}`).join(', ')}. `
+      + 'Xóa sẽ mất lịch sử ai làm gì. Hãy bấm "Khóa" để tài khoản không đăng nhập được nữa.');
+  }
+  return tx(() => {
+    db.prepare('UPDATE orders SET kho_id = NULL WHERE kho_id = ?').run(id);
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    if (Number(getSettings().active_kho) === id) setSetting('active_kho', 0);
+    adoptUnassigned();
+    return { ok: true };
+  });
+});
+
+// ---------------------------------------------------------------- Messenger (thử nghiệm)
+
+add('GET', '/api/meta/events', 'admin', ({ baseUrl }) => ({ status: metaStatus(), events: listEvents(50), webhook_url: baseUrl + '/api/meta/webhook' }));
+add('POST', '/api/meta/test-reply', 'admin', async ({ body }) => sendTest(body.sender_id, body.text || 'Shop đã nhận được tin nhắn của bạn ạ (tin tự động thử nghiệm).'));
 
 // ---------------------------------------------------------------- Chia đơn cho tài khoản kho
 

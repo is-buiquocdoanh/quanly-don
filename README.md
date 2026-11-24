@@ -23,6 +23,7 @@ Mở **[docs/README.md](docs/README.md)** và làm lần lượt:
 5. [Thiết lập web, extension, điện thoại](docs/5-thiet-lap-web-extension.md)
 6. [Sao lưu (server + Google Drive)](docs/6-sao-luu.md)
 7. [Vận hành hằng ngày và xử lý sự cố](docs/7-van-hanh-su-co.md)
+8. [Messenger: kiểm tra trước khi làm chatbot](docs/8-messenger.md)
 
 Muốn biết web làm được gì: [Tính năng của web](docs/tinh-nang.md).
 

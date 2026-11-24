@@ -8,7 +8,7 @@
 
 1. Đăng nhập bằng `admin` và mật khẩu đã đặt trong `.env`, rồi vào **Cài đặt → Đổi mật khẩu**.
 2. **Cài đặt → Cửa hàng**: nhập **giá vốn 1 hộp** để web tính lãi.
-3. **Cài đặt → Tài khoản → Thêm tài khoản**: tạo tài khoản quyền **Kho** cho người gửi hàng.
+3. **Cài đặt → Tài khoản → Thêm tài khoản**: tạo tài khoản quyền **Kho** cho người gửi hàng. Tạo nhầm thì bấm **Xóa** ở dòng tài khoản đó rồi tạo lại.
 4. **Cài đặt → Chrome extension → Tạo mã mới**: copy mã `ext_…`.
 
 ## 2. Cài extension vào Chrome
