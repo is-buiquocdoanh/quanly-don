@@ -225,7 +225,7 @@ $('#logout').addEventListener('click', async () => {
 
 // ================================================================ điều hướng
 const NAV = {
-  admin: [['dashboard', 'Tổng quan', 'Tổng quan'], ['orders', 'Đơn hàng', 'Đơn'], ['kho', 'Kho gửi hàng', 'Kho'], ['customers', 'Khách hàng', 'Khách'], ['finance', 'Thu chi', 'Thu chi'], ['website', 'Website', 'Web'], ['messenger', 'Messenger', 'Chat'], ['settings', 'Cài đặt', 'Cài đặt']],
+  admin: [['dashboard', 'Tổng quan', 'Tổng'], ['orders', 'Đơn hàng', 'Đơn'], ['kho', 'Kho gửi hàng', 'Kho'], ['customers', 'Khách hàng', 'Khách'], ['finance', 'Thu chi', 'Thu chi'], ['website', 'Website', 'Web'], ['messenger', 'Messenger', 'Chat'], ['settings', 'Cài đặt', 'Cài đặt']],
   kho: [['kho', 'Gửi hàng', 'Gửi hàng'], ['account', 'Tài khoản', 'Tài khoản']],
 };
 const ICONS = {
@@ -1407,99 +1407,123 @@ VIEWS.finance = async (root) => {
 };
 
 // ================================================================ CÀI ĐẶT
+const setState = { tab: 'ban' };
 VIEWS.settings = async (root) => {
   const [u, sp] = await Promise.all([api('GET', '/api/users'), api('GET', '/api/kho')]);
   S.khos = sp.khos.map(({ waiting, shipped, ...w }) => w);
   const s = S.settings;
   const sample = { name: 'Bùi Thanh Tâm', phone: '0949047192', address: 'Xã Nghĩa Đàn, Nghệ An', qty: 2, total: 240000 };
   const sw = supplierSwitch(() => route());
+  const T = (title, desc, body, extra = '') => `<section class="scard" ${extra}><header><h2>${title}</h2>${desc ? `<p>${desc}</p>` : ''}</header><div class="scard-b">${body}</div></section>`;
+  const saveBtn = '<div class="actions"><button class="btn" data-save>Lưu</button></div>';
+  const TABS = [['ban', 'Bán hàng'], ['gui', 'Chép & gửi Zalo'], ['kho', 'Kho & tài khoản'], ['thuchi', 'Thu chi & hoàn'], ['khac', 'Extension & bảo mật']];
+  if (!TABS.some(([k]) => k === setState.tab)) setState.tab = 'ban';
   root.innerHTML = `
     <h1>Cài đặt</h1>
-    <div class="grid2">
-      <div class="card"><h2>Cửa hàng</h2>
-        <form class="form" id="shop">
+    <div class="stabs" role="tablist">${TABS.map(([k, l]) => `<button class="stab${setState.tab === k ? ' on' : ''}" data-tab="${k}" role="tab">${l}</button>`).join('')}</div>
+
+    <div class="spanel" data-panel="ban">
+      ${T('Cửa hàng', 'Tên hiện trên web, sản phẩm mặc định khi tạo đơn, cách kiểm tra đơn trùng.', `
+        <form class="form sform">
           <label class="full">Tên cửa hàng<input name="shop_name" value="${esc(s.shop_name)}"></label>
-          <label>Giá vốn 1 hộp (để tính lãi)<input name="cost_per_unit" value="${num(s.cost_per_unit)}" inputmode="numeric"></label>
-          <label>Kiểm tra trùng SĐT trong (ngày)<input name="dup_days" value="${s.dup_days}" inputmode="numeric"></label>
           <label class="full">Sản phẩm mặc định<input name="default_product" value="${esc(s.default_product)}"></label>
-          <label class="full">Giá theo số hộp (tự điền tổng tiền khi nhập số lượng ở extension và form tạo đơn)
-            <textarea name="price_table" rows="5" placeholder="1 = 95000&#10;2 = 130000">${esc(s.price_table || '')}</textarea>
-            <span class="hint" style="margin:4px 0 0">Mỗi dòng: <b>số hộp = giá</b>, vd <code>2 = 130000</code> hoặc <code>2 = 130k</code>. Số hộp không có trong bảng thì tự điền tay. Gõ tay ô tổng tiền thì không bị ghi đè.</span></label>
-          <div class="full fld"><span class="fld-l">Các page Facebook của shop</span>${UI.tags('fb_pages', s.fb_pages || [], 'Nhập tên page, nhấn Enter (vd: Trứng Sâu Canxi Miền Bắc)')}
-            <span class="hint" style="margin:4px 0 0">Extension dùng danh sách này để tự điền page cho từng đơn.</span></div>
+          <label><span>Giá vốn 1 hộp <span class="opt">(để tính lãi)</span></span><input name="cost_per_unit" value="${num(s.cost_per_unit)}" inputmode="numeric"></label>
+          <label><span>Kiểm tra trùng SĐT trong <span class="opt">(số ngày)</span></span><input name="dup_days" value="${s.dup_days}" inputmode="numeric"></label>
+        </form>${saveBtn}`)}
+      ${T('Giá theo số hộp', 'Nhập số hộp ở extension hoặc form tạo đơn là tổng tiền tự điền theo bảng này. Gõ tay ô tổng tiền thì không bị ghi đè.', `
+        <form class="form sform">
+          <label class="full"><span>Mỗi dòng: số hộp = giá <span class="opt">(vd 2 = 130000 hoặc 2 = 130k)</span></span>
+            <textarea name="price_table" rows="5" placeholder="1 = 95000&#10;2 = 130000">${esc(s.price_table || '')}</textarea></label>
+        </form>${saveBtn}`)}
+      ${T('Các page Facebook', 'Extension dùng danh sách này để tự điền page cho từng đơn.', `
+        <form class="form sform"><div class="full fld">${UI.tags('fb_pages', s.fb_pages || [], 'Nhập tên page, nhấn Enter')}</div></form>${saveBtn}`)}
+    </div>
+
+    <div class="spanel" data-panel="gui">
+      ${T('Nội dung khi chép / gửi một đơn', 'Áp dụng cho nút Chép, Chép lần lượt và tin gửi Zalo.', `
+        <form class="form sform" id="copyForm">
+          <label>Ngăn cách các mục<select name="copy_sep">
+            ${[['pipe', 'Gạch đứng  |'], ['dash', 'Gạch ngang  -'], ['semi', 'Chấm phẩy  ;'], ['tab', 'Tab (dán vào Excel thành cột)'], ['newline', 'Xuống dòng (mỗi mục 1 dòng)']]
+              .map(([k, l]) => `<option value="${k}" ${s.copy_sep === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+          <label>Ghi tên mục<select name="copy_labels"><option value="0" ${Number(s.copy_labels) !== 1 ? 'selected' : ''}>Không, chỉ giá trị</option><option value="1" ${Number(s.copy_labels) === 1 ? 'selected' : ''}>Có (Tên: …, SĐT: …)</option></select></label>
+          <div class="full copy-preview"><span class="fld-l">Xem trước</span><pre id="cpv"></pre></div>
+        </form>${saveBtn}`)}
+      <section class="scard" id="zaloCard"><header><h2>Gửi đơn qua Zalo</h2></header><div class="scard-b"><div class="loading">Đang tải…</div></div></section>
+    </div>
+
+    <div class="spanel" data-panel="kho">
+      ${T('Chia đơn cho kho', 'Mỗi tài khoản <b>Kho</b> là 1 bên có hàng và <b>chỉ thấy đơn chia cho mình</b> (không thấy fanpage, link chat, giá vốn, đơn của kho khác). Đơn mới tự chia cho kho đang chọn.', `
+        ${sp.khos.length ? `
+        ${sp.khos.length > 1 || sp.unassigned ? `<div class="sup-bar">${sp.khos.length > 1 ? sw.html : ''}
+          ${sp.unassigned ? `<a class="pill bad" href="#/orders" id="goUn">${sp.unassigned} đơn chờ gửi chưa chia cho kho nào</a>` : ''}</div>` : ''}
+        <div class="table-wrap flat"><table class="tbl"><thead><tr><th>Kho</th><th>Tên đăng nhập</th><th class="right">Chờ gửi</th><th class="right">Đang gửi</th><th></th></tr></thead><tbody>
+          ${sp.khos.map((w) => `<tr class="${w.active ? '' : 'is-huy'}"><td class="strong nowrap">${esc(w.name)}
+              ${Number(S.settings.active_kho) === w.id || (sp.khos.filter((x) => x.active).length === 1 && w.active && !Number(S.settings.active_kho)) ? ' <span class="badge st-da_giao">Đang nhận đơn mới</span>' : ''}${w.active ? '' : ' <span class="badge st-huy">Đã khóa</span>'}</td>
+            <td class="mono">${esc(w.username)}</td><td class="right">${w.waiting}</td><td class="right">${w.shipped}</td>
+            <td class="right nowrap">${w.waiting && sp.khos.length > 1 ? `<button class="btn sm sec" data-movesup="${w.id}">Chuyển ${w.waiting} đơn chờ gửi…</button>` : ''}</td></tr>`).join('')}
+        </tbody></table></div>`
+        : '<div class="empty sm">Chưa có tài khoản kho nào. Tạo tài khoản quyền <b>Kho</b> ở khung bên dưới.</div>'}`, 'id="supCard"')}
+      ${T('Tài khoản', 'Người đăng nhập vào web. Tài khoản đã có đơn thì chỉ khóa được, không xóa được.', `
+        <div class="table-wrap flat"><table><thead><tr><th>Tên đăng nhập</th><th>Tên hiển thị</th><th>Quyền</th><th>Trạng thái</th><th></th></tr></thead><tbody>
+        ${u.users.map((x) => `<tr><td class="mono">${esc(x.username)}</td><td>${esc(x.display_name)}</td><td>${x.role === 'admin' ? 'Chủ shop' : 'Kho'}</td>
+          <td>${x.active ? '<span class="badge st-da_giao">Hoạt động</span>' : '<span class="badge st-huy">Đã khóa</span>'}</td>
+          <td class="nowrap right">${x.id === S.user.id ? '<span class="muted small">(bạn)</span>' : `<button class="btn sm sec" data-pw="${x.id}">Đặt lại mật khẩu</button> <button class="btn sm ${x.active ? 'danger' : 'sec'}" data-active="${x.id}" data-v="${x.active ? 0 : 1}">${x.active ? 'Khóa' : 'Mở khóa'}</button> <button class="btn sm sec" data-deluser="${x.id}" data-name="${esc(x.display_name || x.username)}" title="Chỉ xóa được tài khoản chưa có đơn hay thao tác nào (tạo nhầm)">Xóa</button>`}</td></tr>`).join('')}
+        </tbody></table></div>
+        <div class="sub-h">Thêm tài khoản</div>
+        <form class="form" id="newUser">
+          <label>Tên đăng nhập<input name="username" placeholder="vd: kho" autocapitalize="none" required></label>
+          <label>Tên hiển thị<input name="display_name" placeholder="vd: Kho Phú Thọ"></label>
+          <label>Mật khẩu<input name="password" placeholder="ít nhất 6 ký tự" required></label>
+          <label>Quyền<select name="role"><option value="kho">Kho</option><option value="admin">Chủ shop</option></select></label>
+          <div class="full actions" style="margin-top:0"><button class="btn">+ Thêm tài khoản</button></div>
+        </form>`)}
+    </div>
+
+    <div class="spanel" data-panel="thuchi">
+      ${T('Danh mục thu chi', 'Các mục để chọn nhanh khi nhập khoản thu, khoản chi.', `
+        <form class="form sform">
           <div class="full fld"><span class="fld-l">Danh mục chi</span>${UI.tags('chi_categories', s.chi_categories, 'Thêm danh mục chi, nhấn Enter')}</div>
           <div class="full fld"><span class="fld-l">Danh mục thu</span>${UI.tags('thu_categories', s.thu_categories, 'Thêm danh mục thu, nhấn Enter')}</div>
-          <div class="full fld"><span class="fld-l">Lý do hoàn (để chọn nhanh)</span>${UI.tags('return_reasons', s.return_reasons || [], 'Thêm lý do, nhấn Enter')}
-            <span class="hint" style="margin:4px 0 0">Lý do <b>đầu tiên</b> được hiểu là "khách cố tình phá": chọn lý do này thì web gợi ý đưa SĐT vào Sổ đỏ.</span></div>
-          <div class="full form-sep">Khi bấm "Chép" một đơn</div>
-          <label>Ngăn cách các mục bằng<select name="copy_sep">
-            ${[['pipe', 'Gạch đứng  |'], ['dash', 'Gạch ngang  -'], ['semi', 'Chấm phẩy  ;'], ['tab', 'Tab (dán vào Excel/Sheets thành từng cột)'], ['newline', 'Xuống dòng (mỗi mục 1 dòng)']]
-              .map(([k, l]) => `<option value="${k}" ${s.copy_sep === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-          <label>Ghi tên mục<select name="copy_labels"><option value="0" ${Number(s.copy_labels) !== 1 ? 'selected' : ''}>Không, chỉ chép giá trị</option><option value="1" ${Number(s.copy_labels) === 1 ? 'selected' : ''}>Có (Tên: …, SĐT: …)</option></select></label>
-          <div class="full copy-preview"><span class="fld-l">Xem trước</span><pre id="cpv"></pre></div>
-        </form>
-        <div class="actions"><button class="btn" id="saveShop">Lưu cài đặt</button></div>
-      </div>
-      <div>
-        <div class="card"><h2>Chrome extension (bắt đơn Ctrl+C)</h2>
-          <p class="small">Trong phần Cài đặt của extension, nhập:</p>
-          <form class="form"><label class="full">Địa chỉ web<input readonly value="${esc(location.origin)}"></label>
-          <label class="full">Mã API<input readonly id="tok" placeholder="Bấm “Tạo mã mới”"></label></form>
-          <div class="actions"><button class="btn sec" id="newTok">Tạo mã mới</button></div>
-          <p class="muted small">Mã chỉ hiện 1 lần. Tạo mã mới thì mã cũ hết hiệu lực.</p>
-        </div>
-        <div class="card" id="zaloCard"><h2>Gửi đơn qua Zalo</h2><div class="loading">Đang tải…</div></div>
-        <div class="card"><h2>Sao lưu dữ liệu</h2>
-          <p class="small">Server tự sao lưu mỗi ngày (giữ 30 bản) trong thư mục <code>data/backups</code>. Nên tải 1 bản về máy mỗi tuần.</p>
-          <a class="btn sec" href="/api/backup">⬇ Tải bản sao lưu</a>
-        </div>
-        ${passwordCard()}
-      </div>
+        </form>${saveBtn}`)}
+      ${T('Lý do hoàn', 'Chọn nhanh khi bấm Bị hoàn. Lý do <b>đầu tiên</b> được hiểu là "khách cố tình phá": chọn lý do này thì web gợi ý đưa SĐT vào Sổ đỏ.', `
+        <form class="form sform"><div class="full fld">${UI.tags('return_reasons', s.return_reasons || [], 'Thêm lý do, nhấn Enter')}</div></form>${saveBtn}`)}
     </div>
-    <div class="card" id="supCard">
-      <h2>Chia đơn cho kho</h2>
-      <p class="hint" style="margin:-4px 0 16px">Mỗi tài khoản <b>Kho</b> là 1 bên có hàng thật (bạn tạo ở mục Tài khoản bên dưới rồi đưa cho họ).
-        Họ đăng nhập, chép đơn, gửi hàng rồi bấm <b>Đã gửi</b>. Mỗi tài khoản kho <b>chỉ thấy đơn bạn chia cho họ</b>: không thấy đơn, tên, ghi chú, mã vận đơn của kho khác,
-        không thấy fanpage, link chat, giá vốn. Đơn mới tự chia cho kho đang chọn. Khi kho đó hết hàng, đổi sang kho khác.</p>
-      ${sp.khos.length ? `
-      <div class="sup-bar">${sp.khos.length > 1 ? sw.html : ''}
-        ${sp.unassigned ? `<a class="pill bad" href="#/orders" id="goUn">${sp.unassigned} đơn chờ gửi chưa chia cho kho nào</a>` : ''}</div>
-      <div class="table-wrap flat"><table class="tbl"><thead><tr><th>Kho</th><th>Tên đăng nhập</th><th class="right">Chờ gửi</th><th class="right">Đang gửi</th><th></th></tr></thead><tbody>
-        ${sp.khos.map((w) => `<tr class="${w.active ? '' : 'is-huy'}"><td class="strong nowrap">${esc(w.name)}
-            ${Number(S.settings.active_kho) === w.id || (sp.khos.filter((x) => x.active).length === 1 && w.active && !Number(S.settings.active_kho)) ? ' <span class="badge st-da_giao">Đang nhận đơn mới</span>' : ''}${w.active ? '' : ' <span class="badge st-huy">Đã khóa</span>'}</td>
-          <td class="mono">${esc(w.username)}</td><td class="right">${w.waiting}</td><td class="right">${w.shipped}</td>
-          <td class="right nowrap">${w.waiting && sp.khos.length > 1 ? `<button class="btn sm sec" data-movesup="${w.id}">Chuyển ${w.waiting} đơn chờ gửi…</button>` : ''}</td></tr>`).join('')}
-      </tbody></table></div>`
-      : '<div class="empty sm">Chưa có tài khoản kho nào. Tạo tài khoản quyền <b>Kho</b> ở mục Tài khoản bên dưới cho từng bên có hàng.</div>'}
-    </div>
-    <div class="card"><h2>Tài khoản</h2>
-      <div class="table-wrap" style="border:0"><table><thead><tr><th>Tên đăng nhập</th><th>Tên hiển thị</th><th>Quyền</th><th>Trạng thái</th><th></th></tr></thead><tbody>
-      ${u.users.map((x) => `<tr><td class="mono">${esc(x.username)}</td><td>${esc(x.display_name)}</td><td>${x.role === 'admin' ? 'Chủ shop' : 'Kho'}</td>
-        <td>${x.active ? '<span class="badge st-da_giao">Hoạt động</span>' : '<span class="badge st-huy">Đã khóa</span>'}</td>
-        <td class="nowrap">${x.id === S.user.id ? '<span class="muted small">(bạn)</span>' : `<button class="btn sm sec" data-pw="${x.id}">Đặt lại mật khẩu</button> <button class="btn sm ${x.active ? 'danger' : 'sec'}" data-active="${x.id}" data-v="${x.active ? 0 : 1}">${x.active ? 'Khóa' : 'Mở khóa'}</button> <button class="btn sm sec" data-deluser="${x.id}" data-name="${esc(x.display_name || x.username)}" title="Chỉ xóa được tài khoản chưa có đơn hay thao tác nào (tạo nhầm)">Xóa</button>`}</td></tr>`).join('')}
-      </tbody></table></div>
-      <h2 style="margin-top:14px">Thêm tài khoản</h2>
-      <form class="toolbar" id="newUser" style="margin:0">
-        <input name="username" placeholder="Tên đăng nhập (vd: kho)" autocapitalize="none" required>
-        <input name="display_name" placeholder="Tên hiển thị (vd: Kho Phú Thọ)">
-        <input name="password" placeholder="Mật khẩu (≥ 6 ký tự)" required>
-        <select name="role"><option value="kho">Kho</option><option value="admin">Chủ shop</option></select>
-        <button class="btn">+ Thêm</button>
-      </form>
+
+    <div class="spanel" data-panel="khac">
+      ${T('Chrome extension (bắt đơn Ctrl+C)', 'Nhập 2 dòng này vào phần Cài đặt của extension.', `
+        <form class="form"><label class="full">Địa chỉ web<input readonly value="${esc(location.origin)}"></label>
+        <label class="full">Mã API<input readonly id="tok" placeholder="Bấm “Tạo mã mới”"></label></form>
+        <div class="actions"><span class="muted small" style="margin-right:auto">Mã chỉ hiện 1 lần. Tạo mã mới thì mã cũ hết hiệu lực.</span><button class="btn sec" id="newTok">Tạo mã mới</button></div>`)}
+      ${T('Sao lưu dữ liệu', 'Server tự sao lưu mỗi ngày (giữ 30 bản). Nên tải thêm 1 bản về máy thỉnh thoảng.', `
+        <a class="btn sec" href="/api/backup">⬇ Tải bản sao lưu</a>`)}
+      ${passwordCard()}
     </div>`;
 
-  $('#saveShop').addEventListener('click', async () => {
-    const d = formData($('#shop'));
-    d.cost_per_unit = OrderParser.parseMoney(d.cost_per_unit);
+  const showTab = (k) => {
+    setState.tab = k;
+    $$('.stab', root).forEach((b) => b.classList.toggle('on', b.dataset.tab === k));
+    $$('.spanel', root).forEach((p) => { p.hidden = p.dataset.panel !== k; });
+  };
+  showTab(setState.tab);
+  $('.stabs', root).addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); });
+
+  // mỗi khung có nút Lưu riêng, chỉ lưu các mục trong khung đó
+  root.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-save]');
+    if (!b) return;
+    const d = formData(b.closest('.scard').querySelector('.sform'));
+    if ('cost_per_unit' in d) d.cost_per_unit = OrderParser.parseMoney(d.cost_per_unit);
+    b.disabled = true;
     try {
       const r = await api('PUT', '/api/settings', d);
       S.settings = r.settings;
       $('#brand').textContent = S.settings.shop_name;
       await refreshPages();
-      toast('Đã lưu cài đặt');
-    } catch (e) { fail(e); }
+      toast('Đã lưu');
+    } catch (err) { fail(err); }
+    b.disabled = false;
   });
-  const shop = $('#shop');
+  const shop = $('#copyForm', root);
   const preview = () => {
     const d = formData(shop);
     $('#cpv').textContent = orderLine(sample, d) + '\n\nChép tất cả:\n' + ordersText([sample, { ...sample, name: 'Trần Thị Mai', phone: '0916012577', qty: 1, total: 130000 }], d);
@@ -1580,25 +1604,27 @@ async function zaloCard() {
   if (!box) return;
   const z = await api('GET', '/api/zalo').catch((e) => ({ error: e.message }));
   if (!box.isConnected) return;
-  const head = '<h2>Gửi đơn qua Zalo</h2>';
-  if (z.error) { box.innerHTML = head + `<div class="warn">${esc(z.error)}</div>`; return; }
+  const head = '<header><h2>Gửi đơn qua Zalo</h2><p>Web tự gửi <b>mỗi đơn thành 1 tin</b> vào nhóm Zalo của kho, bằng một <b>tài khoản Zalo phụ</b> (đừng dùng Zalo chính).</p></header><div class="scard-b">';
+  if (z.error) { box.innerHTML = head + `<div class="warn">${esc(z.error)}</div></div>`; return; }
   const waiting = ['starting', 'qr', 'scanned'].includes(z.status);
   const logged = ['on', 'saved'].includes(z.status);
   box.innerHTML = head + `
-    <p class="small" style="margin-top:0">Web tự gửi <b>mỗi đơn thành 1 tin</b> vào nhóm Zalo của kho, bằng một <b>tài khoản Zalo phụ</b> (đừng dùng Zalo chính).
-      Cách này không chính thức: Zalo có thể khóa tài khoản phụ. Khi đó vẫn dùng được nút <b>Chép lần lượt</b> ở trang Đơn hàng.</p>
     ${z.error ? `<div class="warn soft">${esc(z.error)}</div>` : ''}
+    ${!logged && !waiting ? '<p class="small muted" style="margin:0 0 4px">Chưa đăng nhập. Thêm Zalo phụ vào nhóm kho trước, rồi bấm nút bên dưới.</p>' : ''}
     ${z.status === 'starting' ? '<div class="loading">Đang lấy mã QR…</div>' : ''}
     ${z.status === 'qr' ? `<div style="text-align:center"><img alt="Mã QR đăng nhập Zalo" src="data:image/png;base64,${z.qr}" style="width:220px;max-width:100%;background:#fff;padding:8px;border-radius:8px">
       <p class="small">Mở <b>Zalo phụ</b> trên điện thoại → biểu tượng <b>quét mã QR</b> → quét mã này → bấm <b>Đăng nhập</b>. Mã hết hạn sau khoảng 1 phút.</p></div>` : ''}
     ${z.status === 'scanned' ? '<div class="loading">Đã quét. Bấm <b>Đăng nhập</b> trên điện thoại…</div>' : ''}
-    ${logged ? `<div class="small" style="line-height:1.8">Đang dùng Zalo: <b>${esc(z.account || '(không rõ tên)')}</b> ${z.status === 'on' ? '<span class="badge st-da_giao">✓ Sẵn sàng</span>' : '<span class="badge">Đã lưu phiên</span>'}<br>
-      Nhóm nhận đơn: ${z.group ? `<b>${esc(z.group.name)}</b>` : '<span class="neg">chưa chọn</span>'}</div>
+    ${logged ? `<dl class="kv">
+        <dt>Tài khoản Zalo</dt><dd><b>${esc(z.account || '(không rõ tên)')}</b> ${z.status === 'on' ? '<span class="badge st-da_giao">✓ Sẵn sàng</span>' : '<span class="badge">Đã lưu phiên</span>'}</dd>
+        <dt>Nhóm nhận đơn</dt><dd>${z.group ? `<b>${esc(z.group.name)}</b>` : '<span class="neg">Chưa chọn</span>'}</dd>
+      </dl>
       <div id="zGroups"></div>` : ''}
     <div class="actions">
-      ${logged ? '<button class="btn sec sm" id="zPick">Chọn nhóm nhận đơn</button><button class="btn sec sm" id="zOut">Đăng xuất Zalo</button>'
-        : waiting ? '<button class="btn sec sm" id="zCancel">Hủy</button>' : '<button class="btn sm" id="zIn">Đăng nhập Zalo bằng mã QR</button>'}
-    </div>`;
+      ${logged ? '<button class="btn sec" id="zOut" style="margin-right:auto">Đăng xuất Zalo</button><button class="btn" id="zPick">Chọn nhóm nhận đơn</button>'
+        : waiting ? '<button class="btn sec" id="zCancel">Hủy</button>' : '<button class="btn" id="zIn">Đăng nhập Zalo bằng mã QR</button>'}
+    </div>
+    <p class="note">Cách này không chính thức: Zalo có thể khóa tài khoản phụ. Khi đó vẫn gửi được bằng nút <b>Chép lần lượt</b> ở trang Đơn hàng.</p></div>`;
   if (waiting) setTimeout(() => box.isConnected && zaloCard(), 2000);
   $('#zIn', box)?.addEventListener('click', async (e) => {
     e.target.disabled = true;
@@ -1787,12 +1813,12 @@ async function metaCard() {
 }
 
 function passwordCard() {
-  return `<div class="card"><h2>Đổi mật khẩu của bạn</h2>
+  return `<section class="scard"><header><h2>Đổi mật khẩu của bạn</h2></header><div class="scard-b">
     <form class="form" id="pwForm">
-      <label class="full">Mật khẩu hiện tại<input type="password" name="old_password" autocomplete="current-password" required></label>
-      <label class="full">Mật khẩu mới<input type="password" name="new_password" autocomplete="new-password" required></label>
+      <label>Mật khẩu hiện tại<input type="password" name="old_password" autocomplete="current-password" required></label>
+      <label>Mật khẩu mới<input type="password" name="new_password" autocomplete="new-password" required></label>
     </form>
-    <div class="actions"><button class="btn sec" id="pwSave">Đổi mật khẩu</button></div></div>`;
+    <div class="actions"><button class="btn" id="pwSave">Đổi mật khẩu</button></div></div></section>`;
 }
 function bindPassword(root) {
   $('#pwSave', root).addEventListener('click', async () => {
