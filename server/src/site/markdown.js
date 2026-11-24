@@ -52,10 +52,23 @@ export function markdown(src) {
   const flushQuote = () => { if (quote.length) { html.push(`<blockquote><p>${inline(quote.join(' '))}</p></blockquote>`); quote = []; } };
   const flushAll = () => { flushPara(); flushList(); flushQuote(); };
 
-  for (const raw of lines) {
-    const line = raw.trimEnd();
+  const cells = (l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trimEnd();
     let m;
     if (!line.trim()) { flushAll(); continue; }
+    // bảng: | a | b |  rồi dòng |---|---|
+    if (line.trim().startsWith('|') && /^\s*\|?\s*:?-{3,}/.test(lines[i + 1] || '')) {
+      flushAll();
+      const head = cells(line);
+      const rows = [];
+      i += 2;
+      while (i < lines.length && lines[i].trim().startsWith('|')) rows.push(cells(lines[i++]));
+      i--;
+      html.push(`<div class="table"><table><thead><tr>${head.map((c) => `<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>${
+        rows.map((r) => `<tr>${head.map((_, k) => `<td>${inline(r[k] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
+      continue;
+    }
     if ((m = line.match(/^(#{1,3})\s+(.+)$/))) {
       flushAll();
       const lv = Math.min(m[1].length + 1, 4); // # → h2 (h1 dành cho tiêu đề trang)

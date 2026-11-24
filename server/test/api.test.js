@@ -471,3 +471,18 @@ test('website: tải ảnh chỉ nhận ảnh thật, phục vụ ở cả 2 tê
   assert.equal((await siteGet('/uploads/../don.db')).status, 404);
   assert.equal((await kho('POST', '/api/uploads', { data: png })).ok, false);
 });
+
+test('website: chỉ lưu mục đã sửa, mục chưa sửa vẫn theo nội dung mặc định', async () => {
+  const { DatabaseSync } = await import('node:sqlite');
+  await admin('PUT', '/api/site', { tagline: 'Khẩu hiệu riêng' });
+  const db = new DatabaseSync(path.join(DATA, 'don.db'), { readOnly: true });
+  const saved = JSON.parse(db.prepare("SELECT value FROM settings WHERE key = 'site'").get().value);
+  db.close();
+  assert.equal(saved.tagline, 'Khẩu hiệu riêng');
+  assert.equal(saved.usage, undefined, 'không chép nội dung mặc định vào database');
+  assert.equal(saved.farm, undefined);
+  const site = (await admin('GET', '/api/site')).site;
+  assert.match(site.usage, /Cách ấp trứng/);
+  // bài mẫu đã đăng sẵn
+  assert.match((await siteGet('/blog/huong-dan-ap-trung-ruoi-linh-den-nuoi-sau-canxi-tai-nha')).body, /<table>/);
+});

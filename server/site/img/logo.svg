@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Trứng Sâu Canxi">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2f8a55"/>
+      <stop offset="1" stop-color="#17583a"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbe9bf"/>
+      <stop offset="1" stop-color="#e9c27a"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="31" fill="url(#bg)"/>
+  <circle cx="32" cy="32" r="27.5" fill="none" stroke="#f6d68f" stroke-opacity=".35" stroke-width="1"/>
+  <!-- lá non -->
+  <path d="M40 13c7-2 12 1 13 6-6 2-11 0-13-6z" fill="#8fd18a"/>
+  <path d="M40.5 13.5c4 1.6 7.5 3.4 11.8 5.2" stroke="#2f8a55" stroke-width="1" fill="none" stroke-linecap="round"/>
+  <!-- con sâu canxi (ấu trùng ruồi lính đen) uốn chữ C -->
+  <path d="M21 44c-6-7-4-19 6-23 9-4 19 0 21 8" fill="none" stroke="url(#body)" stroke-width="10" stroke-linecap="round"/>
+  <!-- đốt thân: cùng đường cong, nét đứt ngang thân -->
+  <path d="M21 44c-6-7-4-19 6-23 9-4 19 0 21 8" fill="none" stroke="#b9853a" stroke-width="8" stroke-dasharray="1.3 4.6" stroke-dashoffset="-3" opacity=".6"/>
+  <circle cx="47.6" cy="30.6" r="4.6" fill="#9a6526"/>
+  <circle cx="48.7" cy="29.4" r="1.1" fill="#fbe9bf"/>
+  <!-- trứng -->
+  <ellipse cx="33" cy="46.5" rx="3.1" ry="4" fill="#fbe9bf"/>
+  <ellipse cx="40" cy="45" rx="2.7" ry="3.5" fill="#f3d48f"/>
+  <ellipse cx="45.8" cy="41.2" rx="2.3" ry="3" fill="#fbe9bf" opacity=".9"/>
+</svg>

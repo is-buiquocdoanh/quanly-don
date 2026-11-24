@@ -25,7 +25,13 @@ Server nhìn **tên miền** để biết trả trang nào. Ở tên miền côn
 | `/sitemap.xml`, `/robots.txt` | Cho Google | Tự tạo |
 | `/dang-nhap` | Chuyển sang web quản lý | — |
 
-Giao diện hiện là **bản khung**; sẽ đổi theo mẫu chủ shop gửi (chỉ sửa `server/site/site.css` và `server/src/site/render.js`).
+Trang chủ có: số liệu nổi bật, *Sâu canxi là gì*, bảng dinh dưỡng, lợi ích cho gà / vịt / chim / cá / ếch…, lợi ích khi tự nuôi, quy trình 4 bước có ảnh, sản phẩm, ảnh trang trại, câu hỏi thường gặp, bài viết mới, nguồn tham khảo.
+
+- **Nội dung mặc định** (đã viết sẵn, dựa trên tài liệu có nguồn): `server/src/site/content.js` (`SITE_DEFAULTS`, `HOME`). Mục nào chủ shop sửa trong web quản lý thì chỉ lưu mục đó; mục chưa sửa luôn theo bản mặc định mới nhất.
+- **3 bài viết mẫu** (`server/src/site/seed-posts.js`) tự đăng **1 lần** khi website chạy lần đầu: *Sâu canxi là gì*, *Hướng dẫn ấp trứng và nuôi sâu*, *Cách cho gà, vịt, chim, cá ăn sâu canxi*. Sửa / gỡ trong **Website → Bài viết**.
+- **Ảnh và logo có sẵn:** `server/site/img/` (logo.svg, ảnh trang trại, hũ trứng). Muốn thêm ảnh: tải lên trong web quản lý.
+- Sản phẩm là **trứng ruồi lính đen để khách tự ấp nở**, nuôi thành sâu canxi — nội dung không ghi "cho vật nuôi ăn trứng trực tiếp".
+- Giao diện sẽ đổi tiếp theo mẫu chủ shop gửi (`server/site/site.css`, `server/src/site/render.js`).
 
 ## 2. Chạy thử trên máy
 

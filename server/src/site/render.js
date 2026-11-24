@@ -1,7 +1,7 @@
 // Website công khai (doanhwork.com): trang chủ, sản phẩm, trang trại, blog, liên hệ, chính sách.
 // Trang được dựng sẵn HTML ở server (Google đọc được, chia sẻ Facebook có ảnh + tiêu đề). Không cần JavaScript.
 import { esc, markdown, plainText } from './markdown.js';
-import { getSite, POLICIES, listPosts, getPost } from './content.js';
+import { getSite, POLICIES, listPosts, getPost, HOME } from './content.js';
 
 const fmtMoney = (n) => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
 const fmtDate = (s) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : '');
@@ -60,7 +60,10 @@ ${noindex ? '<meta name="robots" content="noindex">' : ''}
 ${img ? `<meta property="og:image" content="${esc(abs(img))}">` : ''}
 <meta name="twitter:card" content="${img ? 'summary_large_image' : 'summary'}">
 <meta name="theme-color" content="#1f6f43">
-<link rel="icon" href="${esc(site.logo || '/logo.svg')}">
+<link rel="icon" href="${esc(site.logo || '/img/logo.svg')}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="/site.css?v=${cssVer}">
 <script type="application/ld+json">${JSON.stringify(jsonLd ? [org, jsonLd] : org).replace(/</g, '\\u003c')}</script>
 </head>
@@ -108,7 +111,9 @@ ${body}
 }
 
 const pageHead = (title, lead = '') => `<section class="page-head"><div class="wrap"><h1>${esc(title)}</h1>${lead ? `<p class="lead">${esc(lead)}</p>` : ''}</div></section>`;
-const imgOr = (src, alt, cls = '') => (src ? `<img class="${cls}" src="${esc(src)}" alt="${esc(alt)}" loading="lazy">` : `<div class="${cls} ph" aria-hidden="true"></div>`);
+const imgOr = (src, alt, cls = '', eager = false) => (src
+  ? `<img class="${cls}" src="${esc(src)}" alt="${esc(alt)}" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'}>`
+  : `<div class="${cls} ph" aria-hidden="true"></div>`);
 
 function productCard(p) {
   return `<article class="card product">
@@ -135,43 +140,138 @@ function postCard(p) {
 }
 
 // ---------------------------------------------------------------- các trang
+// biểu tượng nhỏ (SVG nét, 24×24) cho các mục
+const ICON = {
+  ga: '<path d="M7 20c-2.5-1.5-3.5-4.5-2.5-7.5C6 8 9 5.5 12.5 6c1-2 3-3 4.5-2.3-.3 1-.9 1.6-1.6 1.9 1.4.9 2.3 2.4 2.3 4.2 0 1-.3 2-.8 2.8l2.6 1.1-2.9.9C15.4 17.9 12.5 20 9.5 20z"/><circle cx="15.5" cy="8.5" r=".9" fill="currentColor"/><path d="M9 20v2M12 20v2"/>',
+  vit: '<path d="M4 15c0 3 3.5 5 8 5s8-2 8-5c0-1.5-1-2.5-2.5-2.8l-5 .3c-1.7-.8-2.5-2.3-2.5-4 0-1.9 1.5-3.5 3.5-3.5S17 6.6 17 8.5"/><path d="M17 8.5l3 .7-3 1"/><circle cx="13.5" cy="7.5" r=".9" fill="currentColor"/><path d="M2 22c2 0 2-1 4-1s2 1 4 1 2-1 4-1 2 1 4 1 2-1 4-1"/>',
+  chim: '<path d="M3 13c3 0 5-1.5 6.5-4C11 6 13.5 4.5 16 4.5c2 0 3.5 1.2 4 3l1.5.5-1.5 1c0 4-3 8-8 9.5L9 21l.7-3C6 17.5 3.8 15.7 3 13z"/><circle cx="16.5" cy="7.3" r=".9" fill="currentColor"/><path d="M9 12.5c1.5 1 3.5 1.2 5.5.4"/>',
+  ca: '<path d="M2.5 12c2.5-4 6.5-6 10.5-6 3.5 0 6 2 8 4.5-2 2.5-4.5 4.5-8 4.5-4 0-8-1-10.5-3z"/><path d="M2.5 12L1 8.5M2.5 12L1 15.5"/><circle cx="16.5" cy="10.5" r=".9" fill="currentColor"/><path d="M10 7.5c1 1.5 1 3.5 0 5"/>',
+  khac: '<circle cx="7" cy="9" r="2"/><circle cx="12" cy="6.5" r="2"/><circle cx="17" cy="9" r="2"/><path d="M7.5 17.5c0-3 2-5.5 4.5-5.5s4.5 2.5 4.5 5.5c0 1.5-1 2.5-2.5 2.5-1 0-1.3-.6-2-.6s-1 .6-2 .6c-1.5 0-2.5-1-2.5-2.5z"/>',
+  tien: '<circle cx="12" cy="12" r="9"/><path d="M14.5 9c-.5-1-1.5-1.5-2.5-1.5-1.5 0-2.5.8-2.5 2 0 2.8 5 1.4 5 4.2 0 1.2-1 2.1-2.5 2.1-1.2 0-2.2-.6-2.6-1.6M12 6v1.5M12 16.5V18"/>',
+  rac: '<path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/><path d="M10 11c1 1.5 3 1.5 4 0M10 15c1 1.5 3 1.5 4 0"/>',
+  phan: '<path d="M12 21v-8"/><path d="M12 13c0-4 3-7 7-7 0 4-3 7-7 7zM12 15c0-3-2.5-5.5-6-5.5 0 3 2.5 5.5 6 5.5z"/><path d="M5 21h14"/>',
+  sach: '<path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+};
+const icon = (k) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICON[k] || ''}</svg>`;
+const BENEFIT_ICONS = ['tien', 'rac', 'phan', 'sach'];
+
+const statsBand = () => `<section class="stats"><div class="wrap stats-in">${HOME.stats.map(([v, l]) => `<div class="stat"><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('')}</div></section>`;
+
+const nutritionTable = () => `<div class="nutri">
+  <table><thead><tr><th>Thành phần</th><th>Hàm lượng*</th><th>Ý nghĩa</th></tr></thead><tbody>
+  ${HOME.nutrition.map(([a, b, c]) => `<tr><th scope="row">${esc(a)}</th><td class="num">${esc(b)}</td><td class="mean">${esc(c)}</td></tr>`).join('')}
+  </tbody></table>
+  <p class="small muted">* Tính trên chất khô, là khoảng giá trị trong các nghiên cứu; thay đổi theo thức ăn nuôi sâu và thời điểm thu hoạch. Xem <a href="#nguon">nguồn tham khảo</a>.</p>
+</div>`;
+
+const animalsGrid = () => `<div class="animals">${HOME.animals.map((a) => `<article class="animal">
+  <div class="animal-h">${icon(a.key)}<h3>${esc(a.name)}</h3></div>
+  <div class="prose">${markdown(a.text)}</div></article>`).join('')}</div>`;
+
+const stepsRow = () => `<ol class="steps">${HOME.steps.map(([t, d, img], i) => `<li class="step">
+  <img src="${esc(img)}" alt="${esc(t)}" loading="lazy">
+  <div class="step-body"><span class="step-no">${i + 1}</span><h3>${esc(t)}</h3><p>${esc(d)}</p></div></li>`).join('')}</ol>`;
+
+const faqList = () => `<div class="faq">${HOME.faqs.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('')}</div>`;
+
+const sourcesList = () => `<section class="section sources" id="nguon"><div class="wrap narrow">
+  <h2 class="h-sm">Nguồn tham khảo</h2>
+  <ul class="plain small">${HOME.sources.map(([t, u]) => `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a></li>`).join('')}</ul>
+</div></section>`;
+
+const FARM_PHOTOS = [
+  ['/img/ruoi-linh-den-de-trung.jpg', 'Ruồi lính đen bố mẹ đẻ trứng'],
+  ['/img/thu-trung.jpg', 'Thu trứng hằng ngày'],
+  ['/img/u-trung-trong-hu.jpg', 'Đóng hũ, phủ bông thoáng khí'],
+  ['/img/sau-canxi.jpg', 'Sâu canxi tới cỡ thu hoạch'],
+];
+
 function home(ctx) {
   const { site } = ctx;
   const posts = listPosts({ limit: 3 });
+  const faqLd = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: HOME.faqs.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) };
   return layout(ctx, {
-    path: '/', description: site.hero_text || site.tagline,
+    path: '/', description: site.hero_text || site.tagline, jsonLd: faqLd,
     body: `
 <section class="hero">
   <div class="wrap hero-in">
     <div class="hero-text">
+      <p class="eyebrow">Trứng ruồi lính đen · Sâu canxi</p>
       <h1>${esc(site.tagline)}</h1>
       <p class="lead">${esc(site.hero_text)}</p>
-      <div class="actions">${ctaButtons(site)}${contacts(site).length ? '' : '<a class="btn btn-primary" href="/lien-he">Liên hệ đặt hàng</a>'}</div>
+      <div class="actions">${ctaButtons(site)}<a class="btn btn-ghost" href="/blog/huong-dan-ap-trung-ruoi-linh-den-nuoi-sau-canxi-tai-nha">Xem cách nuôi</a></div>
     </div>
-    ${imgOr(site.hero_image, site.brand, 'hero-img')}
+    ${imgOr(site.hero_image, 'Hũ trứng ruồi lính đen đóng gói tại trang trại', 'hero-img', true)}
   </div>
 </section>
+${statsBand()}
+
 <section class="section">
+  <div class="wrap two align-center">
+    <div><p class="eyebrow">Tìm hiểu</p><h2>Sâu canxi là gì?</h2><div class="prose">${markdown(HOME.what)}</div></div>
+    <img class="rounded shadow" src="/img/sau-canxi.jpg" alt="Sâu canxi (ấu trùng ruồi lính đen) trên xẻng" loading="lazy">
+  </div>
+</section>
+
+<section class="section alt">
+  <div class="wrap">
+    <div class="center-h"><p class="eyebrow">Dinh dưỡng</p><h2>Vì sao gọi là "sâu canxi"?</h2>
+      <p class="lead">Sâu ruồi lính đen tích nhiều đạm, chất béo và đặc biệt là canxi — những thứ vật nuôi cần để lớn nhanh, xương chắc, đẻ đều.</p></div>
+    ${nutritionTable()}
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="center-h"><p class="eyebrow">Bổ dưỡng cho vật nuôi</p><h2>Gà, vịt, chim, cá đều thích sâu canxi</h2></div>
+    ${animalsGrid()}
+  </div>
+</section>
+
+<section class="section alt">
+  <div class="wrap">
+    <div class="center-h"><p class="eyebrow">Tự nuôi tại nhà</p><h2>Lợi ích khi tự nuôi sâu canxi</h2></div>
+    <div class="benefits">${HOME.benefits.map(([t, d], i) => `<div class="benefit">${icon(BENEFIT_ICONS[i])}<h3>${esc(t)}</h3><p>${esc(d)}</p></div>`).join('')}</div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="center-h"><p class="eyebrow">Đơn giản, dễ làm</p><h2>Từ hũ trứng đến mẻ sâu đầu tiên</h2></div>
+    ${stepsRow()}
+    <p class="center" style="margin-top:20px"><a href="/blog/huong-dan-ap-trung-ruoi-linh-den-nuoi-sau-canxi-tai-nha">Xem hướng dẫn chi tiết →</a></p>
+  </div>
+</section>
+
+<section class="section alt">
   <div class="wrap">
     <div class="section-h"><h2>Sản phẩm</h2><a href="/san-pham">Xem chi tiết →</a></div>
     <div class="grid">${site.products.map(productCard).join('')}</div>
   </div>
 </section>
-<section class="section alt">
-  <div class="wrap two">
-    <div class="prose">${markdown(site.usage)}</div>
-    <div class="prose">${markdown(site.farm.split(/\n(?=## )/)[0])}<p><a href="/trang-trai">Xem trang trại →</a></p></div>
+
+<section class="section">
+  <div class="wrap">
+    <div class="section-h"><h2>Trang trại của chúng tôi</h2><a href="/trang-trai">Xem thêm →</a></div>
+    <div class="gallery">${FARM_PHOTOS.map(([src, cap]) => `<figure><img src="${src}" alt="${esc(cap)}" loading="lazy"><figcaption>${esc(cap)}</figcaption></figure>`).join('')}</div>
   </div>
 </section>
+
+<section class="section alt">
+  <div class="wrap narrow"><h2 class="center">Câu hỏi thường gặp</h2>${faqList()}</div>
+</section>
+
 ${posts.length ? `<section class="section">
   <div class="wrap">
     <div class="section-h"><h2>Kinh nghiệm chăn nuôi</h2><a href="/blog">Tất cả bài viết →</a></div>
     <div class="grid">${posts.map(postCard).join('')}</div>
   </div>
 </section>` : ''}
+
 <section class="section cta">
-  <div class="wrap cta-in"><h2>Đặt hàng hoặc hỏi thêm?</h2><p>Nhắn tin cho shop, trả lời nhanh trong giờ làm việc.</p><div class="actions">${ctaButtons(site)}</div></div>
-</section>`,
+  <div class="wrap cta-in"><h2>Bắt đầu nuôi sâu canxi?</h2><p>Nhắn cho shop để được tư vấn chọn hũ trứng phù hợp với đàn vật nuôi của bạn.</p><div class="actions">${ctaButtons(site) || '<a class="btn btn-primary" href="/lien-he">Liên hệ</a>'}</div></div>
+</section>
+${sourcesList()}`,
   });
 }
 
@@ -179,26 +279,32 @@ function products(ctx) {
   const { site } = ctx;
   const p0 = site.products[0];
   return layout(ctx, {
-    title: 'Sản phẩm', path: '/san-pham', description: plainText(p0.desc || site.tagline),
-    jsonLd: site.products.map((p) => ({
-      '@context': 'https://schema.org', '@type': 'Product', name: p.name, description: p.desc,
-      ...(p.image ? { image: ctx.base + p.image } : {}),
-      ...(p.price > 0 ? { offers: { '@type': 'Offer', price: p.price, priceCurrency: 'VND', availability: 'https://schema.org/InStock' } } : {}),
-    }))[0],
-    body: `${pageHead('Sản phẩm', site.tagline)}
+    title: 'Sản phẩm', path: '/san-pham', description: plainText(p0.desc || site.tagline), image: p0.image,
+    jsonLd: {
+      '@context': 'https://schema.org', '@type': 'Product', name: p0.name, description: p0.desc,
+      ...(p0.image ? { image: ctx.base + p0.image } : {}), brand: { '@type': 'Brand', name: site.brand },
+      ...(p0.price > 0 ? { offers: { '@type': 'Offer', price: p0.price, priceCurrency: 'VND', availability: 'https://schema.org/InStock' } } : {}),
+    },
+    body: `${pageHead('Trứng ruồi lính đen giống', 'Trứng tươi thu trong ngày, đóng hũ ghi ngày nở — để bạn tự nuôi sâu canxi tại nhà.')}
 <section class="section"><div class="wrap">
   <div class="grid">${site.products.map(productCard).join('')}</div>
-  <div class="prose narrow" style="margin-top:32px">${markdown(site.usage)}</div>
   <div class="actions center" style="margin-top:24px">${ctaButtons(site)}</div>
-</div></section>`,
+</div></section>
+<section class="section alt"><div class="wrap two">
+  <div class="prose">${markdown(site.usage)}</div>
+  <div>${stepsRow().replace('class="steps"', 'class="steps steps-col"')}</div>
+</div></section>
+<section class="section"><div class="wrap narrow"><h2 class="center">Câu hỏi thường gặp</h2>${faqList()}</div></section>`,
   });
 }
 
 function farm(ctx) {
   const { site } = ctx;
   return layout(ctx, {
-    title: 'Trang trại', path: '/trang-trai', description: plainText(site.farm),
-    body: `${pageHead('Trang trại của chúng tôi')}<section class="section"><div class="wrap prose narrow">${markdown(site.farm)}</div></section>`,
+    title: 'Trang trại', path: '/trang-trai', description: plainText(site.farm), image: '/img/ruoi-linh-den-de-trung.jpg',
+    body: `${pageHead('Trang trại của chúng tôi', 'Nuôi ruồi lính đen bố mẹ, thu trứng mỗi ngày, đóng hũ và giao đi toàn quốc.')}
+<section class="section"><div class="wrap prose narrow farm">${markdown(site.farm)}</div></section>
+<section class="section cta"><div class="wrap cta-in"><h2>Muốn ghé thăm hoặc đặt trứng?</h2><div class="actions">${ctaButtons(site) || '<a class="btn btn-primary" href="/lien-he">Liên hệ</a>'}</div></div></section>`,
   });
 }
 

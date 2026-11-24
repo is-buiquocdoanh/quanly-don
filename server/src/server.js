@@ -137,6 +137,16 @@ function serveUpload(res, name) {
   fs.createReadStream(file).pipe(res);
 }
 
+// ảnh có sẵn của website (server/site/img): logo, ảnh trang trại, sản phẩm
+const SITE_IMG_MIME = { '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.svg': 'image/svg+xml' };
+function serveSiteImg(res, name) {
+  const ext = path.extname(name);
+  const file = path.join(SITE_DIR, 'img', name);
+  if (!/^[\w-]+\.(jpg|png|webp|svg)$/.test(name) || !fs.existsSync(file)) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('Không có ảnh'); return; }
+  res.writeHead(200, { 'Content-Type': SITE_IMG_MIME[ext], 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' });
+  fs.createReadStream(file).pipe(res);
+}
+
 /** Website công khai. Chỉ GET/HEAD; không có API quản lý ở tên miền này. */
 function serveSite(req, res, url, host, proto) {
   const { pathname } = url;
@@ -149,6 +159,7 @@ function serveSite(req, res, url, host, proto) {
   }
   if (pathname === '/api/health') { send(res, 200, { ok: true, time: nowVN() }); return; }
   if (pathname.startsWith('/uploads/')) return serveUpload(res, pathname.slice(9));
+  if (pathname.startsWith('/img/')) return serveSiteImg(res, pathname.slice(5));
   if (pathname === '/site.css') {
     res.writeHead(200, { 'Content-Type': MIME['.css'], 'Cache-Control': process.env.NODE_ENV === 'production' ? 'public, max-age=300' : 'no-cache' });
     fs.createReadStream(path.join(SITE_DIR, 'site.css')).pipe(res);
@@ -179,6 +190,7 @@ const server = http.createServer(async (req, res) => {
   const hostname = host.replace(/:\d+$/, '');
   if (SITE_HOSTS.includes(hostname)) return serveSite(req, res, url, host, proto);
   if (pathname.startsWith('/uploads/')) return serveUpload(res, pathname.slice(9));
+  if (pathname.startsWith('/img/')) return serveSiteImg(res, pathname.slice(5)); // ảnh mặc định của website (xem trước trong trang Website)
   if (!pathname.startsWith('/api/')) return serveStatic(req, res, pathname);
 
   const baseUrl = `${proto}://${host}`;
