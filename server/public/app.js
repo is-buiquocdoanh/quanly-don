@@ -225,7 +225,7 @@ $('#logout').addEventListener('click', async () => {
 
 // ================================================================ điều hướng
 const NAV = {
-  admin: [['dashboard', 'Tổng quan', 'Tổng quan'], ['orders', 'Đơn hàng', 'Đơn'], ['kho', 'Kho gửi hàng', 'Kho'], ['customers', 'Khách hàng', 'Khách'], ['finance', 'Thu chi', 'Thu chi'], ['settings', 'Cài đặt', 'Cài đặt']],
+  admin: [['dashboard', 'Tổng quan', 'Tổng quan'], ['orders', 'Đơn hàng', 'Đơn'], ['kho', 'Kho gửi hàng', 'Kho'], ['customers', 'Khách hàng', 'Khách'], ['finance', 'Thu chi', 'Thu chi'], ['website', 'Website', 'Web'], ['settings', 'Cài đặt', 'Cài đặt']],
   kho: [['kho', 'Gửi hàng', 'Gửi hàng'], ['account', 'Tài khoản', 'Tài khoản']],
 };
 const ICONS = {
@@ -235,6 +235,7 @@ const ICONS = {
   customers: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.3-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.6a3.5 3.5 0 010 6.8M18.2 14.8c1.8.8 2.9 2.5 3.3 5.2"/>',
   finance: '<rect x="2.5" y="6" width="19" height="13.5" rx="2"/><path d="M2.5 10.5h19M6.5 15.5h4"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+  website: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 3.8 5.6 3.8 9s-1.2 6.4-3.8 9c-2.6-2.6-3.8-5.6-3.8-9S9.4 5.6 12 3z"/>',
   account: '<circle cx="12" cy="8.5" r="4"/><path d="M4 20.5c1-4 4.2-6 8-6s7 2 8 6"/>',
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[k] || ''}</svg>`;
@@ -1040,6 +1041,251 @@ async function openCustomer(id, onDone) {
   });
   $$('[data-open]', m.el).forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); m.close(); openOrder(Number(a.dataset.open)); }));
 }
+
+// ================================================================ WEBSITE (doanhwork.com)
+// Sửa nội dung website công khai: thông tin shop, sản phẩm, bài viết blog, chính sách.
+const webState = { tab: 'info' };
+// địa chỉ website công khai: don.doanhwork.com → doanhwork.com; chạy thử trên máy → site.localhost
+const siteUrl = () => (/^(localhost|127\.)/.test(location.hostname)
+  ? `${location.protocol}//site.localhost${location.port ? ':' + location.port : ''}`
+  : `${location.protocol}//${location.hostname.replace(/^don\./, '')}`);
+
+/** Thu nhỏ ảnh trước khi tải lên (cạnh dài ≤ 1600px, JPEG) → nhẹ, nhanh, không vượt 5 MB. */
+async function uploadImage(file) {
+  if (!/^image\//.test(file.type)) throw new Error('Chỉ chọn file ảnh');
+  let data;
+  if (file.type === 'image/gif' || file.size < 400 * 1024) {
+    data = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(file); });
+  } else {
+    const img = await createImageBitmap(file);
+    const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    data = c.toDataURL('image/jpeg', 0.85);
+  }
+  return (await api('POST', '/api/uploads', { data })).url;
+}
+
+/** Ô ảnh: xem trước + nút tải ảnh; giá trị nằm trong <input name>. */
+function imgField(name, value, label) {
+  return `<div class="fld img-fld" data-img="${esc(name)}"><span class="fld-l">${esc(label)}</span>
+    <div class="img-row"><div class="img-prev">${value ? `<img src="${esc(value)}" alt="">` : '<span class="muted small">Chưa có ảnh</span>'}</div>
+    <div><input type="hidden" name="${esc(name)}" value="${esc(value)}">
+      <label class="btn sec sm">Tải ảnh<input type="file" accept="image/*" hidden></label>
+      ${value ? '<button type="button" class="link" data-clear>Bỏ ảnh</button>' : ''}</div></div></div>`;
+}
+function bindImgFields(root) {
+  root.addEventListener('change', async (e) => {
+    const inp = e.target.closest('.img-fld input[type=file]');
+    if (!inp || !inp.files[0]) return;
+    const box = inp.closest('.img-fld');
+    const lbl = inp.closest('label');
+    lbl.classList.add('busy');
+    try {
+      const url = await uploadImage(inp.files[0]);
+      $('input[type=hidden]', box).value = url;
+      $('.img-prev', box).innerHTML = `<img src="${esc(url)}" alt="">`;
+      toast('Đã tải ảnh lên. Bấm Lưu để áp dụng.');
+    } catch (err) { fail(err); } finally { lbl.classList.remove('busy'); inp.value = ''; }
+  });
+  root.addEventListener('click', (e) => {
+    const b = e.target.closest('.img-fld [data-clear]');
+    if (!b) return;
+    const box = b.closest('.img-fld');
+    $('input[type=hidden]', box).value = '';
+    $('.img-prev', box).innerHTML = '<span class="muted small">Chưa có ảnh</span>';
+    b.remove();
+  });
+}
+
+/** Ô soạn markdown có nút "Chèn ảnh" và "Xem trước". */
+function mdField(name, value, label, rows = 12) {
+  return `<div class="fld full md-fld"><div class="md-bar"><span class="fld-l">${esc(label)}</span><span class="spacer"></span>
+      <label class="btn sec sm">Chèn ảnh<input type="file" accept="image/*" hidden data-mdimg></label>
+      <button type="button" class="btn sec sm" data-preview>Xem trước</button></div>
+    <textarea name="${esc(name)}" rows="${rows}" class="md">${esc(value)}</textarea>
+    <div class="md-prev prose-admin" hidden></div>
+    <span class="hint" style="margin-top:4px">## Tiêu đề mục · **chữ đậm** · - gạch đầu dòng · [chữ](link) · dòng trống để tách đoạn</span></div>`;
+}
+function bindMdFields(root) {
+  root.addEventListener('change', async (e) => {
+    const inp = e.target.closest('[data-mdimg]');
+    if (!inp || !inp.files[0]) return;
+    const ta = $('textarea.md', inp.closest('.md-fld'));
+    try {
+      const url = await uploadImage(inp.files[0]);
+      const at = ta.selectionStart ?? ta.value.length;
+      const snippet = `\n\n![${inp.files[0].name.replace(/\.[^.]+$/, '')}](${url})\n\n`;
+      ta.value = ta.value.slice(0, at) + snippet + ta.value.slice(at);
+      toast('Đã chèn ảnh');
+    } catch (err) { fail(err); } finally { inp.value = ''; }
+  });
+  root.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-preview]');
+    if (!b) return;
+    const f = b.closest('.md-fld');
+    const prev = $('.md-prev', f);
+    const ta = $('textarea.md', f);
+    if (!prev.hidden) { prev.hidden = true; ta.hidden = false; b.textContent = 'Xem trước'; return; }
+    try {
+      prev.innerHTML = (await api('POST', '/api/markdown', { text: ta.value })).html || '<p class="muted">(trống)</p>';
+      prev.hidden = false; ta.hidden = true; b.textContent = 'Sửa tiếp';
+    } catch (err) { fail(err); }
+  });
+}
+
+VIEWS.website = async (root) => {
+  const TABS = { info: 'Thông tin shop', products: 'Sản phẩm', posts: 'Bài viết', policies: 'Chính sách' };
+  root.innerHTML = `
+    <div class="toolbar page-title"><h1>Website</h1><span class="spacer"></span>
+      <a class="btn sec sm" href="${esc(siteUrl())}" target="_blank" rel="noopener">Xem website ↗</a></div>
+    <p class="hint" style="margin:-8px 0 14px">Nội dung trang giới thiệu công khai <b>${esc(siteUrl().replace(/^https?:\/\//, ''))}</b>: khách, Facebook, TikTok, Google đều xem được.</p>
+    <div class="tabs" id="wtabs">${Object.entries(TABS).map(([k, v]) => `<button class="tab ${webState.tab === k ? 'on' : ''}" data-tab="${k}">${v}</button>`).join('')}</div>
+    <div id="wbody"><div class="loading">Đang tải…</div></div>`;
+  bindImgFields(root);
+  bindMdFields(root);
+  $('#wtabs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tab]');
+    if (!b) return;
+    webState.tab = b.dataset.tab;
+    $$('#wtabs .tab').forEach((x) => x.classList.toggle('on', x === b));
+    show().catch(fail);
+  });
+
+  async function show() {
+    const body = $('#wbody');
+    body.innerHTML = '<div class="loading">Đang tải…</div>';
+    if (webState.tab === 'posts') return showPosts(body);
+    const { site, policies } = await api('GET', '/api/site');
+    if (webState.tab === 'info') return showInfo(body, site);
+    if (webState.tab === 'products') return showProducts(body, site);
+    return showPolicies(body, site, policies);
+  }
+
+  async function save(data, btn) {
+    btn.disabled = true;
+    try { await api('PUT', '/api/site', data); toast('Đã lưu. Website cập nhật ngay.'); } catch (err) { fail(err); } finally { btn.disabled = false; }
+  }
+
+  function showInfo(body, s) {
+    const T = (n, l, ph = '', full = false) => `<label${full ? ' class="full"' : ''}>${l}<input name="${n}" value="${esc(s[n])}" placeholder="${esc(ph)}"></label>`;
+    body.innerHTML = `<form class="card form" id="wf">
+      <div class="full form-sep">Thương hiệu</div>
+      ${T('brand', 'Tên thương hiệu')}${T('tagline', 'Khẩu hiệu (tiêu đề trang chủ)')}
+      <label class="full">Giới thiệu ngắn ở trang chủ<textarea name="hero_text" rows="3">${esc(s.hero_text)}</textarea></label>
+      ${imgField('hero_image', s.hero_image, 'Ảnh lớn trang chủ (ảnh trang trại / sản phẩm)')}${imgField('logo', s.logo, 'Logo (vuông)')}
+      <div class="full form-sep">Liên hệ (hiện thành nút "Nhắn Messenger / Chat Zalo / Gọi")</div>
+      ${T('phone', 'Số điện thoại', '09xx xxx xxx')}${T('zalo', 'Zalo (SĐT hoặc link zalo.me)', 'để trống = dùng SĐT')}
+      ${T('messenger', 'Link Messenger', 'https://m.me/ten-page')}${T('fanpage', 'Link fanpage', 'https://facebook.com/…')}
+      ${T('tiktok', 'Link TikTok', 'https://tiktok.com/@…')}${T('email', 'Email')}
+      ${T('address', 'Địa chỉ', 'Xã…, Huyện…, Tỉnh…')}${T('map_url', 'Link Google Maps')}
+      <div class="full form-sep">Thông tin kinh doanh (Facebook / TikTok hay kiểm tra)</div>
+      ${T('business_name', 'Tên hộ kinh doanh', 'Hộ kinh doanh …')}${T('business_no', 'Số giấy chứng nhận ĐKHKD')}${T('tax_code', 'Mã số thuế')}
+      <div class="full form-sep">Trang "Trang trại" và cách dùng sản phẩm</div>
+      ${mdField('farm', s.farm, 'Nội dung trang Trang trại', 14)}
+      ${mdField('usage', s.usage, 'Cách dùng và bảo quản (hiện ở trang chủ + trang Sản phẩm)', 8)}
+    </form>
+    <div class="actions"><span class="spacer"></span><button class="btn" id="wsave">Lưu thông tin</button></div>`;
+    $('#wsave').addEventListener('click', (e) => save(formData($('#wf')), e.currentTarget));
+  }
+
+  function showProducts(body, s) {
+    const row = (p, i) => `<div class="card prod-row" data-i="${i}">
+      <div class="form">
+        <label>Tên sản phẩm<input data-k="name" value="${esc(p.name)}"></label>
+        <label>Quy cách<input data-k="spec" value="${esc(p.spec)}" placeholder="Hộp 35g"></label>
+        <label>Giá (để 0 = "liên hệ")<input data-k="price" value="${p.price ? num(p.price) : ''}" inputmode="numeric" placeholder="VD: 65k"></label>
+        ${imgField('img' + i, p.image, 'Ảnh sản phẩm')}
+        <label class="full">Mô tả ngắn<textarea data-k="desc" rows="2">${esc(p.desc)}</textarea></label>
+      </div>
+      <div class="actions"><span class="spacer"></span><button type="button" class="link" data-del>Xóa sản phẩm này</button></div>
+    </div>`;
+    body.innerHTML = `<div id="plist">${s.products.map(row).join('')}</div>
+      <div class="actions"><button class="btn sec" id="padd">+ Thêm sản phẩm</button><span class="spacer"></span><button class="btn" id="psave">Lưu sản phẩm</button></div>`;
+    $('#padd').addEventListener('click', () => {
+      const n = $$('.prod-row', body).length;
+      $('#plist').insertAdjacentHTML('beforeend', row({ name: '', spec: '', price: 0, image: '', desc: '' }, n));
+    });
+    $('#plist').addEventListener('click', (e) => { if (e.target.closest('[data-del]') && confirm('Xóa sản phẩm này?')) e.target.closest('.prod-row').remove(); });
+    $('#psave').addEventListener('click', (e) => save({
+      products: $$('.prod-row', body).map((r) => ({
+        name: $('[data-k=name]', r).value, spec: $('[data-k=spec]', r).value,
+        price: OrderParser.parseMoney($('[data-k=price]', r).value), desc: $('[data-k=desc]', r).value,
+        image: $('.img-fld input[type=hidden]', r).value,
+      })),
+    }, e.currentTarget));
+  }
+
+  function showPolicies(body, s, policies) {
+    const keys = Object.keys(policies);
+    let cur = keys.includes(webState.policy) ? webState.policy : keys[0];
+    const draw = () => {
+      body.innerHTML = `<div class="card">
+        <div class="toolbar" style="margin-bottom:8px"><select id="pk">${keys.map((k) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${esc(policies[k])}</option>`).join('')}</select>
+          <span class="spacer"></span><a class="btn sec sm" href="${esc(siteUrl())}/chinh-sach/${cur}" target="_blank" rel="noopener">Xem trên web ↗</a></div>
+        <p class="hint" style="margin:0 0 10px">Đây là bản nháp có sẵn, hãy đọc lại và sửa cho đúng với shop. <code>{{brand}}</code> tự thay bằng tên thương hiệu, <code>{{domain}}</code> bằng tên miền.</p>
+        <form id="pf">${mdField('text', s.policies[cur], policies[cur], 18)}</form>
+        <div class="actions"><span class="spacer"></span><button class="btn" id="polsave">Lưu chính sách</button></div></div>`;
+      $('#pk').addEventListener('change', (e) => { cur = webState.policy = e.target.value; draw(); });
+      $('#polsave').addEventListener('click', async (e) => {
+        s.policies[cur] = $('#pf textarea').value;
+        await save({ policies: { [cur]: s.policies[cur] } }, e.currentTarget);
+      });
+    };
+    draw();
+  }
+
+  async function showPosts(body) {
+    const { posts } = await api('GET', '/api/posts');
+    body.innerHTML = `<div class="actions" style="margin:0 0 12px"><button class="btn" id="pnew">+ Viết bài mới</button>
+        <span class="muted small">${posts.length} bài · ${posts.filter((p) => p.status === 'published').length} đã đăng</span></div>
+      ${posts.length ? `<div class="table-wrap"><table><thead><tr><th>Bài viết</th><th>Trạng thái</th><th>Ngày</th></tr></thead><tbody>
+        ${posts.map((p) => `<tr class="click" data-id="${p.id}"><td><b>${esc(p.title)}</b><div class="cell-sub">${esc(p.summary)}</div></td>
+          <td>${p.status === 'published' ? '<span class="badge st-da_giao">Đã đăng</span>' : '<span class="badge">Nháp</span>'}</td>
+          <td class="small nowrap">${dt(p.published_at || p.updated_at)}</td></tr>`).join('')}</tbody></table></div>`
+        : '<div class="empty">Chưa có bài viết nào. Bấm "Viết bài mới" để bắt đầu.</div>'}`;
+    $('#pnew').addEventListener('click', () => editPost(null));
+    body.querySelector('tbody')?.addEventListener('click', (e) => { const tr = e.target.closest('tr[data-id]'); if (tr) editPost(Number(tr.dataset.id)); });
+  }
+
+  async function editPost(id) {
+    const p = id ? (await api('GET', '/api/posts/' + id)).post : { title: '', slug: '', summary: '', body: '', cover: '', status: 'draft' };
+    const body = $('#wbody');
+    body.innerHTML = `<div class="card">
+      <div class="toolbar"><button class="link" id="pback">← Danh sách bài viết</button><span class="spacer"></span>
+        ${p.status === 'published' ? `<a class="btn sec sm" href="${esc(siteUrl())}/blog/${esc(p.slug)}" target="_blank" rel="noopener">Xem trên web ↗</a>` : ''}</div>
+      <form class="form" id="pf">
+        <label class="full">Tiêu đề<input name="title" value="${esc(p.title)}" placeholder="VD: Cách cho gà đẻ ăn trứng sâu canxi" required></label>
+        <label>Đường dẫn (tự tạo từ tiêu đề nếu để trống)<input name="slug" value="${esc(p.slug)}" placeholder="cach-cho-ga-de-an-trung-sau"></label>
+        ${imgField('cover', p.cover, 'Ảnh bìa (hiện khi chia sẻ Facebook)')}
+        <label class="full">Tóm tắt (1–2 câu, để trống thì tự lấy đầu bài)<textarea name="summary" rows="2">${esc(p.summary)}</textarea></label>
+        ${mdField('body', p.body, 'Nội dung bài', 22)}
+      </form>
+      <div class="actions">
+        ${id ? '<button class="btn danger" id="pdel">Xóa bài</button>' : ''}<span class="spacer"></span>
+        ${p.status === 'published' ? '<button class="btn sec" data-st="draft">Gỡ xuống (về nháp)</button><button class="btn" data-st="published">Lưu</button>'
+          : '<button class="btn sec" data-st="draft">Lưu nháp</button><button class="btn" data-st="published">Đăng bài</button>'}
+      </div></div>`;
+    $('#pback').addEventListener('click', () => showPosts(body));
+    $('#pdel')?.addEventListener('click', async () => {
+      if (!confirm('Xóa hẳn bài viết này?')) return;
+      try { await api('DELETE', '/api/posts/' + id); toast('Đã xóa bài'); showPosts(body); } catch (err) { fail(err); }
+    });
+    $$('[data-st]', body).forEach((b) => b.addEventListener('click', async () => {
+      const d = { ...formData($('#pf')), status: b.dataset.st };
+      if (!d.title.trim()) { toast('Nhập tiêu đề', true); return; }
+      b.disabled = true;
+      try {
+        const r = id ? await api('PATCH', '/api/posts/' + id, d) : await api('POST', '/api/posts', d);
+        toast(d.status === 'published' ? 'Đã đăng bài lên website' : 'Đã lưu nháp');
+        editPost(r.post.id);
+      } catch (err) { fail(err); b.disabled = false; }
+    }));
+  }
+
+  await show();
+};
 
 // ================================================================ THU CHI
 const finState = { range: null };

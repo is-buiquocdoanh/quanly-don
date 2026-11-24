@@ -9,6 +9,9 @@ import {
 } from './orders.js';
 import { listKho, khoIdOrNull, adoptUnassigned, khoName } from './kho.js';
 import { aiEnabled, aiParse } from './ai.js';
+import { getSite, saveSite, POLICIES, listPosts, getPost, savePost, deletePost } from './site/content.js';
+import { markdown } from './site/markdown.js';
+import { saveUpload, listUploads } from './site/uploads.js';
 import { metaStatus, listEvents, sendTest, tokenPage, seenPages, pageSubscriptions, subscribePage } from './meta.js';
 import { forKho } from './orders.js';
 
@@ -260,6 +263,23 @@ add('DELETE', '/api/users/:id', 'admin', ({ params, user }) => {
     return { ok: true };
   });
 });
+
+// ---------------------------------------------------------------- Website công khai (doanhwork.com)
+
+add('GET', '/api/site', 'admin', () => ({ site: getSite(), policies: POLICIES }));
+add('PUT', '/api/site', 'admin', ({ body }) => ({ site: saveSite(body) }));
+add('GET', '/api/posts', 'admin', () => ({ posts: listPosts({ all: true, limit: 500 }) }));
+add('GET', '/api/posts/:id', 'admin', ({ params }) => {
+  const p = getPost(toInt(params.id));
+  if (!p) throw new HttpError(404, 'Không tìm thấy bài viết');
+  return { post: p };
+});
+add('POST', '/api/posts', 'admin', ({ body }) => ({ post: savePost(0, body) }));
+add('PATCH', '/api/posts/:id', 'admin', ({ params, body }) => ({ post: savePost(toInt(params.id), body) }));
+add('DELETE', '/api/posts/:id', 'admin', ({ params }) => (deletePost(toInt(params.id)), { ok: true }));
+add('POST', '/api/markdown', 'admin', ({ body }) => ({ html: markdown(str(body.text, 100000)) }));
+add('POST', '/api/uploads', 'admin', ({ body }) => saveUpload(body.data));
+add('GET', '/api/uploads', 'admin', () => ({ uploads: listUploads() }));
 
 // ---------------------------------------------------------------- Messenger (thử nghiệm)
 

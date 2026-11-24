@@ -9,9 +9,16 @@ import { db, DATA_DIR, backupTo } from './db.js';
 import { match, userFromSession } from './routes.js';
 import { HttpError, hashPassword, randomToken, nowVN, todayVN } from './util.js';
 import { verifyWebhook, checkSignature, saveEvents, logProblem } from './meta.js';
+import { renderSite } from './site/render.js';
+import { uploadFile, UPLOAD_MIME } from './site/uploads.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public');
+const SITE_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../site');
+// Tên miền của website công khai (giới thiệu, blog, chính sách). Tên miền khác → web quản lý đơn.
+// site.localhost: chạy thử trên máy (http://site.localhost:3000).
+const SITE_HOSTS = (process.env.SITE_HOSTS || 'doanhwork.com,www.doanhwork.com,site.localhost')
+  .split(',').map((h) => h.trim().toLowerCase()).filter(Boolean);
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 const KEEP_BACKUPS = Number(process.env.KEEP_BACKUPS) || 30;
 
@@ -85,14 +92,14 @@ function send(res, status, obj, headers = {}) {
 // Cloudflare cho trình duyệt giữ file .js/.css tới 4 giờ, nên sau mỗi lần deploy có người vẫn chạy giao diện cũ.
 // Cách chữa: index.html (không cache) gọi file kèm ?v=<mã nội dung>; file đổi → mã đổi → trình duyệt tải file mới.
 const assetHash = new Map(); // tên file → { mtime, v }
-function assetVersion(name) {
-  const file = path.join(PUBLIC_DIR, name);
+function assetVersion(name, dir = PUBLIC_DIR) {
+  const file = path.join(dir, name);
   let st;
   try { st = fs.statSync(file); } catch { return ''; }
-  const c = assetHash.get(name);
+  const c = assetHash.get(file);
   if (c && c.mtime === st.mtimeMs) return c.v;
   const v = crypto.createHash('sha1').update(fs.readFileSync(file)).digest('hex').slice(0, 10);
-  assetHash.set(name, { mtime: st.mtimeMs, v });
+  assetHash.set(file, { mtime: st.mtimeMs, v });
   return v;
 }
 function indexHtml() {
@@ -122,15 +129,58 @@ function serveStatic(req, res, pathname) {
   fs.createReadStream(file).pipe(res);
 }
 
+// ảnh tải lên: tên file = mã nội dung nên cache lâu được
+function serveUpload(res, name) {
+  const file = uploadFile(name);
+  if (!file) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('Không có ảnh'); return; }
+  res.writeHead(200, { 'Content-Type': UPLOAD_MIME[path.extname(file).slice(1)], 'Cache-Control': 'public, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff' });
+  fs.createReadStream(file).pipe(res);
+}
+
+/** Website công khai. Chỉ GET/HEAD; không có API quản lý ở tên miền này. */
+function serveSite(req, res, url, host, proto) {
+  const { pathname } = url;
+  if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { Allow: 'GET, HEAD' }); res.end(); return; }
+  // www.doanhwork.com → doanhwork.com (1 địa chỉ duy nhất cho Google)
+  if (host.startsWith('www.') && SITE_HOSTS.includes(host.slice(4))) {
+    res.writeHead(301, { Location: `${proto}://${host.slice(4)}${pathname}${url.search}` });
+    res.end();
+    return;
+  }
+  if (pathname === '/api/health') { send(res, 200, { ok: true, time: nowVN() }); return; }
+  if (pathname.startsWith('/uploads/')) return serveUpload(res, pathname.slice(9));
+  if (pathname === '/site.css') {
+    res.writeHead(200, { 'Content-Type': MIME['.css'], 'Cache-Control': process.env.NODE_ENV === 'production' ? 'public, max-age=300' : 'no-cache' });
+    fs.createReadStream(path.join(SITE_DIR, 'site.css')).pipe(res);
+    return;
+  }
+  if (pathname === '/logo.svg' || pathname === '/logo-192.png' || pathname === '/apple-touch-icon.png') return serveStatic(req, res, pathname);
+  // web quản lý: ở localhost thì cùng cổng, còn lại là don.<tên miền>
+  const hn = host.replace(/:\d+$/, '');
+  const adminUrl = process.env.ADMIN_URL || (hn.endsWith('localhost') ? `http://localhost:${PORT}` : `https://don.${hn.replace(/^www\./, '')}`);
+  let r;
+  try {
+    r = renderSite(pathname, { host, proto, adminUrl, cssVer: assetVersion('site.css', SITE_DIR) });
+  } catch (e) {
+    console.error(e);
+    r = { status: 500, type: 'text/plain; charset=utf-8', body: 'Website đang lỗi, vui lòng thử lại sau.' };
+  }
+  res.writeHead(r.status, { ...(r.type ? { 'Content-Type': r.type } : {}), 'X-Content-Type-Options': 'nosniff', ...(r.headers || {}) });
+  res.end(req.method === 'HEAD' ? '' : r.body);
+}
+
 const server = http.createServer(async (req, res) => {
   // ghép chuỗi thay vì new URL(req.url, base): đường dẫn kiểu "//" hay "//abc" làm new URL ném lỗi và sập server
   let url;
   try { url = new URL('http://x' + (String(req.url || '').startsWith('/') ? req.url : '/' + (req.url || ''))); } catch { res.writeHead(400).end(); return; }
   const { pathname } = url;
+  const proto = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'localhost').toLowerCase();
+  const hostname = host.replace(/:\d+$/, '');
+  if (SITE_HOSTS.includes(hostname)) return serveSite(req, res, url, host, proto);
+  if (pathname.startsWith('/uploads/')) return serveUpload(res, pathname.slice(9));
   if (!pathname.startsWith('/api/')) return serveStatic(req, res, pathname);
 
-  const proto = req.headers['x-forwarded-proto'] || 'http';
-  const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
   const baseUrl = `${proto}://${host}`;
   const ip = req.headers['cf-connecting-ip'] || String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
   const sid = parseCookies(req.headers.cookie).sid;
@@ -188,7 +238,7 @@ const server = http.createServer(async (req, res) => {
       if (!isExt && !String(req.headers['content-type'] || '').includes('application/json')) {
         throw new HttpError(415, 'Cần Content-Type: application/json');
       }
-      const raw = await readBody(req);
+      const raw = await readBody(req, pathname === '/api/uploads' ? 8e6 : 1e6); // ảnh gửi dạng base64
       if (raw) {
         try { body = JSON.parse(raw); } catch { throw new HttpError(400, 'JSON không hợp lệ'); }
       }

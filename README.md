@@ -4,7 +4,7 @@ Bôi đen tin nhắn chốt đơn trong **Meta Business Suite**, bấm **Ctrl+C*
 
 ```
 extension/     Chrome extension: bắt đơn bằng Ctrl+C trên Business Suite
-server/        Web quản lý (Node 24 + SQLite, chạy bằng Docker)
+server/        Web quản lý (don.doanhwork.com) + website giới thiệu (doanhwork.com), Node 24 + SQLite, chạy bằng Docker
 deploy/        Script cho server: deploy.sh (triển khai), backup-gdrive.sh (sao lưu Google Drive)
 docs/          Tài liệu, chia theo từng giai đoạn
 apps-script/   Bản cũ: lưu đơn vào Google Sheets (không cần nếu đã chạy web)
@@ -24,6 +24,7 @@ Mở **[docs/README.md](docs/README.md)** và làm lần lượt:
 6. [Sao lưu (server + Google Drive)](docs/6-sao-luu.md)
 7. [Vận hành hằng ngày và xử lý sự cố](docs/7-van-hanh-su-co.md)
 8. [Messenger: kiểm tra trước khi làm chatbot](docs/8-messenger.md)
+9. [Website giới thiệu (doanhwork.com)](docs/9-website.md)
 
 Muốn biết web làm được gì: [Tính năng của web](docs/tinh-nang.md).
 

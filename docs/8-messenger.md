@@ -86,4 +86,4 @@ Tìm **Pancake** (và **Botcake** nếu có) → **Gỡ**. Ngắt luôn page bê
 
 ---
 
-← [Giai đoạn 7: Vận hành hằng ngày và xử lý sự cố](7-van-hanh-su-co.md) · [Mục lục](README.md)
+← [Giai đoạn 7: Vận hành hằng ngày và xử lý sự cố](7-van-hanh-su-co.md) · [Mục lục](README.md) · [Giai đoạn 9: Website](9-website.md) →

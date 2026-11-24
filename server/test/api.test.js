@@ -379,3 +379,95 @@ test('Messenger webhook: tin standby (app khác giữ quyền chính) vẫn hi�
   assert.match((await admin('GET', '/api/meta/subscriptions')).error, /META_PAGE_TOKEN/);
   assert.match((await admin('POST', '/api/meta/subscribe')).error, /META_PAGE_TOKEN/);
 });
+
+// ---------------------------------------------------------------- website công khai
+import http from 'node:http';
+function siteGet(p, host = 'site.localhost') {
+  return new Promise((resolve, reject) => {
+    http.get({ host: '127.0.0.1', port: PORT, path: p, headers: { Host: host, 'X-Forwarded-Proto': 'https' } }, (res) => {
+      let b = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => (b += c));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: b }));
+    }).on('error', reject);
+  });
+}
+
+test('website: các trang công khai, www → tên miền gốc, không lộ API quản lý', async () => {
+  for (const p of ['/', '/san-pham', '/trang-trai', '/blog', '/lien-he', '/chinh-sach', '/chinh-sach/bao-mat', '/chinh-sach/xoa-du-lieu']) {
+    const r = await siteGet(p);
+    assert.equal(r.status, 200, p);
+    assert.match(r.body, /<link rel="canonical" href="https:\/\/site\.localhost/, p);
+  }
+  assert.equal((await siteGet('/khong-co')).status, 404);
+  assert.equal((await siteGet('/chinh-sach/khong-co')).status, 404);
+  const www = await siteGet('/blog', 'www.doanhwork.com');
+  assert.equal(www.status, 301);
+  assert.equal(www.headers.location, 'https://doanhwork.com/blog');
+  assert.equal((await siteGet('/privacy.html')).headers.location, '/chinh-sach/bao-mat');
+  assert.equal((await siteGet('/dang-nhap')).status, 302);
+  // API quản lý không chạy ở tên miền công khai
+  const api = await siteGet('/api/orders');
+  assert.equal(api.status, 404);
+  assert.doesNotMatch(api.body, /"orders"/);
+  assert.match((await siteGet('/robots.txt')).body, /Sitemap: https:\/\/site\.localhost\/sitemap\.xml/);
+  assert.match((await siteGet('/sitemap.xml')).body, /<loc>https:\/\/site\.localhost\/chinh-sach\/bao-mat<\/loc>/);
+  // chính sách thay {{brand}} / {{domain}}
+  const pol = (await siteGet('/chinh-sach/bao-mat')).body;
+  assert.doesNotMatch(pol, /\{\{/);
+  assert.match(pol, /site\.localhost/);
+});
+
+test('website: sửa thông tin shop, sản phẩm, chính sách; kho không sửa được', async () => {
+  const r = await admin('PUT', '/api/site', {
+    brand: 'Trại Sâu Xanh', phone: '0912 345 678', messenger: 'https://m.me/traisauxanh',
+    products: [{ name: 'Trứng sâu 35g', spec: 'Hộp 35g', price: 65000, desc: 'Giàu canxi' }],
+    policies: { 'doi-tra': '## Đổi trả\nTrong **48 giờ**.' },
+  });
+  assert.equal(r.site.brand, 'Trại Sâu Xanh');
+  const home = (await siteGet('/')).body;
+  assert.match(home, /Trại Sâu Xanh/);
+  assert.match(home, /href="https:\/\/m\.me\/traisauxanh"/);
+  assert.match(home, /href="tel:0912345678"/);
+  assert.match(home, /65\.000đ/);
+  assert.match((await siteGet('/chinh-sach/doi-tra')).body, /<strong>48 giờ<\/strong>/);
+  assert.match((await admin('PUT', '/api/site', { products: [] })).error, /ít nhất 1 sản phẩm/);
+  assert.equal((await kho('PUT', '/api/site', { brand: 'Kho đổi tên' })).ok, false);
+  assert.equal((await admin('GET', '/api/site')).site.brand, 'Trại Sâu Xanh');
+});
+
+test('website: bài viết nháp không hiện, đăng rồi mới hiện; chống chèn mã', async () => {
+  const d = await admin('POST', '/api/posts', { title: 'Cách cho gà ăn trứng sâu', body: '## Bước 1\nTrộn với cám.\n\n<script>alert(1)</script>\n\n[xấu](javascript:alert(1))' });
+  assert.equal(d.post.slug, 'cach-cho-ga-an-trung-sau');
+  assert.equal(d.post.status, 'draft');
+  assert.equal((await siteGet('/blog/cach-cho-ga-an-trung-sau')).status, 404, 'nháp không ai xem được');
+  const p = await admin('PATCH', '/api/posts/' + d.post.id, { status: 'published' });
+  assert.ok(p.post.published_at);
+  const page = await siteGet('/blog/cach-cho-ga-an-trung-sau');
+  assert.equal(page.status, 200);
+  assert.match(page.body, /<h3>Bước 1<\/h3>/);
+  assert.doesNotMatch(page.body, /<script>alert/);
+  assert.doesNotMatch(page.body, /href="javascript:/);
+  assert.match(page.body, /"@type":"BlogPosting"/);
+  assert.match((await siteGet('/blog')).body, /Cách cho gà ăn trứng sâu/);
+  assert.match((await siteGet('/sitemap.xml')).body, /blog\/cach-cho-ga-an-trung-sau/);
+  // trùng tiêu đề → đường dẫn tự thêm số
+  assert.equal((await admin('POST', '/api/posts', { title: 'Cách cho gà ăn trứng sâu' })).post.slug, 'cach-cho-ga-an-trung-sau-2');
+  assert.equal((await kho('POST', '/api/posts', { title: 'x' })).ok, false);
+  assert.equal((await admin('DELETE', '/api/posts/' + d.post.id)).ok, true);
+  assert.equal((await siteGet('/blog/cach-cho-ga-an-trung-sau')).status, 404);
+});
+
+test('website: tải ảnh chỉ nhận ảnh thật, phục vụ ở cả 2 tên miền', async () => {
+  // PNG 1x1
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  const up = await admin('POST', '/api/uploads', { data: 'data:image/png;base64,' + png });
+  assert.match(up.url, /^\/uploads\/[0-9a-f]{20}\.png$/);
+  assert.equal((await admin('POST', '/api/uploads', { data: Buffer.from('<?php echo 1; ?>').toString('base64') })).ok, false, 'file giả ảnh bị từ chối');
+  const a = await fetch(BASE + up.url);
+  assert.equal(a.status, 200);
+  assert.equal(a.headers.get('content-type'), 'image/png');
+  assert.equal((await siteGet(up.url)).status, 200);
+  assert.equal((await siteGet('/uploads/../don.db')).status, 404);
+  assert.equal((await kho('POST', '/api/uploads', { data: png })).ok, false);
+});

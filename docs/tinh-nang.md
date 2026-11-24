@@ -2,6 +2,10 @@
 
 Tra cứu: mỗi trang trên web làm được gì, dành cho ai. Cài đặt thì xem các giai đoạn trong [Mục lục](README.md).
 
+## Website giới thiệu
+
+Website công khai ở doanhwork.com (sản phẩm, trang trại, blog, chính sách), sửa ở mục **Website** trong web quản lý. Xem [Giai đoạn 9](9-website.md).
+
 ## Các trang trên web
 
 | Trang | Ai dùng | Chức năng |
