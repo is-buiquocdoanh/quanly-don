@@ -253,10 +253,22 @@ td.addr { max-width: 320px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
 /* ---------- thao tác hàng loạt ---------- */
-.bulk { position: sticky; top: 12px; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--ink); color: #fff;
-  padding: 10px 14px; border-radius: var(--r-md); margin-bottom: 12px; box-shadow: var(--shadow-lg); }
-.bulk select { padding: 6px 8px; color: var(--ink); box-shadow: none; }
-.bulk .btn.sec { background: transparent; color: #fff; border-color: rgba(255,255,255,.35); }
+/* Thanh thao tác: luôn nằm sẵn, cao cố định (không đẩy bảng khi chọn / bỏ chọn); chọn đơn → nền xanh nhạt + các nút */
+.actbar { position: sticky; top: 12px; z-index: 5; display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 10px 0 16px; margin-bottom: 12px;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow); transition: background .15s, border-color .15s; }
+.actbar.on { background: var(--brand-soft); border-color: #abefc6; box-shadow: 0 4px 14px -4px rgba(22, 163, 74, .25); }
+.actbar-sum { flex: none; font-size: 13px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.actbar.on .actbar-sum { display: none; }
+.actbar:not(.on) .actbar-sum::after { content: ''; display: inline-block; width: 1px; height: 18px; margin-left: 12px; vertical-align: middle; background: var(--line-2); }
+.actbar-acts { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.actbar-acts::-webkit-scrollbar { display: none; }
+.actbar-acts > * { flex: none; }
+.actbar-hint { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.actbar-n { font-weight: 700; color: var(--brand-ink); white-space: nowrap; }
+.actbar-meta { font-weight: 500; color: var(--ink-2); }
+.actbar-sep { width: 1px; height: 22px; background: #abefc6; margin: 0 2px; }
+.actbar select { height: 32px; padding: 0 28px 0 10px; font-size: 13px; }
+.actbar .btn.sm { height: 32px; }
 
 /* ---------- tab ---------- */
 .tabs { display: inline-flex; gap: 2px; padding: 3px; margin-bottom: 12px; background: #eaecf0; border-radius: var(--r-md); }
@@ -525,7 +537,7 @@ td.addr { max-width: 320px; }
   .tabs { display: flex; width: 100%; }
   .tab { flex: 1; padding: 8px 6px; font-size: 13px; }
   .tab .n { margin-left: 4px; padding: 1px 6px; }
-  .bulk { top: 64px; }
+  .actbar { top: 64px; }
   th { position: static; }
   #toasts { left: 12px; right: 12px; bottom: 80px; }
   .wf-r { grid-template-columns: 92px 1fr 72px; }
@@ -637,3 +649,5 @@ textarea.md { width: 100%; font: 14px/1.6 ui-monospace, SFMono-Regular, Consolas
 .zgap { align-items: end; }
 .zgap-est { align-self: center; line-height: 1.5; }
 @media (max-width: 560px) { .zgap-est { align-self: start; } }
+.actbar .dd-btn { height: 32px; font-size: 13px; font-weight: 600; }
+@media (max-width: 560px) { .actbar-meta { display: none; } .actbar { padding-left: 12px; } }

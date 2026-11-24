@@ -485,8 +485,7 @@ VIEWS.orders = async (root) => {
       ${hasWh() ? `<select id="wh">${whOptions(ordState.kho, { all: true })}</select>` : ''}
       <label class="nowrap"><input type="checkbox" id="dup" ${ordState.dup ? 'checked' : ''}> Chỉ đơn trùng</label>
     </div>
-    <div id="bulk"></div>
-    <div id="sum" class="muted small" style="margin-bottom:8px"></div>
+    <div class="actbar" id="actbar"><div id="sum" class="actbar-sum"></div><div id="bulk" class="actbar-acts"></div></div>
     <div class="table-wrap" id="tbl"><div class="loading">Đang tải…</div></div>`;
   rp.bind(root);
   sw.bind(root);
@@ -555,16 +554,20 @@ VIEWS.orders = async (root) => {
 
   function renderBulk() {
     const n = ordState.selected.size;
-    if (!n) { $('#bulk').innerHTML = ''; return; }
-    $('#bulk').innerHTML = `<div class="bulk">
-      <b>Đã chọn ${n} đơn</b>
+    // thanh luôn nằm sẵn, cao cố định: chọn / bỏ chọn chỉ đổi nội dung, bảng bên dưới không bị nhảy
+    $('#actbar').classList.toggle('on', !!n);
+    if (!n) { $('#bulk').innerHTML = '<span class="actbar-hint">Tick ô vuông đầu dòng để chọn đơn: gửi Zalo kho, chép, đổi trạng thái…</span>'; return; }
+    const sel = rows.filter((o) => ordState.selected.has(o.id));
+    $('#bulk').innerHTML = `
+      <span class="actbar-n">Đã chọn ${n} đơn<span class="actbar-meta"> · ${num(sel.reduce((s, o) => s + (Number(o.qty) || 0), 0))} hộp · ${money(sel.reduce((s, o) => s + (Number(o.total) || 0), 0))}</span></span>
+      <span class="actbar-sep"></span>
+      <button class="btn sm" id="bZalo" title="Mỗi đơn 1 tin vào nhóm Zalo của kho (Cài đặt → Chép & gửi Zalo)">Gửi Zalo kho</button>
+      <button class="btn sm sec" id="bZcopy" title="Chép đơn 1 → dán vào Zalo, gửi → quay lại web là đơn tiếp theo đã được chép sẵn">Chép lần lượt</button>
+      <button class="btn sm sec" id="bCopy" title="Chép tất cả đơn đã chọn thành 1 đoạn">Chép</button>
       <select id="bSt"><option value="">Đổi trạng thái…</option>${Object.entries(S.statuses).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>
       ${hasWh() ? `<select id="bWh"><option value="-">Chia cho kho…</option>${whOptions('-', { noneLabel: 'Bỏ chia (chưa kho nào)' })}</select>` : ''}
-      <button class="btn sm" id="bCod">Đánh dấu COD đã về</button>
-      <button class="btn sm sec" id="bCopy">Chép</button>
-      <button class="btn sm" id="bZalo" title="Mỗi đơn 1 tin vào nhóm Zalo của kho (Cài đặt → Gửi đơn qua Zalo)">Gửi Zalo kho</button>
-      <button class="btn sm sec" id="bZcopy" title="Chép đơn 1 → dán vào Zalo, gửi → quay lại web là đơn tiếp theo đã được chép sẵn">Chép lần lượt</button>
-      <span class="spacer"></span><button class="link" id="bClear">Bỏ chọn</button></div>`;
+      <button class="btn sm sec" id="bCod">COD đã về</button>
+      <span class="spacer"></span><button class="btn sm sec" id="bClear" title="Bỏ chọn tất cả">✕ Bỏ chọn</button>`;
     const ids = [...ordState.selected];
     $('#bSt').addEventListener('change', async (e) => {
       if (!e.target.value) return;
