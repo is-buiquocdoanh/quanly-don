@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { db, DATA_DIR, backupTo } from './db.js';
 import { match, userFromSession } from './routes.js';
 import { HttpError, hashPassword, randomToken, nowVN, todayVN } from './util.js';
-import { verifyWebhook, checkSignature, saveEvents } from './meta.js';
+import { verifyWebhook, checkSignature, saveEvents, logProblem } from './meta.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public');
@@ -163,7 +163,13 @@ const server = http.createServer(async (req, res) => {
       }
       if (req.method !== 'POST') throw new HttpError(405, 'Chỉ nhận GET / POST');
       const raw = await readBody(req, 2e6);
-      checkSignature(raw, req.headers['x-hub-signature-256']);
+      try {
+        checkSignature(raw, req.headers['x-hub-signature-256']);
+      } catch (e) {
+        // ghi lại để chủ shop thấy trên web; chỉ ghi khi có header chữ ký (request của Meta), tránh rác từ người lạ
+        if (req.headers['x-hub-signature-256']) logProblem('rejected', `Từ chối: ${e.message}. Kiểm tra META_APP_SECRET trên server có đúng "Khóa bí mật của ứng dụng" không.`);
+        throw e;
+      }
       let body;
       try { body = JSON.parse(raw); } catch { throw new HttpError(400, 'JSON không hợp lệ'); }
       saveEvents(body);

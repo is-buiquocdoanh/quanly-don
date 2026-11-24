@@ -322,9 +322,10 @@ test('Messenger webhook: xác minh, kiểm chữ ký, lưu tin', async () => {
   r = await fetch(W, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Hub-Signature-256': 'sha256=' + '0'.repeat(64) }, body });
   assert.equal(r.status, 401);
   const ev = await admin('GET', '/api/meta/events');
-  assert.equal(ev.events.length, 2);
-  assert.deepEqual(ev.events.map((e) => [e.kind, e.sender_id]), [['echo', '900001'], ['message', '900001']]);
-  assert.equal(ev.events[1].text, 'Shop ơi còn trứng không');
+  assert.equal(ev.events[0].kind, 'rejected', 'lần sai chữ ký được ghi lại để xem lý do');
+  const msgs = ev.events.filter((e) => e.kind === 'message' || e.kind === 'echo');
+  assert.deepEqual(msgs.map((e) => [e.kind, e.sender_id]), [['echo', '900001'], ['message', '900001']]);
+  assert.equal(msgs[1].text, 'Shop ơi còn trứng không');
   assert.deepEqual(ev.status, { verify_token: true, app_secret: true, page_token: false });
   assert.match(ev.webhook_url, /\/api\/meta\/webhook$/);
   // chưa có mã page → gửi thử báo lỗi rõ ràng; kho không xem được
@@ -348,4 +349,20 @@ test('giao diện: index.html gọi file kèm ?v=<mã nội dung> để không d
   assert.match(js.headers.get('content-type'), /javascript/);
   // đường dẫn lạ vẫn trả về trang chủ (đã gắn ?v=)
   assert.match(await (await fetch(BASE + '/khong-co')).text(), /app\.js\?v=/);
+});
+
+test('Messenger webhook: tin mẫu của nút "Thử nghiệm" và lần bị từ chối đều hiện trên web', async () => {
+  const { createHmac } = await import('node:crypto');
+  const W = BASE + '/api/meta/webhook';
+  const sign = (b) => 'sha256=' + createHmac('sha256', 'secret-xyz').update(b).digest('hex');
+  // dạng Meta gửi khi bấm "Thử nghiệm" ở trường messages
+  const sample = JSON.stringify({ object: 'page', entry: [{ id: '0', time: 1, changes: [{ field: 'messages', value: { sender: { id: '12334' }, recipient: { id: '23245' }, timestamp: '1527459824', message: { mid: 'test_message_id', text: 'test_message' } } }] }] });
+  assert.equal((await fetch(W, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Hub-Signature-256': sign(sample) }, body: sample })).status, 200);
+  // sai khóa bí mật → bị từ chối nhưng có ghi lại lý do
+  assert.equal((await fetch(W, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Hub-Signature-256': 'sha256=' + 'a'.repeat(64) }, body: sample })).status, 401);
+  const ev = (await admin('GET', '/api/meta/events')).events;
+  assert.equal(ev[0].kind, 'rejected');
+  assert.match(ev[0].text, /META_APP_SECRET/);
+  assert.equal(ev[1].kind, 'test');
+  assert.equal(ev[1].text, 'test_message');
 });

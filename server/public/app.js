@@ -1294,7 +1294,7 @@ async function metaCard() {
   if (!box.isConnected) return;
   if (r.error) { box.innerHTML = `<h2>Messenger (thử nghiệm)</h2><div class="warn">${esc(r.error)}</div>`; return; }
   const ok = (v, label) => `<span class="badge ${v ? 'st-da_giao' : 'st-huy'}">${v ? '✓' : '✗'} ${label}</span>`;
-  const KIND = { message: 'Khách nhắn', echo: 'Page gửi', postback: 'Bấm nút' };
+  const KIND = { message: 'Khách nhắn', echo: 'Page gửi', postback: 'Bấm nút', test: 'Tin mẫu (nút Thử nghiệm)', rejected: '⚠ Bị từ chối', other: '⚠ Lạ' };
   box.innerHTML = `<h2>Messenger (thử nghiệm)</h2>
     <p class="small" style="margin-top:0">Kiểm tra app Meta có nhận / trả lời được <b>khách thật</b> không. URL gọi lại dán vào Meta → Webhooks → Page:</p>
     <form class="form"><label class="full">URL gọi lại<input readonly value="${esc(r.webhook_url)}"></label></form>
@@ -1302,7 +1302,7 @@ async function metaCard() {
     <div class="actions" style="margin-top:4px"><span class="muted small">${r.events.length ? `${r.events.length} tin gần nhất` : 'Chưa nhận được tin nào'}</span><span class="spacer"></span><button class="btn sec sm" id="metaReload">Tải lại</button></div>
     ${r.events.length ? `<div class="table-wrap" style="max-height:320px;overflow:auto"><table><thead><tr><th>Lúc</th><th>Loại</th><th>Người</th><th>Nội dung</th><th></th></tr></thead><tbody>
       ${r.events.map((e) => `<tr><td class="small nowrap">${dt(e.at)}</td><td class="small">${KIND[e.kind] || e.kind}</td><td class="mono small">${esc(e.sender_id)}</td>
-        <td class="small">${esc(e.text)}</td><td>${e.kind === 'message' ? `<button class="btn sm sec" data-reply="${esc(e.sender_id)}">Trả lời thử</button>` : ''}</td></tr>`).join('')}
+        <td class="small${e.kind === 'rejected' || e.kind === 'other' ? ' neg' : ''}">${esc(e.text)}</td><td>${e.kind === 'message' ? `<button class="btn sm sec" data-reply="${esc(e.sender_id)}">Trả lời thử</button>` : ''}</td></tr>`).join('')}
       </tbody></table></div>` : ''}`;
   $('#metaReload', box).addEventListener('click', () => metaCard());
   if (box.dataset.bound) return; // thẻ được vẽ lại nhiều lần, chỉ gắn sự kiện 1 lần

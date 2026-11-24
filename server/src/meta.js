@@ -53,14 +53,27 @@ export function checkSignature(raw, header) {
   }
 }
 
+/** Ghi lại 1 lần Meta gọi tới mà không lưu được tin (sai chữ ký, dạng lạ…) để xem trên web, biết hỏng ở đâu. */
+export function logProblem(kind, text, raw = '') {
+  db.prepare('INSERT INTO meta_events(at, kind, text, raw) VALUES (?, ?, ?, ?)').run(nowVN(), kind, str(text, 500), String(raw).slice(0, 4000));
+  console.log(`[messenger] ${kind}: ${text}`);
+  prune();
+}
+const prune = () => db.prepare(`DELETE FROM meta_events WHERE id <= (SELECT id FROM meta_events ORDER BY id DESC LIMIT 1 OFFSET ${KEEP})`).run();
+
 /** POST: lưu từng sự kiện Messenger. Trả về số sự kiện đã lưu. */
 export function saveEvents(body) {
-  if (body?.object !== 'page') return 0;
+  if (body?.object !== 'page') {
+    logProblem('other', `Không phải sự kiện của page (object = ${body?.object ?? 'trống'})`, JSON.stringify(body));
+    return 0;
+  }
   const ins = db.prepare('INSERT INTO meta_events(at, page_id, sender_id, kind, text, raw) VALUES (?, ?, ?, ?, ?, ?)');
   let n = 0;
   for (const entry of body.entry || []) {
-    for (const m of entry.messaging || []) {
-      const kind = m.message ? (m.message.is_echo ? 'echo' : 'message') : m.postback ? 'postback' : m.read ? 'read' : m.delivery ? 'delivery' : 'other';
+    // tin thật đến ở entry.messaging; nút "Thử nghiệm" của Meta gửi dạng entry.changes[{ field: 'messages', value }]
+    const list = [...(entry.messaging || []), ...(entry.changes || []).filter((c) => c.field === 'messages' && c.value).map((c) => ({ ...c.value, test: true }))];
+    for (const m of list) {
+      const kind = m.test ? 'test' : m.message ? (m.message.is_echo ? 'echo' : 'message') : m.postback ? 'postback' : m.read ? 'read' : m.delivery ? 'delivery' : 'other';
       const text = m.message?.text || m.postback?.title || (m.message?.attachments ? `[${m.message.attachments.map((a) => a.type).join(', ')}]` : '');
       // tin echo (page tự gửi đi): người nhận mới là khách
       const who = kind === 'echo' ? m.recipient?.id : m.sender?.id;
@@ -68,12 +81,13 @@ export function saveEvents(body) {
       n++;
     }
   }
-  if (n) db.prepare(`DELETE FROM meta_events WHERE id <= (SELECT id FROM meta_events ORDER BY id DESC LIMIT 1 OFFSET ${KEEP})`).run();
+  if (!n) logProblem('other', 'Meta gọi tới nhưng không có tin nhắn nào trong đó', JSON.stringify(body));
+  prune();
   return n;
 }
 
 export function listEvents(limit = 50) {
-  return db.prepare("SELECT id, at, page_id, sender_id, kind, text FROM meta_events WHERE kind IN ('message', 'echo', 'postback') ORDER BY id DESC LIMIT ?")
+  return db.prepare("SELECT id, at, page_id, sender_id, kind, text FROM meta_events WHERE kind IN ('message', 'echo', 'postback', 'test', 'rejected', 'other') ORDER BY id DESC LIMIT ?")
     .all(Math.min(Number(limit) || 50, 200));
 }
 
