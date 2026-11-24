@@ -532,6 +532,16 @@ test('Zalo: chưa đăng nhập thì báo rõ, chép lần lượt đánh dấu 
   // nhóm chỉ đổi qua /api/zalo/group (có kiểm tra), PUT /api/settings bỏ qua
   await admin('PUT', '/api/settings', { zalo_group_id: '123', zalo_group_name: 'Giả' });
   assert.equal((await admin('GET', '/api/zalo')).group, null);
+  // giãn cách: mặc định 3 giây, lưu được, giới hạn 2–60
+  assert.equal((await admin('GET', '/api/zalo')).gap_sec, 3);
+  await admin('PUT', '/api/settings', { zalo_gap_sec: 10 });
+  assert.equal((await admin('GET', '/api/zalo')).gap_sec, 10);
+  await admin('PUT', '/api/settings', { zalo_gap_sec: 999 });
+  assert.equal((await admin('GET', '/api/zalo')).gap_sec, 60);
+  await admin('PUT', '/api/settings', { zalo_gap_sec: 0 });
+  assert.equal((await admin('GET', '/api/zalo')).gap_sec, 3);
+  await admin('PUT', '/api/settings', { zalo_gap_sec: 1 });
+  assert.equal((await admin('GET', '/api/zalo')).gap_sec, 2);
   // chưa đăng nhập mà xem nhóm → báo đăng nhập
   assert.match((await admin('GET', '/api/zalo/groups')).error, /Chưa đăng nhập Zalo/);
 });

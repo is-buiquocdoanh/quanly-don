@@ -634,3 +634,6 @@ textarea.md { width: 100%; font: 14px/1.6 ui-monospace, SFMono-Regular, Consolas
   .scard-b > .table-wrap.flat:last-child { margin-bottom: -16px; }
 }
 .scard a.btn { text-decoration: none; }
+.zgap { align-items: end; }
+.zgap-est { align-self: center; line-height: 1.5; }
+@media (max-width: 560px) { .zgap-est { align-self: start; } }

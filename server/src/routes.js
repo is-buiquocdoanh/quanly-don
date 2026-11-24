@@ -182,7 +182,7 @@ add('GET', '/api/report', 'admin', ({ query }) => report(query.from, query.to));
 
 add('PUT', '/api/settings', 'admin', ({ body }) => {
   for (const k of Object.keys(SETTING_DEFAULTS)) {
-    if (!(k in body) || k.startsWith('zalo_')) continue; // nhóm Zalo chỉ đổi qua /api/zalo/group (có kiểm tra)
+    if (!(k in body) || k.startsWith('zalo_group')) continue; // nhóm Zalo chỉ đổi qua /api/zalo/group (có kiểm tra)
     let v = body[k];
     if (Array.isArray(SETTING_DEFAULTS[k])) {
       // tên page / lý do hoàn có thể chứa dấu phẩy ("Giao lâu, khách hủy") → chỉ tách theo xuống dòng
@@ -193,6 +193,8 @@ add('PUT', '/api/settings', 'admin', ({ body }) => {
     if (k === 'active_kho') v = khoIdOrNull(v) || 0;
     if (k === 'copy_sep' && !['pipe', 'dash', 'semi', 'tab', 'newline'].includes(v)) v = 'pipe';
     if (k === 'copy_labels') v = v ? 1 : 0;
+    // ≤ 60 giây: mỗi đơn là 1 request chờ hết khoảng giãn cách, Cloudflare cắt request quá 100 giây
+    if (k === 'zalo_gap_sec') v = Math.min(60, Math.max(2, v || 3));
     setSetting(k, v);
   }
   return { settings: getSettings() };
