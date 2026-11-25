@@ -691,3 +691,5 @@ textarea.md { width: 100%; font: 14px/1.6 ui-monospace, SFMono-Regular, Consolas
 .otab.st-moi .n { background: var(--warn-soft); color: var(--warn); }
 .otab.st-hoan .n { background: var(--bad-soft); color: var(--bad); }
 @media (max-width: 860px) { .otabs { margin: -2px -16px 12px; padding: 0 12px; } }
+
+.badge.b-web { background: #e0f2fe; color: #075985; }

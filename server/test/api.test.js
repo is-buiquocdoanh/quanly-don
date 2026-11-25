@@ -746,3 +746,101 @@ test('Đơn hàng: số đơn theo trạng thái cho các tab; Chờ gửi xem m
   // không xin counts thì không trả (extension, kho dùng như cũ)
   assert.equal((await admin('GET', `/api/orders?from=${today}&to=${today}`)).by_status, undefined);
 });
+
+function sitePost(p, body, host = 'site.localhost') {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body);
+    const req = http.request({
+      host: '127.0.0.1', port: PORT, path: p, method: 'POST',
+      headers: { Host: host, 'X-Forwarded-Proto': 'https', 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+    }, (res) => {
+      let b = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => (b += c));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: b, json: (() => { try { return JSON.parse(b); } catch { return null; } })() }));
+    });
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}
+
+test('website: trang đặt hàng, đặt đơn trực tiếp vào quản lý đơn, chống spam + Sổ đỏ, lọc kiến thức nông nghiệp', async () => {
+  // Các trang mới & tài nguyên JS
+  const dh = await siteGet('/dat-hang');
+  assert.equal(dh.status, 200);
+  assert.match(dh.body, /data-order-form/);
+  assert.equal((await siteGet('/site.js')).status, 200);
+  assert.equal((await siteGet('/kinh-nghiem')).headers.location, '/blog');
+  assert.match((await siteGet('/sitemap.xml')).body, /\/dat-hang<\/loc>/);
+
+  // Lọc kiến thức theo chủ đề nông nghiệp & tìm kiếm
+  const ag = await siteGet('/blog?cat=nong-nghiep');
+  assert.equal(ag.status, 200);
+  assert.match(ag.body, /phân sâu canxi/i);
+  const search = await siteGet('/blog?q=' + encodeURIComponent('phân sâu'));
+  assert.equal(search.status, 200);
+  assert.match(search.body, /phân sâu canxi/i);
+
+  // Tạo bài có chủ đề mới
+  const np = await admin('POST', '/api/posts', { title: 'Ủ phân hữu cơ cho vườn cam', category: 'nong-nghiep', status: 'published', body: 'Trộn phân sâu với trấu hun.' });
+  assert.equal(np.post.category, 'nong-nghiep');
+  assert.match((await siteGet('/blog?cat=nong-nghiep')).body, /Ủ phân hữu cơ cho vườn cam/);
+
+  // Đặt hàng công khai: dùng sản phẩm không có giá riêng → tự tính theo bảng giá Cài đặt (2 hộp = 130.000đ)
+  await admin('PUT', '/api/site', {
+    products: [{ name: 'Trứng sâu 30g', spec: 'Hũ 30g', price: 0, desc: 'Tươi trong ngày' }],
+  });
+  const r1 = await sitePost('/api/dat-hang', {
+    name: 'Nguyễn Văn Nông', phone: '0977 123 456', address: 'Thôn 2, xã Tân Lập, huyện Đan Phượng, Hà Nội',
+    product: 'Trứng sâu 30g', qty: 2, note: 'Lần đầu nuôi gà',
+  });
+  assert.equal(r1.status, 200);
+  assert.equal(r1.json.ok, true);
+  assert.match(r1.json.order.code, /^DH\d{6}-/);
+  assert.equal(r1.json.order.total, 130000);
+
+  // Đơn xuất hiện ngay trong quản lý đơn với page = 'Website'
+  const list = await admin('GET', '/api/orders?q=0977123456');
+  assert.equal(list.count, 1);
+  assert.equal(list.orders[0].page, 'Website');
+  assert.equal(list.orders[0].total, 130000);
+
+  // Kiểm tra đủ các mức combo 35g: 1 hũ = 95k (65k+30k ship), 3 hũ = 195k, 4 hũ = 250k, 5 hũ = 300k
+  const r1h = await sitePost('/api/dat-hang', { name: 'Khách 1 hũ', phone: '0977123401', address: 'Xã Tân Lập, Đan Phượng, Hà Nội', qty: 1 });
+  assert.equal(r1h.json.order.total, 95000);
+  const r4h = await sitePost('/api/dat-hang', { name: 'Khách 4 hũ', phone: '0977123404', address: 'Xã Tân Lập, Đan Phượng, Hà Nội', qty: 4 });
+  assert.equal(r4h.json.order.total, 250000);
+  const r5h = await sitePost('/api/dat-hang', { name: 'Khách 5 hũ', phone: '0977123405', address: 'Xã Tân Lập, Đan Phượng, Hà Nội', qty: 5 });
+  assert.equal(r5h.json.order.total, 300000);
+
+  // Bấm đúp cùng SĐT + SL trong 2 phút → trả về cùng mã đơn, không tạo trùng
+  const rDup = await sitePost('/api/dat-hang', {
+    name: 'Nguyễn Văn Nông', phone: '0977123456', address: 'Thôn 2, xã Tân Lập, huyện Đan Phượng, Hà Nội',
+    product: 'Trứng sâu 30g', qty: 2,
+  });
+  assert.equal(rDup.status, 200);
+  assert.equal(rDup.json.duplicate_recent, true);
+  assert.equal(rDup.json.order.code, r1.json.order.code);
+  assert.equal((await admin('GET', '/api/orders?q=0977123456')).count, 1);
+
+  // Chống spam honeypot
+  const hp = await sitePost('/api/dat-hang', {
+    name: 'Bot', phone: '0977999888', address: 'Hà Nội, Việt Nam', qty: 1, website: 'http://spam.example',
+  });
+  assert.equal(hp.status, 400);
+  assert.equal(hp.json.ok, false);
+
+  // SĐT trong Sổ đỏ bị chặn đặt tự động
+  await admin('POST', '/api/customers/blacklist', { phone: '0988777666', note: 'Bom hàng nhiều lần' });
+  const bom = await sitePost('/api/dat-hang', {
+    name: 'Khách phá', phone: '0988777666', address: 'Số 10 đường ABC, Hà Nội', qty: 2,
+  });
+  assert.equal(bom.status, 400);
+  assert.equal(bom.json.ok, false);
+  assert.match(bom.json.error, /xác nhận trực tiếp/);
+
+  // POST vào đường dẫn API khác trên tên miền công khai bị chặn 405
+  const blocked = await sitePost('/api/orders', { name: 'X' });
+  assert.equal(blocked.status, 405);
+});

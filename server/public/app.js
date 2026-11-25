@@ -569,7 +569,7 @@ VIEWS.orders = async (root) => {
         <td class="addr">${esc(o.address)}${o.note ? `<div class="cell-sub">📝 ${esc(o.note)}</div>` : ''}</td>
         <td class="right">${o.qty}</td>
         <td class="right nowrap">${money(o.total)}${o.cod_received ? '<div><span class="badge b-cod">COD về</span></div>' : ''}</td>
-        <td class="small">${esc(o.page)}</td>
+        <td class="small">${o.page === 'Website' ? '<span class="badge b-web">🌐 Website</span>' : esc(o.page)}</td>
         <td>${badge(o.status)}${o.return_reason ? `<div class="cell-sub">${esc(o.return_reason)}</div>` : ''}${o.dup_codes ? `<div><span class="badge b-dup" title="Trùng: ${esc(o.dup_codes)}">Trùng đơn</span></div>` : ''}${o.zalo_sent_at ? `<div><span class="badge b-zalo" title="Gửi Zalo lúc ${esc(dt(o.zalo_sent_at))}">Đã báo Zalo</span></div>` : ''}</td>
         ${hasWh() ? `<td>${whBadge(o.kho_id)}</td>` : ''}
         <td class="small mono">${esc(o.tracking_code)}</td>
@@ -1327,26 +1327,37 @@ VIEWS.website = async (root) => {
   }
 
   async function showPosts(body) {
-    const { posts } = await api('GET', '/api/posts');
+    const { posts, categories = {} } = await api('GET', '/api/posts');
     body.innerHTML = `<div class="actions" style="margin:0 0 12px"><button class="btn" id="pnew">+ Viết bài mới</button>
         <span class="muted small">${posts.length} bài · ${posts.filter((p) => p.status === 'published').length} đã đăng</span></div>
-      ${posts.length ? `<div class="table-wrap"><table><thead><tr><th>Bài viết</th><th>Trạng thái</th><th>Ngày</th></tr></thead><tbody>
+      ${posts.length ? `<div class="table-wrap"><table><thead><tr><th>Bài viết</th><th>Chủ đề</th><th>Trạng thái</th><th>Ngày</th></tr></thead><tbody>
         ${posts.map((p) => `<tr class="click" data-id="${p.id}"><td><b>${esc(p.title)}</b><div class="cell-sub">${esc(p.summary)}</div></td>
+          <td class="small nowrap">${esc(categories[p.category] || p.category || '')}</td>
           <td>${p.status === 'published' ? '<span class="badge st-da_giao">Đã đăng</span>' : '<span class="badge">Nháp</span>'}</td>
           <td class="small nowrap">${dt(p.published_at || p.updated_at)}</td></tr>`).join('')}</tbody></table></div>`
         : '<div class="empty">Chưa có bài viết nào. Bấm "Viết bài mới" để bắt đầu.</div>'}`;
-    $('#pnew').addEventListener('click', () => editPost(null));
-    body.querySelector('tbody')?.addEventListener('click', (e) => { const tr = e.target.closest('tr[data-id]'); if (tr) editPost(Number(tr.dataset.id)); });
+    $('#pnew').addEventListener('click', () => editPost(null, categories));
+    body.querySelector('tbody')?.addEventListener('click', (e) => { const tr = e.target.closest('tr[data-id]'); if (tr) editPost(Number(tr.dataset.id), categories); });
   }
 
-  async function editPost(id) {
-    const p = id ? (await api('GET', '/api/posts/' + id)).post : { title: '', slug: '', summary: '', body: '', cover: '', status: 'draft' };
+  async function editPost(id, cats) {
+    let p, categories = cats || {};
+    if (id) {
+      const res = await api('GET', '/api/posts/' + id);
+      p = res.post;
+      if (res.categories) categories = res.categories;
+    } else {
+      p = { title: '', slug: '', category: 'nuoi-sau', summary: '', body: '', cover: '', status: 'draft' };
+      if (!Object.keys(categories).length) categories = (await api('GET', '/api/posts')).categories || {};
+    }
+    const catOpts = Object.entries(categories).map(([k, v]) => `<option value="${esc(k)}" ${(p.category || 'nuoi-sau') === k ? 'selected' : ''}>${esc(v)}</option>`).join('');
     const body = $('#wbody');
     body.innerHTML = `<div class="card">
       <div class="toolbar"><button class="link" id="pback">← Danh sách bài viết</button><span class="spacer"></span>
         ${p.status === 'published' ? `<a class="btn sec sm" href="${esc(siteUrl())}/blog/${esc(p.slug)}" target="_blank" rel="noopener">Xem trên web ↗</a>` : ''}</div>
       <form class="form" id="pf">
         <label class="full">Tiêu đề<input name="title" value="${esc(p.title)}" placeholder="VD: Cách cho gà đẻ ăn trứng sâu canxi" required></label>
+        <label>Chủ đề<select name="category">${catOpts}</select></label>
         <label>Đường dẫn (tự tạo từ tiêu đề nếu để trống)<input name="slug" value="${esc(p.slug)}" placeholder="cach-cho-ga-de-an-trung-sau"></label>
         ${imgField('cover', p.cover, 'Ảnh bìa (hiện khi chia sẻ Facebook)')}
         <label class="full">Tóm tắt (1–2 câu, để trống thì tự lấy đầu bài)<textarea name="summary" rows="2">${esc(p.summary)}</textarea></label>
@@ -1369,7 +1380,7 @@ VIEWS.website = async (root) => {
       try {
         const r = id ? await api('PATCH', '/api/posts/' + id, d) : await api('POST', '/api/posts', d);
         toast(d.status === 'published' ? 'Đã đăng bài lên website' : 'Đã lưu nháp');
-        editPost(r.post.id);
+        editPost(r.post.id, categories);
       } catch (err) { fail(err); b.disabled = false; }
     }));
   }

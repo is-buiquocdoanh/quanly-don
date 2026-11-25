@@ -11,6 +11,7 @@ import { match, userFromSession } from './routes.js';
 import { HttpError, hashPassword, randomToken, nowVN, todayVN } from './util.js';
 import { verifyWebhook, checkSignature, saveEvents, logProblem } from './meta.js';
 import { renderSite } from './site/render.js';
+import { createPublicOrder } from './site/order.js';
 import { uploadFile, UPLOAD_MIME } from './site/uploads.js';
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -148,22 +149,49 @@ function serveSiteImg(res, name) {
   fs.createReadStream(file).pipe(res);
 }
 
-/** Website công khai. Chỉ GET/HEAD; không có API quản lý ở tên miền này. */
-function serveSite(req, res, url, host, proto) {
+/** Website công khai. GET/HEAD các trang + POST /api/dat-hang đặt đơn công khai; không lộ API quản lý. */
+async function serveSite(req, res, url, host, proto) {
   const { pathname } = url;
-  if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { Allow: 'GET, HEAD' }); res.end(); return; }
   // www.doanhwork.com → doanhwork.com (1 địa chỉ duy nhất cho Google)
   if (host.startsWith('www.') && SITE_HOSTS.includes(host.slice(4))) {
     res.writeHead(301, { Location: `${proto}://${host.slice(4)}${pathname}${url.search}` });
     res.end();
     return;
   }
+  if (req.method === 'POST' && pathname === '/api/dat-hang') {
+    const ip = req.headers['cf-connecting-ip'] || String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
+    try {
+      const raw = await readBody(req, 16384);
+      const ct = String(req.headers['content-type'] || '');
+      let body = {};
+      if (ct.includes('application/json')) {
+        try { body = JSON.parse(raw || '{}'); } catch { throw new HttpError(400, 'Dữ liệu không hợp lệ'); }
+      } else if (ct.includes('application/x-www-form-urlencoded')) {
+        body = Object.fromEntries(new URLSearchParams(raw));
+      } else {
+        throw new HttpError(415, 'Định dạng không được hỗ trợ');
+      }
+      const result = createPublicOrder(body, ip);
+      send(res, 200, { ok: true, ...result });
+    } catch (e) {
+      const status = e instanceof HttpError ? e.status : 500;
+      if (status === 500) console.error(e);
+      send(res, status, { ok: false, error: status === 500 ? 'Hệ thống đang bận, vui lòng thử lại sau hoặc gọi trực tiếp cho shop.' : e.message });
+    }
+    return;
+  }
+  if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { Allow: 'GET, HEAD' }); res.end(); return; }
   if (pathname === '/api/health') { send(res, 200, { ok: true, time: nowVN() }); return; }
   if (pathname.startsWith('/uploads/')) return serveUpload(res, pathname.slice(9));
   if (pathname.startsWith('/img/')) return serveSiteImg(res, pathname.slice(5));
-  if (pathname === '/site.css') {
-    res.writeHead(200, { 'Content-Type': MIME['.css'], 'Cache-Control': process.env.NODE_ENV === 'production' ? 'public, max-age=300' : 'no-cache' });
-    fs.createReadStream(path.join(SITE_DIR, 'site.css')).pipe(res);
+  if (pathname === '/site.css' || pathname === '/site.js') {
+    const ext = path.extname(pathname);
+    res.writeHead(200, {
+      'Content-Type': MIME[ext],
+      'Cache-Control': process.env.NODE_ENV === 'production' ? 'public, max-age=300' : 'no-cache',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    fs.createReadStream(path.join(SITE_DIR, pathname.slice(1))).pipe(res);
     return;
   }
   if (pathname === '/logo.svg' || pathname === '/logo-192.png' || pathname === '/apple-touch-icon.png') return serveStatic(req, res, pathname);
@@ -172,7 +200,12 @@ function serveSite(req, res, url, host, proto) {
   const adminUrl = process.env.ADMIN_URL || (hn.endsWith('localhost') ? `http://localhost:${PORT}` : `https://don.${hn.replace(/^www\./, '')}`);
   let r;
   try {
-    r = renderSite(pathname, { host, proto, adminUrl, cssVer: assetVersion('site.css', SITE_DIR) });
+    r = renderSite(pathname, {
+      host, proto, adminUrl,
+      cssVer: assetVersion('site.css', SITE_DIR),
+      jsVer: assetVersion('site.js', SITE_DIR),
+      query: Object.fromEntries(url.searchParams),
+    });
   } catch (e) {
     console.error(e);
     r = { status: 500, type: 'text/plain; charset=utf-8', body: 'Website đang lỗi, vui lòng thử lại sau.' };

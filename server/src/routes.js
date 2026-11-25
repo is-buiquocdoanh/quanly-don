@@ -9,7 +9,7 @@ import {
 } from './orders.js';
 import { listKho, khoIdOrNull, adoptUnassigned, khoName } from './kho.js';
 import { aiEnabled, aiParse } from './ai.js';
-import { getSite, saveSite, POLICIES, listPosts, getPost, savePost, deletePost } from './site/content.js';
+import { getSite, saveSite, POLICIES, POST_CATEGORIES, listPosts, getPost, savePost, deletePost } from './site/content.js';
 import { markdown } from './site/markdown.js';
 import { saveUpload, listUploads } from './site/uploads.js';
 import { metaStatus, listEvents, sendTest, tokenPage, seenPages, pageSubscriptions, subscribePage } from './meta.js';
@@ -306,11 +306,11 @@ add('DELETE', '/api/users/:id', 'admin', ({ params, user }) => {
 
 add('GET', '/api/site', 'admin', () => ({ site: getSite(), policies: POLICIES }));
 add('PUT', '/api/site', 'admin', ({ body }) => ({ site: saveSite(body) }));
-add('GET', '/api/posts', 'admin', () => ({ posts: listPosts({ all: true, limit: 500 }) }));
+add('GET', '/api/posts', 'admin', () => ({ posts: listPosts({ all: true, limit: 500 }), categories: POST_CATEGORIES }));
 add('GET', '/api/posts/:id', 'admin', ({ params }) => {
   const p = getPost(toInt(params.id));
   if (!p) throw new HttpError(404, 'Không tìm thấy bài viết');
-  return { post: p };
+  return { post: p, categories: POST_CATEGORIES };
 });
 add('POST', '/api/posts', 'admin', ({ body }) => ({ post: savePost(0, body) }));
 add('PATCH', '/api/posts/:id', 'admin', ({ params, body }) => ({ post: savePost(toInt(params.id), body) }));

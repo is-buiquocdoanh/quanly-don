@@ -1,8 +1,15 @@
 // Nội dung website công khai: thông tin shop (lưu trong settings key "site") + bài viết blog (bảng posts).
-import { db, tx, getSettings, setSetting } from '../db.js';
+import { db, tx, getSettings, setSetting, parsePriceTable } from '../db.js';
 import { nowVN, str, toInt, bad, HttpError } from '../util.js';
 import { slugify, plainText } from './markdown.js';
-import { SEED_POSTS } from './seed-posts.js';
+import { SEED_POSTS, EXTRA_SEED_POSTS } from './seed-posts.js';
+
+export const POST_CATEGORIES = {
+  'nuoi-sau': 'Kỹ thuật nuôi sâu',
+  'chan-nuoi': 'Chăn nuôi & Thủy sản',
+  'nong-nghiep': 'Nông nghiệp tuần hoàn',
+  'kinh-nghiem': 'Kinh nghiệm thực tế',
+};
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS posts (
@@ -12,6 +19,7 @@ CREATE TABLE IF NOT EXISTS posts (
   summary      TEXT NOT NULL DEFAULT '',
   body         TEXT NOT NULL DEFAULT '',     -- markdown
   cover        TEXT NOT NULL DEFAULT '',     -- đường dẫn ảnh bìa (/uploads/…)
+  category     TEXT NOT NULL DEFAULT 'nuoi-sau',
   status       TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published')),
   published_at TEXT,
   created_at   TEXT NOT NULL,
@@ -19,6 +27,10 @@ CREATE TABLE IF NOT EXISTS posts (
 );
 CREATE INDEX IF NOT EXISTS idx_posts_pub ON posts(status, published_at);
 `);
+{
+  const cols = db.prepare('PRAGMA table_info(posts)').all().map((c) => c.name);
+  if (!cols.includes('category')) db.exec("ALTER TABLE posts ADD COLUMN category TEXT NOT NULL DEFAULT 'nuoi-sau'");
+}
 
 // ---------------------------------------------------------------- Chính sách (bản nháp, chủ shop sửa trong web)
 export const POLICIES = {
@@ -71,14 +83,15 @@ Mọi thắc mắc xin liên hệ qua [trang Liên hệ](/lien-he).`,
 Giao toàn quốc qua đơn vị vận chuyển (Viettel Post).
 
 ## Thời gian
-- Đơn xác nhận trước 16h: gửi trong ngày.
+- Đơn xác nhận trước 16h: đóng hũ tươi và gửi trong ngày.
 - Thời gian nhận hàng thường từ 1 đến 4 ngày tùy khu vực.
 
 ## Phí giao hàng
-Theo bảng giá của đơn vị vận chuyển, báo rõ khi xác nhận đơn.
+- **Đặt 1 hũ (35g):** 65.000đ + phí ship 30.000đ (tổng thanh toán 95.000đ).
+- **Từ 2 hũ trở lên:** **MIỄN PHÍ GIAO HÀNG toàn quốc** (2 hũ 130k · 3 hũ 195k · 4 hũ 250k · 5 hũ 300k).
 
 ## Kiểm tra hàng
-Bạn được kiểm tra hàng trước khi thanh toán.`,
+Bạn được kiểm tra hàng trước khi thanh toán (COD).`,
 
   'doi-tra': `## Trường hợp được đổi / hoàn tiền
 - Hàng bị hư hỏng, móp vỡ do vận chuyển.
@@ -106,9 +119,9 @@ Vào Facebook → **Cài đặt và quyền riêng tư → Cài đặt → Ứng
 // Sản phẩm: TRỨNG ruồi lính đen (trứng sâu canxi) để khách tự ấp nở, nuôi thành sâu canxi cho gà, vịt, chim, cá ăn.
 export const SITE_DEFAULTS = {
   brand: 'Trứng Sâu Canxi',
-  tagline: 'Trứng ruồi lính đen giống — tự nuôi sâu canxi tại nhà',
-  hero_text: 'Chỉ vài chục gam trứng, sau khoảng 2–3 tuần đã có nguồn sâu canxi giàu đạm, giàu canxi cho gà, vịt, chim, cá. Sâu ăn bã đậu, rau củ, cơm thừa — vừa giảm tiền cám, vừa xử lý rác hữu cơ.',
-  hero_image: '/img/dong-goi-hu-trung.jpg',
+  tagline: 'Trứng ruồi lính đen 35g/hũ — tự nuôi sâu canxi tại nhà',
+  hero_text: 'Chỉ từ 1–2 hũ trứng chuẩn 35g, sau 2–3 tuần đã có nguồn sâu canxi giàu đạm, giàu canxi cho gà, vịt, chim, cá. Sâu ăn bã đậu, rau củ, cơm thừa — giảm tiền cám, xử lý rác hữu cơ. Miễn phí ship toàn quốc từ 2 hũ.',
+  hero_image: '/img/hero-trung-35g.jpg',
   logo: '/img/logo.svg',
   phone: '',
   zalo: '',
@@ -122,34 +135,34 @@ export const SITE_DEFAULTS = {
   business_no: '',      // số giấy chứng nhận đăng ký hộ kinh doanh
   tax_code: '',
   products: [
-    { name: 'Trứng ruồi lính đen — hũ 30g', spec: 'Ghi ngày nở dự kiến trên nắp', price: 0, image: '/img/hu-trung-30g.jpg',
-      desc: 'Trứng tươi thu trong ngày, ủ sẵn trong hũ thoáng khí. Phù hợp hộ nuôi gà, vịt vài chục đến vài trăm con.' },
-    { name: 'Trứng ruồi lính đen — hũ 25g', spec: 'Ghi ngày nở dự kiến trên nắp', price: 0, image: '/img/hu-trung-25g.jpg',
-      desc: 'Lượng vừa phải để nuôi thử lần đầu, làm quen cách ấp và nuôi sâu.' },
-    { name: 'Trứng ruồi lính đen — hũ 40g, 50g', spec: 'Sỉ & lẻ, nhận đặt số lượng lớn', price: 0, image: '/img/hu-trung-50g.jpg',
-      desc: 'Cho trại nuôi nhiều, cần nguồn sâu ổn định. Nhắn shop để có giá sỉ theo số lượng.' },
+    { name: 'Combo 2 hũ trứng sâu canxi (35g/hũ)', spec: 'Tổng 70g · Miễn phí ship toàn quốc', price: 130000, image: '/img/combo-2-hu-35g.jpg',
+      desc: 'Lựa chọn phổ biến nhất! Tiết kiệm ngay 30.000đ phí ship so với mua 1 hũ lẻ. Phù hợp hộ nuôi gà, vịt, cá quy mô gia đình.' },
+    { name: '1 hũ trứng sâu canxi 35g (Dùng thử)', spec: 'Hũ chuẩn 35g · Phí ship 30k (Tổng 95k)', price: 65000, image: '/img/hu-trung-35g.jpg',
+      desc: 'Trứng tươi thu trong ngày, đóng hũ thoáng khí ghi rõ ngày nở trên nắp. Phù hợp nuôi thử làm quen kỹ thuật lần đầu.' },
+    { name: 'Combo trại 3 – 5 hũ (35g/hũ)', spec: 'Miễn ship · 3 hũ 195k · 4 hũ 250k · 5 hũ 300k', price: 300000, image: '/img/combo-5-hu-35g.jpg',
+      desc: 'Dành cho hộ nuôi nhiều hoặc nuôi gối đầu quanh tháng. Đặt 5 hũ chỉ còn 60.000đ/hũ — tiết kiệm 25.000đ và miễn phí ship.' },
   ],
   farm: `## Trang trại của chúng tôi
-Chúng tôi nuôi đàn ruồi lính đen bố mẹ để lấy trứng, thu trứng hằng ngày rồi cân, đóng hũ và gửi đi trong thời gian ngắn nhất để trứng đến tay khách vẫn tươi, nở đều.
+Chúng tôi nuôi đàn ruồi lính đen bố mẹ để lấy trứng, thu trứng hằng ngày rồi cân chuẩn **35g/hũ**, đóng hũ thoáng khí và gửi đi trong thời gian ngắn nhất để trứng đến tay khách vẫn tươi, nở đều.
 
 ![Ruồi lính đen trưởng thành đẻ trứng trên thanh gỗ](/img/ruoi-linh-den-de-trung.jpg)
 
-## Từ ruồi bố mẹ đến hũ trứng
+## Từ ruồi bố mẹ đến hũ trứng 35g
 1. **Ruồi đẻ trứng** vào các khe của thanh gỗ đặt trong chuồng nuôi.
 2. **Thu trứng** mỗi ngày, gỡ nhẹ khỏi thanh gỗ để không làm dập trứng.
-3. **Cân và đóng hũ** theo khối lượng 20g, 25g, 30g, 40g, 50g. Trên nắp ghi khối lượng và ngày nở dự kiến.
-4. **Đóng thùng, gửi đi** qua đơn vị vận chuyển, kèm hướng dẫn ấp nở.
+3. **Cân chuẩn 35g và đóng hũ** thoáng khí. Trên nắp ghi rõ khối lượng và ngày nở dự kiến.
+4. **Đóng thùng, gửi đi** qua đơn vị vận chuyển toàn quốc (miễn ship từ 2 hũ), kèm hướng dẫn ấp nở.
 
 ![Trứng vừa thu trên khung gỗ](/img/thu-trung.jpg)
 
-![Trứng được đóng hũ, phủ bông cho thoáng khí](/img/u-trung-trong-hu.jpg)
+![Trứng được đóng hũ thoáng khí chuẩn bị giao đi](/img/combo-5-hu-35g.jpg)
 
-![Hũ trứng xếp chờ đóng thùng giao cho khách](/img/dong-goi-hu-trung.jpg)
+![Sâu canxi béo mập cho đàn gà thả vườn](/img/ga-tha-vuon.jpg)
 
-## Vì sao chọn trứng của trại
-- Trứng thu **trong ngày**, không để lâu.
+## Vì sao chọn trứng 35g của trại
+- Trứng thu **trong ngày**, cân đủ **35g/hũ**, không để lưu kho.
 - Mỗi hũ ghi **ngày nở**, khách biết chuẩn bị khay nuôi trước.
-- Hướng dẫn cách ấp, cách nuôi, hỗ trợ qua tin nhắn khi khách nuôi lần đầu.`,
+- Giá minh bạch: **65.000đ/hũ**, **miễn phí giao hàng từ 2 hũ**, hỗ trợ kỹ thuật 1-1 qua tin nhắn.`,
   usage: `## Cách ấp trứng
 - Mở nắp, đặt hũ (hoặc rải trứng lên giấy) **phía trên** khay thức ăn ẩm như cám trộn nước, bã đậu, để sâu non nở ra tự rơi xuống ăn.
 - Để nơi râm mát, thoáng, tránh nắng trực tiếp và kiến. Nhiệt độ ấm khoảng 25–30°C trứng nở nhanh và đều hơn.
@@ -259,27 +272,72 @@ export function saveSite(input) {
   return getSite();
 }
 
-// ---------------------------------------------------------------- Bài viết
-// Lần đầu website chạy (chưa có bài nào): đăng sẵn 3 bài mẫu. Chỉ chạy 1 lần (cờ posts_seeded).
-function seedPosts() {
-  if (getSettings().posts_seeded) return;
-  if (!db.prepare('SELECT 1 FROM posts LIMIT 1').get()) {
-    const now = nowVN();
-    const ins = db.prepare(`INSERT OR IGNORE INTO posts(slug, title, summary, body, cover, status, published_at, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, 'published', ?, ?, ?)`);
-    SEED_POSTS.forEach((p, i) => {
-      const at = nowVN(new Date(Date.now() - (SEED_POSTS.length - i) * 60e3)); // bài đầu cũ nhất
-      ins.run(p.slug, p.title, p.summary, p.body, p.cover, at, now, now);
-    });
-  }
-  setSetting('posts_seeded', 1);
+// ---------------------------------------------------------------- Bảng giá công khai (đồng bộ từ Cài đặt)
+export function getPriceTable() {
+  return parsePriceTable(getSettings().price_table);
 }
 
-const POST_COLS = 'id, slug, title, summary, cover, status, published_at, created_at, updated_at';
+// ---------------------------------------------------------------- Bài viết
+// Lần đầu website chạy: đăng sẵn các bài mẫu về nuôi sâu, chăn nuôi & nông nghiệp tuần hoàn.
+function seedPosts() {
+  const settings = getSettings();
+  const now = nowVN();
+  const ins = db.prepare(`INSERT OR IGNORE INTO posts(slug, title, summary, body, cover, category, status, published_at, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, 'published', ?, ?, ?)`);
+  if (!settings.posts_seeded) {
+    if (!db.prepare('SELECT 1 FROM posts LIMIT 1').get()) {
+      SEED_POSTS.forEach((p, i) => {
+        const at = nowVN(new Date(Date.now() - (SEED_POSTS.length + EXTRA_SEED_POSTS.length - i) * 60e3));
+        ins.run(p.slug, p.title, p.summary, p.body, p.cover, p.category || 'nuoi-sau', at, now, now);
+      });
+    }
+    setSetting('posts_seeded', 1);
+  }
+  if (!settings.posts_seeded_v2) {
+    // Cập nhật chủ đề cho 3 bài mẫu cũ nếu đang dùng mặc định
+    for (const p of SEED_POSTS) {
+      if (p.category && p.category !== 'nuoi-sau') {
+        db.prepare("UPDATE posts SET category = ? WHERE slug = ? AND category = 'nuoi-sau'").run(p.category, p.slug);
+      }
+    }
+    EXTRA_SEED_POSTS.forEach((p, i) => {
+      const at = nowVN(new Date(Date.now() - (EXTRA_SEED_POSTS.length - i) * 60e3));
+      ins.run(p.slug, p.title, p.summary, p.body, p.cover, p.category || 'nong-nghiep', at, now, now);
+    });
+    setSetting('posts_seeded_v2', 1);
+  }
+  if (!settings.posts_seeded_v3) {
+    const coverMap = [
+      ['cach-cho-ga-vit-chim-ca-an-sau-canxi', '/img/hu-trung-30g.jpg', '/img/ga-tha-vuon.jpg'],
+      ['u-phan-sau-canxi-bon-rau-sach-va-cay-an-trai', '/img/thu-trung.jpg', '/img/vuon-rau-huu-co.jpg'],
+      ['mo-hinh-nong-nghiep-tuan-hoan-xu-ly-rac-huu-co-bang-sau-canxi', '/img/ruoi-linh-den-de-trung.jpg', '/img/nong-nghiep-tuan-hoan.jpg'],
+      ['kinh-nghiem-nuoi-sau-canxi-theo-mua-va-xu-ly-mui', '/img/u-trung-trong-hu.jpg', '/img/combo-5-hu-35g.jpg'],
+    ];
+    for (const [slug, oldC, newC] of coverMap) {
+      db.prepare('UPDATE posts SET cover = ? WHERE slug = ? AND cover = ?').run(newC, slug, oldC);
+    }
+    setSetting('posts_seeded_v3', 1);
+  }
+}
 
-export function listPosts({ all = false, limit = 100 } = {}) {
-  return db.prepare(`SELECT ${POST_COLS} FROM posts ${all ? '' : "WHERE status = 'published'"}
-    ORDER BY COALESCE(published_at, created_at) DESC LIMIT ?`).all(Math.min(toInt(limit, 100), 500));
+const POST_COLS = 'id, slug, title, summary, cover, category, status, published_at, created_at, updated_at, length(body) AS body_len';
+
+export function listPosts({ all = false, limit = 100, category = '', q = '' } = {}) {
+  const where = [];
+  const args = [];
+  if (!all) where.push("status = 'published'");
+  if (category && POST_CATEGORIES[category]) {
+    where.push('category = ?');
+    args.push(category);
+  }
+  if (q && String(q).trim()) {
+    const s = '%' + String(q).trim() + '%';
+    where.push('(title LIKE ? OR summary LIKE ? OR body LIKE ?)');
+    args.push(s, s, s);
+  }
+  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  return db.prepare(`SELECT ${POST_COLS} FROM posts ${w}
+    ORDER BY COALESCE(published_at, created_at) DESC LIMIT ?`).all(...args, Math.min(toInt(limit, 100), 500));
 }
 
 export function getPost(idOrSlug, { publishedOnly = false } = {}) {
@@ -304,18 +362,20 @@ export function savePost(id, input) {
   if (!title) throw bad('Thiếu tiêu đề');
   const body = str(input.body ?? cur?.body ?? '', 100000);
   const status = (input.status ?? cur?.status) === 'published' ? 'published' : 'draft';
+  const catIn = input.category ?? cur?.category ?? 'nuoi-sau';
+  const category = POST_CATEGORIES[catIn] ? catIn : 'nuoi-sau';
   const slug = uniqueSlug(slugify(input.slug || cur?.slug || title), id || 0);
   const summary = str(input.summary ?? cur?.summary ?? '', 300) || plainText(body, 200);
   const cover = str(input.cover ?? cur?.cover ?? '', 300);
   const publishedAt = status === 'published' ? (cur?.published_at || now) : null;
   return tx(() => {
     if (cur) {
-      db.prepare('UPDATE posts SET slug=?, title=?, summary=?, body=?, cover=?, status=?, published_at=?, updated_at=? WHERE id=?')
-        .run(slug, title, summary, body, cover, status, publishedAt, now, id);
+      db.prepare('UPDATE posts SET slug=?, title=?, summary=?, body=?, cover=?, category=?, status=?, published_at=?, updated_at=? WHERE id=?')
+        .run(slug, title, summary, body, cover, category, status, publishedAt, now, id);
       return getPost(id);
     }
-    const newId = Number(db.prepare(`INSERT INTO posts(slug, title, summary, body, cover, status, published_at, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(slug, title, summary, body, cover, status, publishedAt, now, now).lastInsertRowid);
+    const newId = Number(db.prepare(`INSERT INTO posts(slug, title, summary, body, cover, category, status, published_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(slug, title, summary, body, cover, category, status, publishedAt, now, now).lastInsertRowid);
     return getPost(newId);
   });
 }
