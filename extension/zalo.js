@@ -189,6 +189,10 @@
     .it.done { opacity: .55; } .it.done .t b::after { content: '  ✓ đã gửi'; color: #067647; font-weight: 600; }
     .it.cur { background: #ecfdf3; }
     .empty { padding: 24px 14px; text-align: center; color: #667085; }
+    .all { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid #e4e7ec; background: #fcfcfd; cursor: pointer; font-weight: 600; }
+    .all .muted { font-weight: 400; }
+    .lnk { margin-left: auto; border: 0; background: none; color: #15803d; font: 600 12px system-ui; cursor: pointer; padding: 2px 4px; }
+    .lnk:hover { text-decoration: underline; }
     .ft { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; background: #f9fafb; border-top: 1px solid #e4e7ec; }
     .btn { cursor: pointer; border: 1px solid #16a34a; background: #16a34a; color: #fff; border-radius: 8px; padding: 8px 12px; font: 600 13px system-ui; }
     .btn:disabled { opacity: .5; cursor: default; }
@@ -233,6 +237,13 @@
         <div class="row"><span class="small muted">Nhóm kho</span><input type="text" id="grp" placeholder="Tên nhóm Zalo của kho (để kiểm tra mở đúng chat)" value="${esc(st.group)}"></div>
         <div class="chat small">${chatLine()}</div>
       </div>
+      ${st.loaded && st.orders.length ? (() => {
+        const open = st.orders.filter((o) => !st.done.has(o.id));
+        const n = open.filter((o) => st.picked.has(o.id)).length;
+        return `<label class="all"><input type="checkbox" id="all" ${n && n === open.length ? 'checked' : ''} ${st.sending || !open.length ? 'disabled' : ''}>
+          <span>Chọn tất cả</span><span class="muted small">đã chọn ${n}/${open.length} đơn</span>
+          ${n ? '<button type="button" class="lnk" id="none">Bỏ chọn hết</button>' : ''}</label>`;
+      })() : ''}
       <div class="list">${!st.loaded ? '<div class="empty">Đang tải…</div>' : st.orders.length ? st.orders.map((o) => `
         <label class="it ${st.done.has(o.id) ? 'done' : ''} ${st.cur === o.id ? 'cur' : ''}"><input type="checkbox" data-id="${o.id}" ${st.picked.has(o.id) ? 'checked' : ''} ${st.sending || st.done.has(o.id) ? 'disabled' : ''}>
           <span class="t"><b>${esc(o.name)}</b> · ${esc(o.phone)}<div class="s">${esc(o.code)} · ${esc(o.time)} · ${o.qty} hộp · ${money(o.total)}${o.kho ? ' · ' + esc(o.kho) : ''}</div></span></label>`).join('')
@@ -251,6 +262,16 @@
     root.getElementById('reload').onclick = () => { if (!st.sending) { st.loaded = false; draw(); load(); } };
     const grp = root.getElementById('grp');
     grp.onchange = () => { st.group = grp.value.trim(); chrome.storage.local.set({ zaloGroup: st.group }); if (st.err) { st.msg = ''; st.err = false; } draw(); };
+    // chọn tất cả / bỏ chọn hết (không tính đơn đã gửi xong)
+    const all = root.getElementById('all');
+    if (all) {
+      const open = st.orders.filter((o) => !st.done.has(o.id));
+      const n = open.filter((o) => st.picked.has(o.id)).length;
+      all.indeterminate = n > 0 && n < open.length;
+      all.onchange = () => { open.forEach((o) => (all.checked ? st.picked.add(o.id) : st.picked.delete(o.id))); draw(); };
+    }
+    const none = root.getElementById('none');
+    if (none) none.onclick = (e) => { e.preventDefault(); if (!st.sending) { st.picked.clear(); draw(); } };
     root.querySelectorAll('[data-id]').forEach((cb) => { cb.onchange = () => { const id = Number(cb.dataset.id); cb.checked ? st.picked.add(id) : st.picked.delete(id); draw(); }; });
     const dg = root.getElementById('diag');
     if (dg) dg.onclick = async () => {
