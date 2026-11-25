@@ -234,6 +234,18 @@ export function updateOrder(id, input, user, info = {}) {
   }
   // rời trạng thái Hoàn (hoàn tác, sửa nhầm) thì xóa lý do hoàn cũ
   if (sets.status && sets.status !== 'hoan' && o.return_reason) sets.return_reason = '';
+  // Tiền hàng theo trạng thái (khi không tự đánh dấu COD trong lần sửa này):
+  //  - chế độ "Đã giao + coi như đã có tiền" (zalo_auto_shipped = 2): chuyển sang Đã giao → COD đã về
+  //  - rời Đã giao (bị hoàn, hủy, về Chờ gửi…) → bỏ COD đã về (hàng hoàn thì không có tiền)
+  if (sets.status && !('cod_received' in input)) {
+    if (sets.status === 'da_giao' && !o.cod_received && Number(getSettings().zalo_auto_shipped) === 2) {
+      Object.assign(sets, { cod_received: 1, cod_at: now });
+      changes.push('Coi như đã có tiền');
+    } else if (sets.status !== 'da_giao' && o.cod_received) {
+      Object.assign(sets, { cod_received: 0, cod_at: null });
+      changes.push('Bỏ COD đã về');
+    }
+  }
   if (!changes.length) return o;
   info.changed = true;
 

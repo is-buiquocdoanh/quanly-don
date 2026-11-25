@@ -33,7 +33,12 @@ Dùng khi kho không dùng web, chỉ nhận đơn qua Zalo. Mỗi đơn là **m
 
 **Không kèm danh thiếp:** Zalo thấy 10 số liền nhau là tự đính kèm danh thiếp vào tin. Cài đặt → Chép & gửi Zalo → **Số điện thoại trong tin Zalo** → chọn *Cách nhóm 0961 251 352* (hoặc *Dấu chấm 0961.251.352* nếu Zalo vẫn kèm danh thiếp) để chỉ gửi chữ. Chỉ áp dụng cho tin gửi Zalo; nút **Chép** thường vẫn giữ số liền.
 
-**Báo kho xong thì đơn tự chuyển trạng thái** (mặc định giữ Chờ gửi): Cài đặt → Chép & gửi Zalo → **Báo kho xong thì đơn**: *Tự chuyển sang "Đã gửi"*, hoặc *Tự chuyển sang "Đã giao"* (kho làm thủ công, không cập nhật web; đơn tính vào COD chờ về ngay). Áp dụng cho cả 3 cách gửi bên dưới; đơn được ghi giờ gửi / giờ giao và lịch sử như khi bấm tay. Đơn không còn ở Chờ gửi (vd đã Hủy) thì không bị đổi.
+**Báo kho xong thì đơn tự chuyển trạng thái** (mặc định giữ Chờ gửi): Cài đặt → Chép & gửi Zalo → **Báo kho xong thì đơn**:
+
+- *Tự chuyển sang "Đã gửi"*.
+- ***Coi như xong: "Đã giao" + đã có tiền*** — hợp khi kho là bên riêng, tự gửi bằng app Viettel Post, không dùng web. Báo kho xong là đơn **Đã giao** và **tính tiền luôn** (tự đánh dấu COD đã về, không treo ở "COD chờ về"). Khách không nhận (shipper gọi số của shop) thì đổi đơn sang **Hoàn**: trang **Kho gửi hàng** → tab **Giao / Hoàn** (30 ngày gần nhất, tìm theo SĐT) → **Bị hoàn**, hoặc mở đơn ở trang Đơn hàng. Web tự bỏ tiền của đơn đó; lỡ tay thì bấm **Hoàn tác**, đơn về Đã giao và có tiền lại.
+
+Áp dụng cho cả 3 cách gửi bên dưới; đơn được ghi giờ gửi / giờ giao và lịch sử như khi bấm tay. Quy tắc chung: đơn **rời khỏi Đã giao** (hoàn, hủy, về Chờ gửi) thì tự bỏ đánh dấu COD đã về.
 
 **Gửi trên Zalo Web bằng extension** (không cần Zalo phụ, dùng Zalo đang đăng nhập ở trình duyệt). Cần extension **2.7.0** trở lên, tải ở Cài đặt → Extension & bảo mật.
 1. Mở https://chat.zalo.me, bấm vào **nhóm kho**.

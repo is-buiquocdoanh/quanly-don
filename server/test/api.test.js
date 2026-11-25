@@ -695,3 +695,34 @@ test('quảng cáo theo ngày: mỗi ô = tổng 1 ngày × 1 page, sửa ô tha
   assert.equal((await admin('PUT', '/api/ads', { date: 'abc', page: 'Page QC 1', amount: 1000 })).ok, false);
   assert.equal((await kho('GET', `/api/ads?from=${d1}&to=${d2}`)).ok, false);
 });
+
+test('"Coi như xong": báo Zalo → Đã giao + đã có tiền; bị hoàn → trừ tiền; hoàn tác → có tiền lại', async () => {
+  const tok = (await admin('GET', '/api/me/api-token')).token;
+  await admin('PUT', '/api/settings', { zalo_auto_shipped: 2 });
+  const repBefore = await admin('GET', `/api/report?from=2000-01-01&to=2099-12-31`);
+  const o = (await admin('POST', '/api/orders', { name: 'Coi như xong', phone: '0918000111', address: 'Xã A', qty: 2, total: 130000 })).order;
+  assert.equal((await admin('GET', `/api/report?from=2000-01-01&to=2099-12-31`)).revenue, repBefore.revenue + 130000);
+  await ext({ action: 'zalo_mark', token: tok, ids: [o.id] });
+  let d = (await admin('GET', '/api/orders/' + o.id)).order;
+  assert.equal(d.status, 'da_giao');
+  assert.equal(d.cod_received, 1);
+  assert.ok(d.cod_at);
+  // không treo ở COD chờ về
+  const pend = await admin('GET', '/api/orders?cod=pending');
+  assert.ok(!pend.orders.some((x) => x.id === o.id));
+  // bị hoàn → bỏ COD, doanh thu giảm đúng 130k
+  await admin('PATCH', '/api/orders/' + o.id, { status: 'hoan', return_reason: 'Khách từ chối nhận' });
+  d = (await admin('GET', '/api/orders/' + o.id)).order;
+  assert.equal(d.status, 'hoan');
+  assert.equal(d.cod_received, 0);
+  const repAfter = await admin('GET', `/api/report?from=2000-01-01&to=2099-12-31`);
+  assert.equal(repAfter.revenue, repBefore.revenue); // đơn mới cộng 130k rồi hoàn trừ lại 130k
+  // hoàn tác (về Đã giao) → có tiền lại
+  await admin('PATCH', '/api/orders/' + o.id, { status: 'da_giao' });
+  assert.equal((await admin('GET', '/api/orders/' + o.id)).order.cod_received, 1);
+  // chế độ khác: chuyển Đã giao bằng tay không tự đánh dấu tiền
+  await admin('PUT', '/api/settings', { zalo_auto_shipped: 0 });
+  const o2 = (await admin('POST', '/api/orders', { name: 'Tay', phone: '0918000222', address: 'Xã A', qty: 1, total: 95000 })).order;
+  await admin('PATCH', '/api/orders/' + o2.id, { status: 'da_giao' });
+  assert.equal((await admin('GET', '/api/orders/' + o2.id)).order.cod_received, 0);
+});

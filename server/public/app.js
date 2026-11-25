@@ -808,7 +808,8 @@ VIEWS.kho = async (root) => {
     const [a, b, c] = await Promise.all([
       api('GET', `/api/orders?status=moi&sort=asc&limit=1000${w}`),
       api('GET', `/api/orders?status=da_gui&from=${since}&limit=500${w}`),
-      api('GET', `/api/orders?status=da_giao,hoan&from=${addDays(S.today, -3)}&limit=300${w}`),
+      // 30 ngày: hàng hoàn thường về sau 1–2 tuần, cần tìm lại đơn Đã giao để bấm "Bị hoàn"
+      api('GET', `/api/orders?status=da_giao,hoan&from=${addDays(S.today, -30)}&limit=1000${w}`),
     ]);
     lists = { moi: a.orders, da_gui: b.orders, xong: c.orders };
     render();
@@ -840,7 +841,8 @@ VIEWS.kho = async (root) => {
     const whenLbl = { da_gui: 'Gửi lúc', da_giao: 'Giao lúc', hoan: 'Hoàn lúc' }[o.status];
     const primary = o.status === 'moi'
       ? `<button class="btn sm k-go" data-act="da_gui">Đã gửi</button>`
-      : o.status === 'da_gui' ? `<button class="btn sm sec k-go" data-act="da_giao">Đã giao</button>` : '';
+      : o.status === 'da_gui' ? `<button class="btn sm sec k-go" data-act="da_giao">Đã giao</button>`
+      : o.status === 'da_giao' ? `<button class="btn sm danger k-go" data-act="hoan" title="Khách không nhận, hàng hoàn về">Bị hoàn</button>` : '';
     const shipFields = o.status === 'moi' || o.status === 'da_gui'
       ? `<div class="k-ship">
           <label>Mã vận đơn<input placeholder="VD: VTP123456789" data-f="tracking_code" value="${esc(o.tracking_code)}" autocomplete="off"></label>
@@ -1751,10 +1753,10 @@ async function zaloCard() {
           <span class="hint" style="margin:2px 0 0" id="zPhoneEx"></span></label>
         <label class="full">Báo kho xong thì đơn
           <select name="zalo_auto_shipped">
-            ${[[0, 'Giữ "Chờ gửi" (chỉ gắn nhãn Đã báo Zalo)'], [1, 'Tự chuyển sang "Đã gửi"'], [2, 'Tự chuyển sang "Đã giao" (kho làm thủ công, không dùng web)']]
+            ${[[0, 'Giữ "Chờ gửi" (chỉ gắn nhãn Đã báo Zalo)'], [1, 'Tự chuyển sang "Đã gửi"'], [2, 'Coi như xong: "Đã giao" + đã có tiền (kho tự gửi, không dùng web)']]
               .map(([v, l]) => `<option value="${v}" ${auto === v ? 'selected' : ''}>${l}</option>`).join('')}
           </select>
-          <span class="hint" style="margin:2px 0 0">Đơn được ghi giờ gửi / giờ giao và lịch sử như khi bấm tay. Chọn "Đã giao" thì đơn tính vào <b>COD chờ về</b> ngay. Đơn không còn ở Chờ gửi (vd đã Hủy) thì giữ nguyên.</span></label>
+          <span class="hint" style="margin:2px 0 0"><b>Coi như xong:</b> báo kho xong là đơn Đã giao và tính tiền luôn (không treo ở "COD chờ về"). Khách không nhận thì đổi đơn sang <b>Hoàn</b> (trang Kho gửi hàng → tab Giao / Hoàn → <b>Bị hoàn</b>, hoặc mở đơn ở trang Đơn hàng): web tự trừ tiền đơn đó. Đơn không còn ở Chờ gửi (vd đã Hủy) thì giữ nguyên.</span></label>
       </form>
       <div class="actions"><button class="btn" data-save>Lưu</button></div>
     </div></section>
