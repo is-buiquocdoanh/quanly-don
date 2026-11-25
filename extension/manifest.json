@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bắt đơn Mess",
-  "version": "2.6.6",
+  "version": "2.7.0",
   "description": "Bôi đen đơn hàng trong Meta Business Suite, Ctrl+C là lưu vào web quản lý đơn, kiểm tra trùng SĐT. Gửi đơn báo kho trên Zalo Web.",
   "icons": {
     "16": "icons/icon16.png",
@@ -15,7 +15,8 @@
   ],
   "host_permissions": [
     "https://script.google.com/*",
-    "https://script.googleusercontent.com/*"
+    "https://script.googleusercontent.com/*",
+    "https://chat.zalo.me/*"
   ],
   "optional_host_permissions": [
     "https://*/*",

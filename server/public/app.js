@@ -1665,11 +1665,11 @@ async function zaloCard() {
     </div></section>
 
     <section class="scard"><header><h2>Cách 1 · Extension trên Zalo Web <span class="badge st-da_giao" style="vertical-align:2px">Không cần đăng nhập ở đây</span></h2>
-      <p>Extension "Bắt đơn Mess" (bản <b>2.6.5</b> trở lên) gõ từng đơn vào ô chat và gửi bằng <b>chính Zalo đang đăng nhập trên trình duyệt</b>.</p></header>
+      <p>Extension "Bắt đơn Mess" (bản <b>2.7.0</b> trở lên) gõ từng đơn vào ô chat và gửi bằng <b>chính Zalo đang đăng nhập trên trình duyệt</b>.</p></header>
     <div class="scard-b">
       <ol class="steps" style="margin:0">
         <li>Mở <a href="https://chat.zalo.me" target="_blank" rel="noopener">chat.zalo.me</a>, bấm vào <b>nhóm kho</b>.</li>
-        <li>Bấm nút <b>Đơn báo kho</b> ở góc phải (số trên nút = số đơn Chờ gửi chưa báo kho).</li>
+        <li>Bấm <b>icon extension</b> trên thanh Chrome để mở bảng bên cạnh → tab <b>Gửi Zalo</b> (tự mở khi đang ở Zalo Web; số trên tab = số đơn Chờ gửi chưa báo kho).</li>
         <li>Lần đầu: gõ tên nhóm kho vào ô <b>Nhóm kho</b> để extension kiểm tra mở đúng chat.</li>
         <li>Bấm <b>Gửi N đơn vào chat đang mở</b>. Để tab Zalo mở trên màn hình trong lúc gửi.</li>
       </ol>
