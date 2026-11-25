@@ -662,3 +662,36 @@ test('Zalo: báo kho xong chuyển thẳng "Đã giao" (kho làm thủ công), c
   await admin('PUT', '/api/settings', { zalo_auto_shipped: 9 }); // giá trị lạ → tắt
   assert.equal((await admin('GET', '/api/bootstrap')).settings.zalo_auto_shipped, 0);
 });
+
+test('quảng cáo theo ngày: mỗi ô = tổng 1 ngày × 1 page, sửa ô thay bằng 1 khoản, 0 = xóa; báo cáo tính như cũ', async () => {
+  await admin('PUT', '/api/settings', { fb_pages: 'Page QC 1\nPage QC 2' });
+  const d1 = '2026-11-01';
+  const d2 = '2026-11-02';
+  // khoản QC nhập tay trước đây (2 khoản cùng ngày + page) vẫn được cộng vào ô
+  await admin('POST', '/api/transactions', { date: d1, type: 'chi', category: 'Quảng cáo', amount: 100000, page: 'Page QC 1' });
+  await admin('POST', '/api/transactions', { date: d1, type: 'chi', category: 'Quảng cáo', amount: 50000, page: 'Page QC 1' });
+  let r = await admin('GET', `/api/ads?from=${d1}&to=${d2}`);
+  assert.ok(r.pages.includes('Page QC 1') && r.pages.includes('Page QC 2'));
+  assert.equal(r.cells.find((c) => c.date === d1 && c.page === 'Page QC 1').amount, 150000);
+  // sửa ô → còn 1 khoản đúng số mới
+  await admin('PUT', '/api/ads', { date: d1, page: 'Page QC 1', amount: 200000 });
+  await admin('PUT', '/api/ads', { date: d2, page: 'Page QC 2', amount: 300000 });
+  r = await admin('GET', `/api/ads?from=${d1}&to=${d2}`);
+  const c1 = r.cells.find((c) => c.date === d1 && c.page === 'Page QC 1');
+  assert.equal(c1.amount, 200000);
+  assert.equal(c1.n, 1);
+  // báo cáo: chi QC = 500k, theo page
+  const rep = await admin('GET', `/api/report?from=${d1}&to=${d2}`);
+  assert.equal(rep.ads, 500000);
+  // 0 → xóa ô; khoản chi khác cùng ngày không bị đụng
+  await admin('POST', '/api/transactions', { date: d1, type: 'chi', category: 'Nhập hàng', amount: 70000, page: 'Page QC 1' });
+  await admin('PUT', '/api/ads', { date: d1, page: 'Page QC 1', amount: 0 });
+  r = await admin('GET', `/api/ads?from=${d1}&to=${d2}`);
+  assert.ok(!r.cells.some((c) => c.date === d1 && c.page === 'Page QC 1'));
+  const tx = (await admin('GET', `/api/transactions?from=${d1}&to=${d1}`)).transactions;
+  assert.ok(tx.some((t) => t.category === 'Nhập hàng' && t.amount === 70000));
+  // ngày tương lai, ngày sai → lỗi; kho không dùng được
+  assert.equal((await admin('PUT', '/api/ads', { date: '2099-01-01', page: 'Page QC 1', amount: 1000 })).ok, false);
+  assert.equal((await admin('PUT', '/api/ads', { date: 'abc', page: 'Page QC 1', amount: 1000 })).ok, false);
+  assert.equal((await kho('GET', `/api/ads?from=${d1}&to=${d2}`)).ok, false);
+});

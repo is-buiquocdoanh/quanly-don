@@ -342,7 +342,7 @@ VIEWS.dashboard = async (root) => {
     <section class="tiles">
       ${tile('Doanh thu', money(r.revenue), delta(r.revenue, P.revenue), Charts.spark(days.map((d) => d.revenue), C.revenue))}
       ${tile('Lãi ước tính', `<span class="${r.profit < 0 ? 'neg' : ''}">${money(r.profit)}</span>`,
-        r.cost_per_unit ? delta(r.profit, P.profit) : '<span class="delta bad">Chưa nhập giá vốn — vào Cài đặt</span>', Charts.spark(days.map((d) => d.profit), C.profit))}
+        r.cost_per_unit ? delta(r.profit, P.profit) : '<span class="delta bad">Chưa nhập giá vốn — vào Thu chi</span>', Charts.spark(days.map((d) => d.profit), C.profit))}
       ${tile('Đơn hàng', num(r.orders), delta(r.orders, P.orders), Charts.spark(days.map((d) => d.orders), C.revenue), `<div class="tile-foot">${num(r.qty)} hộp · ${r.cancelled} đơn hủy</div>`)}
       ${tile('Chi quảng cáo', money(r.ads), delta(r.ads, P.ads, { goodUp: null }), Charts.spark(days.map((d) => d.ads), C.ads), `<div class="tile-foot">${money(r.cost_per_order)} mỗi đơn</div>`)}
     </section>
@@ -1336,8 +1336,14 @@ VIEWS.finance = async (root) => {
   const catOpts = (type, sel) => cats(type).map((c) => `<option ${c === sel ? 'selected' : ''}>${esc(c)}</option>`).join('');
   root.innerHTML = `
     <div class="toolbar page-title"><h1>Thu chi</h1><span class="spacer"></span>${rp.html}</div>
+    <div class="card" id="adsCard">
+      <div class="ads-h"><h2>Chi quảng cáo theo ngày</h2>
+        <span class="muted small">Gõ số tiền vào ô (vd <b>500k</b>), rời ô là tự lưu. <b>Enter</b> xuống ngày dưới. Nút <b>⇣</b> chép số của ngày hôm trước vào các ô còn trống.</span></div>
+      <div id="ads"><div class="loading">Đang tải…</div></div>
+    </div>
+    <div class="fin-row">
     <div class="card">
-      <h2>Thêm khoản thu / chi</h2>
+      <h2>Thêm khoản thu / chi khác</h2>
       <form class="addtx" id="add">
         <div class="fld"><span class="fld-l">Loại</span>${UI.seg('type', [['chi', 'Khoản chi'], ['thu', 'Khoản thu']], 'chi')}</div>
         <label class="fld">Ngày<input type="date" name="date" value="${S.today}"></label>
@@ -1348,9 +1354,96 @@ VIEWS.finance = async (root) => {
         <button class="btn">Thêm khoản</button>
       </form>
     </div>
+    <div class="card" id="costCard">
+      <h2>Giá vốn 1 hộp</h2>
+      <form class="cost-f" id="costF"><input name="cost_per_unit" value="${num(S.settings.cost_per_unit)}" inputmode="numeric" aria-label="Giá vốn 1 hộp"><button class="btn sec">Lưu</button></form>
+      <p class="muted small" style="margin:8px 0 0">Tiền nhập 1 hộp, để tính <b>lãi ước tính</b> ở Tổng quan. Đổi giá thì lãi của mọi kỳ (cả kỳ cũ) tính theo giá mới.</p>
+    </div>
+    </div>
     <div class="kpis" id="sum"></div>
     <div class="table-wrap" id="tbl"><div class="loading">Đang tải…</div></div>`;
   rp.bind(root);
+  $('#costF').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const r = await api('PUT', '/api/settings', { cost_per_unit: OrderParser.parseMoney(e.target.elements.cost_per_unit.value) });
+      S.settings = r.settings;
+      e.target.elements.cost_per_unit.value = num(S.settings.cost_per_unit);
+      toast('Đã lưu giá vốn');
+    } catch (err) { fail(err); }
+  });
+
+  // ---- bảng chi quảng cáo: hàng = ngày (mới nhất trên cùng), cột = page
+  const PAGE0 = '(không ghi page)';
+  const WD = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  async function loadAds() {
+    const { from, to } = finState.range;
+    const end = to > S.today ? S.today : to;
+    const box = $('#ads');
+    if (end < from) { box.innerHTML = '<div class="empty sm">Kỳ này chưa tới.</div>'; return; }
+    const r = await api('GET', `/api/ads?from=${from}&to=${end}`);
+    const pages = r.pages.length ? r.pages : [''];
+    const val = {};
+    for (const c of r.cells) val[c.date + '|' + c.page] = c.amount;
+    const dates = [];
+    for (let d = end; d >= from && dates.length < 62; d = addDays(d, -1)) dates.push(d);
+    box.innerHTML = `<div class="table-wrap flat ads-wrap"><table class="ads-t"><thead><tr><th>Ngày</th>${pages.map((p) => `<th class="right">${esc(p || PAGE0)}</th>`).join('')}<th class="right">Tổng ngày</th><th></th></tr></thead>
+      <tbody>${dates.map((d) => `<tr data-d="${d}"><td class="nowrap"><b>${WD[new Date(d + 'T00:00:00Z').getUTCDay()]}</b> ${dd(d)}${d === S.today ? ' <span class="badge st-da_giao">Hôm nay</span>' : ''}</td>
+        ${pages.map((p, i) => `<td class="right"><input class="ads-in" data-p="${esc(p)}" data-c="${i}" inputmode="numeric" placeholder="—" value="${val[d + '|' + p] ? num(val[d + '|' + p]) : ''}"></td>`).join('')}
+        <td class="right nowrap ads-sum"></td><td>${d > from ? '<button class="btn sm sec ads-copy" title="Chép số của ngày hôm trước vào các ô còn trống">⇣</button>' : ''}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>Cả kỳ</td>${pages.map((_, i) => `<td class="right nowrap" data-tc="${i}"></td>`).join('')}<td class="right nowrap" id="adsAll"></td><td></td></tr></tfoot></table></div>
+      ${dates.length === 62 ? '<p class="muted small">Chỉ hiện 62 ngày gần nhất của kỳ. Chọn kỳ ngắn hơn để xem ngày cũ.</p>' : ''}`;
+    sumAds();
+  }
+  function sumAds() {
+    const box = $('#ads');
+    const cols = {};
+    let all = 0;
+    for (const tr of $$('tbody tr', box)) {
+      let s = 0;
+      for (const inp of $$('.ads-in', tr)) { const v = OrderParser.parseMoney(inp.value) || 0; s += v; cols[inp.dataset.c] = (cols[inp.dataset.c] || 0) + v; }
+      $('.ads-sum', tr).textContent = s ? money(s) : '';
+      all += s;
+    }
+    for (const td of $$('[data-tc]', box)) td.textContent = money(cols[td.dataset.tc] || 0);
+    $('#adsAll', box).textContent = money(all);
+  }
+  async function saveAd(inp) {
+    const amount = OrderParser.parseMoney(inp.value) || 0;
+    if (String(amount) === inp.dataset.saved) return;
+    const date = inp.closest('tr').dataset.d;
+    inp.classList.remove('ok', 'bad');
+    try {
+      await api('PUT', '/api/ads', { date, page: inp.dataset.p, amount });
+      inp.value = amount ? num(amount) : '';
+      inp.dataset.saved = String(amount);
+      inp.classList.add('ok');
+      setTimeout(() => inp.classList.remove('ok'), 1200);
+      sumAds();
+      loadTx();
+    } catch (err) { inp.classList.add('bad'); fail(err); }
+  }
+  const adsBox = $('#ads');
+  adsBox.addEventListener('focusin', (e) => { if (e.target.classList.contains('ads-in')) { e.target.dataset.saved ??= String(OrderParser.parseMoney(e.target.value) || 0); e.target.select(); } });
+  adsBox.addEventListener('change', (e) => { if (e.target.classList.contains('ads-in')) saveAd(e.target); });
+  adsBox.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !e.target.classList.contains('ads-in')) return;
+    e.preventDefault();
+    const next = e.target.closest('tr').nextElementSibling?.querySelector(`.ads-in[data-c="${e.target.dataset.c}"]`);
+    if (next) next.focus(); else e.target.blur();
+  });
+  adsBox.addEventListener('click', async (e) => {
+    const b = e.target.closest('.ads-copy');
+    if (!b) return;
+    const tr = b.closest('tr');
+    const prev = tr.nextElementSibling;
+    if (!prev) return;
+    for (const inp of $$('.ads-in', tr)) {
+      const src = prev.querySelector(`.ads-in[data-c="${inp.dataset.c}"]`);
+      if (!inp.value && src?.value) { inp.dataset.saved ??= '0'; inp.value = src.value; await saveAd(inp); }
+    }
+  });
+
   const add = $('#add');
   add.elements.type.addEventListener('change', (e) => { add.elements.category.innerHTML = catOpts(e.target.value); });
   add.addEventListener('submit', async (e) => {
@@ -1369,7 +1462,9 @@ VIEWS.finance = async (root) => {
   });
 
   let rows = [];
-  async function load() {
+  // cả trang: bảng quảng cáo + số tổng + danh sách khoản; lưu 1 ô quảng cáo chỉ tải lại phần dưới (không mất ô đang gõ)
+  async function load() { await Promise.all([loadAds().catch(fail), loadTx()]); }
+  async function loadTx() {
     const { from, to } = finState.range;
     const [t, rep] = await Promise.all([
       api('GET', `/api/transactions?from=${from}&to=${to}`),
@@ -1437,8 +1532,8 @@ VIEWS.settings = async (root) => {
         <form class="form sform">
           <label class="full">Tên cửa hàng<input name="shop_name" value="${esc(s.shop_name)}"></label>
           <label class="full">Sản phẩm mặc định<input name="default_product" value="${esc(s.default_product)}"></label>
-          <label><span>Giá vốn 1 hộp <span class="opt">(để tính lãi)</span></span><input name="cost_per_unit" value="${num(s.cost_per_unit)}" inputmode="numeric"></label>
           <label><span>Kiểm tra trùng SĐT trong <span class="opt">(số ngày)</span></span><input name="dup_days" value="${s.dup_days}" inputmode="numeric"></label>
+          <div class="fld" style="justify-content:flex-end"><span class="hint" style="margin:0">Giá vốn 1 hộp: chỉnh ở trang <a href="#/finance">Thu chi</a>.</span></div>
         </form>${saveBtn}`)}
       ${T('Giá theo số hộp', 'Nhập số hộp ở extension hoặc form tạo đơn là tổng tiền tự điền theo bảng này. Gõ tay ô tổng tiền thì không bị ghi đè.', `
         <form class="form sform">

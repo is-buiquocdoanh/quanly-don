@@ -14,11 +14,11 @@ Website công khai ở doanhwork.com (sản phẩm, trang trại, blog, chính s
 | **Đơn hàng** | Chủ shop | Lọc, tìm, sửa đơn, báo trùng SĐT, đổi trạng thái hàng loạt, đánh dấu COD đã về, tạo đơn bằng cách dán tin nhắn |
 | **Kho gửi hàng** | Kho + chủ shop | Thẻ đơn chờ gửi, nút copy từng ô sang app Viettel Post, nhập mã vận đơn và phí ship, chuyển Đã gửi / Đã giao / Hoàn, in danh sách. Bấm **Bị hoàn** phải chọn **lý do hoàn** |
 | **Khách hàng** | Chủ shop | 3 tab: **Tất cả** (lịch sử mua theo SĐT, đánh dấu VIP), **Khách quen** (mua nhiều, mua thường xuyên), **Sổ đỏ** (SĐT tạo đơn ảo / phá / bom hàng, có cảnh báo khi đặt lại). Chi tiết ở mục [bên dưới](#lý-do-hoàn-sổ-đỏ-khách-quen) |
-| **Thu chi** | Chủ shop | Chi quảng cáo theo page, nhập hàng, ship, lương…; COD về và COD chờ về |
+| **Thu chi** | Chủ shop | **Bảng chi quảng cáo theo ngày** (hàng = ngày, cột = page, gõ số là tự lưu, nút ⇣ chép số của ngày hôm trước), **giá vốn 1 hộp** (tính lãi), các khoản thu / chi khác (nhập hàng, ship, lương…); COD về và COD chờ về |
 | **Chia đơn cho kho** | Chủ shop | Mỗi tài khoản quyền **Kho** (chủ shop tạo, đưa cho 1 bên có hàng) **chỉ thấy đơn được chia cho mình**: không thấy đơn, mã vận đơn, ghi chú của kho khác, không thấy fanpage, link chat, giá vốn. Chỉ có 1 tài khoản kho thì mọi đơn tự vào kho đó. Nhiều kho: công tắc "Đơn mới giao cho…" ở trang Đơn hàng / Cài đặt để đổi kho khi hết hàng, kèm chuyển luôn các đơn chờ gửi. Chia từng đơn / hàng loạt. Tổng quan có bảng theo kho |
 | **Gửi đơn qua Zalo** | Chủ shop | Ở trang Đơn hàng: tick đơn → **Gửi Zalo kho** (web tự gửi mỗi đơn 1 tin vào nhóm kho) hoặc **Chép lần lượt** (dự phòng). Đơn đã báo kho có nhãn **Đã báo Zalo**. Chi tiết ở mục [bên dưới](#gửi-đơn-cho-kho-qua-zalo) |
 | **Messenger** | Chủ shop | Tin khách nhắn vào page (webhook), nút trả lời thử, chẩn đoán mã page. Chuẩn bị cho chatbot: [docs/chatbot](chatbot/README.md) |
-| **Cài đặt** | Chủ shop | Giá theo số hộp (tự điền tổng tiền ở extension / form tạo đơn), giá vốn, danh mục thu chi, danh sách lý do hoàn, đăng nhập Zalo phụ + chọn nhóm kho, tài khoản kho (tạo, đặt lại mật khẩu, khóa, xóa tài khoản tạo nhầm), mã API cho extension, tải bản sao lưu |
+| **Cài đặt** | Chủ shop | Giá theo số hộp (tự điền tổng tiền ở extension / form tạo đơn), danh mục thu chi, danh sách lý do hoàn, đăng nhập Zalo phụ + chọn nhóm kho, tài khoản kho (tạo, đặt lại mật khẩu, khóa, xóa tài khoản tạo nhầm), mã API cho extension, tải bản sao lưu |
 
 ## Gửi đơn cho kho qua Zalo
 
@@ -33,16 +33,16 @@ Dùng khi kho không dùng web, chỉ nhận đơn qua Zalo. Mỗi đơn là **m
 
 **Không kèm danh thiếp:** Zalo thấy 10 số liền nhau là tự đính kèm danh thiếp vào tin. Cài đặt → Chép & gửi Zalo → **Số điện thoại trong tin Zalo** → chọn *Cách nhóm 0961 251 352* (hoặc *Dấu chấm 0961.251.352* nếu Zalo vẫn kèm danh thiếp) để chỉ gửi chữ. Chỉ áp dụng cho tin gửi Zalo; nút **Chép** thường vẫn giữ số liền.
 
-**Báo kho xong thì đơn tự chuyển "Đã gửi"** (mặc định tắt): Cài đặt → Chép & gửi Zalo → *Khi gửi đơn qua Zalo* → **Báo kho xong thì đơn: Tự chuyển sang "Đã gửi"**. Áp dụng cho cả 3 cách gửi bên dưới; đơn được ghi giờ gửi và lịch sử "Chờ gửi → Đã gửi" như khi bấm tay. Đơn không còn ở Chờ gửi (vd đã Hủy) thì không bị đổi.
+**Báo kho xong thì đơn tự chuyển trạng thái** (mặc định giữ Chờ gửi): Cài đặt → Chép & gửi Zalo → **Báo kho xong thì đơn**: *Tự chuyển sang "Đã gửi"*, hoặc *Tự chuyển sang "Đã giao"* (kho làm thủ công, không cập nhật web; đơn tính vào COD chờ về ngay). Áp dụng cho cả 3 cách gửi bên dưới; đơn được ghi giờ gửi / giờ giao và lịch sử như khi bấm tay. Đơn không còn ở Chờ gửi (vd đã Hủy) thì không bị đổi.
 
-**Gửi trên Zalo Web bằng extension** (không cần Zalo phụ, dùng Zalo đang đăng nhập ở trình duyệt). Cần extension **2.6.0** trở lên, tải ở Cài đặt → Extension & bảo mật.
+**Gửi trên Zalo Web bằng extension** (không cần Zalo phụ, dùng Zalo đang đăng nhập ở trình duyệt). Cần extension **2.7.0** trở lên, tải ở Cài đặt → Extension & bảo mật.
 1. Mở https://chat.zalo.me, bấm vào **nhóm kho**.
-2. Bấm nút **📦 Đơn báo kho** ở góc phải: hiện các đơn **Chờ gửi chưa báo Zalo** trong 7 ngày gần nhất, đơn cũ trước, tick sẵn hết. Bỏ tick đơn nào không muốn gửi.
+2. Bấm **icon extension** trên thanh Chrome → bảng bên cạnh, tab **Gửi Zalo** (đang ở Zalo Web thì tự mở tab này; sang Facebook tự về tab **Bắt đơn**): hiện các đơn **Chờ gửi chưa báo Zalo** trong 7 ngày gần nhất, đơn cũ trước, tick sẵn hết. Bỏ tick đơn nào không muốn gửi.
 3. Lần đầu: gõ tên nhóm kho vào ô **Nhóm kho** (chỉ cần một phần tên). Từ đó extension tự kiểm tra, mở nhầm chat khác thì không gửi.
 4. Bấm **Gửi N đơn vào chat đang mở**. Extension gõ từng đơn vào ô chat, nhấn gửi, chờ ngẫu nhiên theo khoảng giãn cách ở Cài đặt, rồi sang đơn tiếp. Gửi xong đơn nào, web đánh dấu **Đã báo Zalo** đơn đó ngay, nên bấm **Dừng** giữa chừng không bị gửi lặp.
-5. Để tab Zalo mở trên màn hình trong lúc gửi (chuyển tab khác thì Chrome làm chậm lại). Ô chat đang có chữ gõ dở thì extension không gửi, để không gửi lẫn.
+5. Bảng bên cạnh tự đưa tab Zalo lên trước khi gửi; trong lúc gửi đừng gõ vào ô chat Zalo. Ô chat đang có chữ gõ dở thì extension không gửi, để không gửi lẫn.
 
-Lần đầu nên chỉ tick **1 đơn** để thử. Zalo đổi giao diện mà extension không gõ / bấm gửi được thì khung báo lỗi và dừng: gửi tay đơn đó rồi báo lại để sửa.
+Lần đầu nên chỉ tick **1 đơn** để thử. Zalo đổi giao diện mà extension không gõ / bấm gửi được thì bảng báo lỗi và dừng: gửi tay đơn đó, bấm **Chép thông tin lỗi** rồi gửi cho người sửa.
 
 **Khi không tự gửi được** (Zalo phụ bị khóa, phiên hết hạn, Zalo đổi hệ thống): dùng **Chép lần lượt**.
 - Máy tính: web chép sẵn đơn 1 → sang Zalo **Ctrl+V**, **Enter** → quay lại web (Alt+Tab) là đơn 2 đã được chép sẵn, cứ thế đến hết.

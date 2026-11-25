@@ -175,6 +175,33 @@ add('DELETE', '/api/transactions/:id', 'admin', ({ params }) => {
   return { ok: true };
 });
 
+// ---------------------------------------------------------------- Chi quảng cáo theo ngày (bảng ngày × page ở trang Thu chi)
+// Vẫn lưu trong bảng transactions (chi, danh mục "Quảng cáo", page) như nhập tay → báo cáo, lãi tính như cũ.
+// Mỗi ô = tổng chi QC của 1 ngày cho 1 page; sửa ô thì các khoản QC của ngày + page đó được thay bằng 1 khoản.
+const ADS = 'Quảng cáo';
+add('GET', '/api/ads', 'admin', ({ query }) => {
+  if (!isDate(query.from) || !isDate(query.to)) throw bad('Khoảng ngày không hợp lệ');
+  const cells = db.prepare(`SELECT date, page, SUM(amount) AS amount, COUNT(*) AS n FROM transactions
+    WHERE type = 'chi' AND category = ? AND date BETWEEN ? AND ? GROUP BY date, page`).all(ADS, query.from, query.to);
+  const pages = [...new Set([...(getSettings().fb_pages || []), ...cells.map((c) => c.page)])];
+  return { pages, cells };
+});
+add('PUT', '/api/ads', 'admin', ({ body, user }) => {
+  if (!isDate(body.date)) throw bad('Ngày không hợp lệ');
+  if (body.date > todayVN()) throw bad('Chưa đến ngày này');
+  const page = str(body.page, 120);
+  const amount = toInt(body.amount);
+  if (amount < 0) throw bad('Số tiền không hợp lệ');
+  tx(() => {
+    db.prepare("DELETE FROM transactions WHERE type = 'chi' AND category = ? AND date = ? AND page = ?").run(ADS, body.date, page);
+    if (amount > 0) {
+      db.prepare(`INSERT INTO transactions(date, type, category, amount, page, note, created_by, created_at)
+        VALUES (?, 'chi', ?, ?, ?, 'Nhập ở bảng quảng cáo', ?, ?)`).run(body.date, ADS, amount, page, user.id, nowVN());
+    }
+  });
+  return { date: body.date, page, amount };
+});
+
 // ---------------------------------------------------------------- Báo cáo
 
 add('GET', '/api/report', 'admin', ({ query }) => report(query.from, query.to));
