@@ -225,7 +225,7 @@ $('#logout').addEventListener('click', async () => {
 
 // ================================================================ điều hướng
 const NAV = {
-  admin: [['dashboard', 'Tổng quan', 'Tổng'], ['orders', 'Đơn hàng', 'Đơn'], ['kho', 'Kho gửi hàng', 'Kho'], ['customers', 'Khách hàng', 'Khách'], ['finance', 'Thu chi', 'Thu chi'], ['website', 'Website', 'Web'], ['messenger', 'Messenger', 'Chat'], ['settings', 'Cài đặt', 'Cài đặt']],
+  admin: [['dashboard', 'Tổng quan', 'Tổng'], ['orders', 'Đơn hàng', 'Đơn'], ['customers', 'Khách hàng', 'Khách'], ['finance', 'Thu chi', 'Thu chi'], ['website', 'Website', 'Web'], ['messenger', 'Messenger', 'Chat'], ['settings', 'Cài đặt', 'Cài đặt']],
   kho: [['kho', 'Gửi hàng', 'Gửi hàng'], ['account', 'Tài khoản', 'Tài khoản']],
 };
 const ICONS = {
@@ -337,7 +337,7 @@ VIEWS.dashboard = async (root) => {
       <div><h1>Tổng quan</h1><p class="page-sub">${r.prev ? `So sánh với ${dd(P.from)} – ${dd(P.to)}` : ''}</p></div>
       ${rp.html}
     </div>
-    ${r.waiting ? `<a class="callout" href="#/kho"><b>${num(r.waiting)} đơn đang chờ gửi</b><span>Mở kho gửi hàng</span></a>` : ''}
+    ${r.waiting ? `<a class="callout" href="#/orders?st=moi"><b>${num(r.waiting)} đơn đang chờ gửi</b><span>Mở danh sách chờ gửi</span></a>` : ''}
 
     <section class="tiles">
       ${tile('Doanh thu', money(r.revenue), delta(r.revenue, P.revenue), Charts.spark(days.map((d) => d.revenue), C.revenue))}
@@ -376,7 +376,7 @@ VIEWS.dashboard = async (root) => {
             <td class="right">${num(w.orders)}</td>
             <td><div class="inbar"><span style="width:${(w.revenue / max) * 100}%"></span><b>${money(w.revenue)}</b></div></td>
             <td class="right">${num(w.shipped)}</td><td class="right">${num(w.returns)}</td>
-            <td class="right">${w.waiting ? `<a href="#/kho" class="pill ${w.id ? 'warn' : 'bad'}">${num(w.waiting)} đơn</a>` : '<span class="muted">0</span>'}</td></tr>`).join('');
+            <td class="right">${w.waiting ? `<a href="#/orders?st=moi" class="pill ${w.id ? 'warn' : 'bad'}">${num(w.waiting)} đơn</a>` : '<span class="muted">0</span>'}</td></tr>`).join('');
         })()}</tbody></table></div>
     </section>` : ''}
 
@@ -465,6 +465,9 @@ VIEWS.dashboard = async (root) => {
 const ordState = { range: null, q: '', status: '', page: '', kho: '', dup: false, selected: new Set() };
 VIEWS.orders = async (root) => {
   ordState.range ||= makeRange('d7');
+  // link từ Tổng quan: #/orders?st=moi → mở sẵn tab đó
+  const hq = new URLSearchParams(location.hash.split('?')[1] || '');
+  if (hq.has('st')) { ordState.status = hq.get('st'); history.replaceState(null, '', '#/orders'); }
   const sw = supplierSwitch(() => load());
   const rp = rangePicker(ordState.range, () => load());
   root.innerHTML = `
@@ -476,15 +479,11 @@ VIEWS.orders = async (root) => {
     <div class="toolbar">
       <input class="grow" id="q" placeholder="Tìm mã đơn, tên, SĐT, địa chỉ, mã vận đơn…" value="${esc(ordState.q)}">
       ${rp.html}
-      <select id="st">
-        <option value="">Mọi trạng thái</option>
-        ${Object.entries(S.statuses).map(([k, v]) => `<option value="${k}" ${ordState.status === k ? 'selected' : ''}>${v}</option>`).join('')}
-        <option value="cod" ${ordState.status === 'cod' ? 'selected' : ''}>COD chờ về</option>
-      </select>
       <select id="pg">${pageOptions(ordState.page)}</select>
       ${hasWh() ? `<select id="wh">${whOptions(ordState.kho, { all: true })}</select>` : ''}
       <label class="nowrap"><input type="checkbox" id="dup" ${ordState.dup ? 'checked' : ''}> Chỉ đơn trùng</label>
     </div>
+    <div class="otabs" id="otabs" role="tablist"></div>
     <div class="actbar" id="actbar"><div id="sum" class="actbar-sum"></div><div id="bulk" class="actbar-acts"></div></div>
     <div class="table-wrap" id="tbl"><div class="loading">Đang tải…</div></div>`;
   rp.bind(root);
@@ -492,7 +491,14 @@ VIEWS.orders = async (root) => {
 
   let t;
   $('#q').addEventListener('input', (e) => { ordState.q = e.target.value; clearTimeout(t); t = setTimeout(load, 300); });
-  $('#st').addEventListener('change', (e) => { ordState.status = e.target.value; load(); });
+  // tab trạng thái (gộp trang Kho gửi hàng cũ): Chờ gửi xem mọi ngày, các tab khác theo khoảng ngày
+  $('#otabs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-st]');
+    if (!b || b.dataset.st === ordState.status) return;
+    ordState.status = b.dataset.st;
+    ordState.selected.clear();
+    load();
+  });
   $('#pg').addEventListener('change', (e) => { ordState.page = e.target.value; load(); });
   $('#dup').addEventListener('change', (e) => { ordState.dup = e.target.checked; load(); });
   $('#wh')?.addEventListener('change', (e) => { ordState.kho = e.target.value; load(); });
@@ -509,11 +515,45 @@ VIEWS.orders = async (root) => {
     if (ordState.page) p.set('page', ordState.page);
     if (ordState.dup) p.set('dup', '1');
     if (ordState.kho && hasWh()) p.set('kho', ordState.kho);
+    p.set('counts', '1');
+    p.set('all_dates_for', 'moi');
     const r = await api('GET', '/api/orders?' + p);
     rows = r.orders;
     ordState.selected = new Set([...ordState.selected].filter((id) => rows.some((o) => o.id === id)));
-    $('#sum').textContent = `${r.count} đơn · ${num(r.qty)} hộp · ${money(r.total)}` + (ordState.q ? ' (tìm trong mọi ngày)' : '') + (r.count > rows.length ? ` — đang hiện ${rows.length} đơn mới nhất` : '');
+    const allDays = ordState.q || ordState.status === 'moi';
+    $('#sum').textContent = `${r.count} đơn · ${num(r.qty)} hộp · ${money(r.total)}` + (allDays ? ' (mọi ngày)' : '') + (r.count > rows.length ? ` — đang hiện ${rows.length} đơn mới nhất` : '');
+    drawTabs(r.by_status || {});
     render();
+  }
+
+  // Tab trạng thái. "Đã gửi" và "COD chờ về" chỉ hiện khi có đơn (luồng "Coi như xong" ít dùng tới)
+  function drawTabs(c) {
+    const TABS = [['', 'Tất cả'], ['moi', 'Chờ gửi'], ['da_gui', 'Đã gửi'], ['da_giao', 'Đã giao'], ['hoan', 'Hoàn'], ['huy', 'Hủy'], ['cod', 'COD chờ về']];
+    $('#otabs').innerHTML = TABS
+      .filter(([k]) => !['da_gui', 'cod'].includes(k) || c[k] || ordState.status === k)
+      .map(([k, l]) => `<button class="otab ${ordState.status === k ? 'on' : ''} ${k ? 'st-' + k : ''}" data-st="${k}" role="tab">${l}${k && c[k] != null ? `<span class="n">${num(c[k] || 0)}</span>` : k ? '<span class="n">0</span>' : ''}</button>`).join('');
+  }
+
+  // nút nhanh trên từng dòng: Đã gửi → Đã giao / Bị hoàn; Đã giao → Bị hoàn
+  async function quick(o, st, btn) {
+    const body = { status: st };
+    let ret = null;
+    if (st === 'hoan') {
+      ret = await askReturn(o);
+      if (!ret) return;
+      body.return_reason = ret.return_reason;
+    }
+    btn.disabled = true;
+    const before = o.status;
+    try {
+      await api('PATCH', '/api/orders/' + o.id, body);
+      if (ret?.red) await addToRedBook(o, ret.return_reason).catch(fail);
+      await load();
+      toast(`Đơn của ${o.name || o.phone}: ${S.statuses[st]}`, false, {
+        label: 'Hoàn tác',
+        run: async () => { try { await api('PATCH', '/api/orders/' + o.id, { status: before }); await load(); toast('Đã hoàn tác'); } catch (err) { fail(err); } },
+      });
+    } catch (err) { fail(err); btn.disabled = false; }
   }
 
   function render() {
@@ -521,7 +561,7 @@ VIEWS.orders = async (root) => {
     const all = rows.every((o) => ordState.selected.has(o.id));
     $('#tbl').innerHTML = `<table><thead><tr>
       <th><input type="checkbox" id="selAll" ${all ? 'checked' : ''}></th><th>Mã / Giờ</th><th>Khách</th><th>Địa chỉ</th>
-      <th class="right">SL</th><th class="right">Tiền</th><th>Page</th><th>Trạng thái</th>${hasWh() ? '<th>Kho</th>' : ''}<th>Vận đơn</th></tr></thead><tbody>
+      <th class="right">SL</th><th class="right">Tiền</th><th>Page</th><th>Trạng thái</th>${hasWh() ? '<th>Kho</th>' : ''}<th>Vận đơn</th><th></th></tr></thead><tbody>
       ${rows.map((o) => `<tr class="click ${o.dup_codes ? 'is-dup' : ''} ${o.status === 'huy' ? 'is-huy' : ''}" data-id="${o.id}">
         <td><input type="checkbox" data-sel="${o.id}" ${ordState.selected.has(o.id) ? 'checked' : ''}></td>
         <td class="nowrap"><b class="mono">${esc(o.code)}</b><div class="cell-sub">${dt(o.created_at)}</div></td>
@@ -532,13 +572,20 @@ VIEWS.orders = async (root) => {
         <td class="small">${esc(o.page)}</td>
         <td>${badge(o.status)}${o.return_reason ? `<div class="cell-sub">${esc(o.return_reason)}</div>` : ''}${o.dup_codes ? `<div><span class="badge b-dup" title="Trùng: ${esc(o.dup_codes)}">Trùng đơn</span></div>` : ''}${o.zalo_sent_at ? `<div><span class="badge b-zalo" title="Gửi Zalo lúc ${esc(dt(o.zalo_sent_at))}">Đã báo Zalo</span></div>` : ''}</td>
         ${hasWh() ? `<td>${whBadge(o.kho_id)}</td>` : ''}
-        <td class="small mono">${esc(o.tracking_code)}</td></tr>`).join('')}
+        <td class="small mono">${esc(o.tracking_code)}</td>
+        <td class="right nowrap">${o.status === 'da_gui' ? `<button class="btn sm sec" data-qa="da_giao">Đã giao</button> ` : ''}${o.status === 'da_gui' || o.status === 'da_giao' ? '<button class="btn sm danger" data-qa="hoan" title="Khách không nhận, hàng hoàn về">Bị hoàn</button>' : ''}</td></tr>`).join('')}
       </tbody></table>`;
     $('#selAll').addEventListener('change', (e) => {
       rows.forEach((o) => (e.target.checked ? ordState.selected.add(o.id) : ordState.selected.delete(o.id)));
       render();
     });
     $('#tbl tbody').addEventListener('click', (e) => {
+      const qa = e.target.closest('[data-qa]');
+      if (qa) {
+        const o = rows.find((x) => x.id === Number(qa.closest('tr').dataset.id));
+        if (o) quick(o, qa.dataset.qa, qa);
+        return;
+      }
       const cb = e.target.closest('[data-sel]');
       if (cb) {
         const id = Number(cb.dataset.sel);
@@ -1756,7 +1803,7 @@ async function zaloCard() {
             ${[[0, 'Giữ "Chờ gửi" (chỉ gắn nhãn Đã báo Zalo)'], [1, 'Tự chuyển sang "Đã gửi"'], [2, 'Coi như xong: "Đã giao" + đã có tiền (kho tự gửi, không dùng web)']]
               .map(([v, l]) => `<option value="${v}" ${auto === v ? 'selected' : ''}>${l}</option>`).join('')}
           </select>
-          <span class="hint" style="margin:2px 0 0"><b>Coi như xong:</b> báo kho xong là đơn Đã giao và tính tiền luôn (không treo ở "COD chờ về"). Khách không nhận thì đổi đơn sang <b>Hoàn</b> (trang Kho gửi hàng → tab Giao / Hoàn → <b>Bị hoàn</b>, hoặc mở đơn ở trang Đơn hàng): web tự trừ tiền đơn đó. Đơn không còn ở Chờ gửi (vd đã Hủy) thì giữ nguyên.</span></label>
+          <span class="hint" style="margin:2px 0 0"><b>Coi như xong:</b> báo kho xong là đơn Đã giao và tính tiền luôn (không treo ở "COD chờ về"). Khách không nhận thì đổi đơn sang <b>Hoàn</b> (trang <b>Đơn hàng</b> → tab <b>Đã giao</b> → tìm SĐT → <b>Bị hoàn</b>): web tự trừ tiền đơn đó. Đơn không còn ở Chờ gửi (vd đã Hủy) thì giữ nguyên.</span></label>
       </form>
       <div class="actions"><button class="btn" data-save>Lưu</button></div>
     </div></section>

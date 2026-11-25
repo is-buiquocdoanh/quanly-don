@@ -726,3 +726,19 @@ test('"Coi như xong": báo Zalo → Đã giao + đã có tiền; bị hoàn →
   await admin('PATCH', '/api/orders/' + o2.id, { status: 'da_giao' });
   assert.equal((await admin('GET', '/api/orders/' + o2.id)).order.cod_received, 0);
 });
+
+test('Đơn hàng: số đơn theo trạng thái cho các tab; Chờ gửi xem mọi ngày', async () => {
+  const today = (await admin('GET', '/api/bootstrap')).today;
+  const r = await admin('GET', `/api/orders?from=${today}&to=${today}&counts=1&all_dates_for=moi`);
+  assert.ok(r.by_status && typeof r.by_status.moi === 'number' && typeof r.by_status.cod === 'number');
+  // tab Chờ gửi: bỏ qua khoảng ngày → không ít hơn khi lọc theo ngày
+  const moiAll = await admin('GET', `/api/orders?from=2099-01-01&to=2099-01-02&status=moi&all_dates_for=moi`);
+  const moiRange = await admin('GET', `/api/orders?from=2099-01-01&to=2099-01-02&status=moi`);
+  assert.equal(moiRange.count, 0);
+  assert.ok(moiAll.count > 0);
+  assert.equal(moiAll.count, (await admin('GET', `/api/orders?from=2099-01-01&to=2099-01-02&counts=1&all_dates_for=moi`)).by_status.moi);
+  // tab khác vẫn theo khoảng ngày
+  assert.equal((await admin('GET', `/api/orders?from=2099-01-01&to=2099-01-02&status=da_giao&all_dates_for=moi`)).count, 0);
+  // không xin counts thì không trả (extension, kho dùng như cũ)
+  assert.equal((await admin('GET', `/api/orders?from=${today}&to=${today}`)).by_status, undefined);
+});

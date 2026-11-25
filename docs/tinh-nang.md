@@ -11,8 +11,8 @@ Website công khai ở doanhwork.com (sản phẩm, trang trại, blog, chính s
 | Trang | Ai dùng | Chức năng |
 |---|---|---|
 | **Tổng quan** | Chủ shop | Đơn, doanh thu, chi quảng cáo, chi phí QC/đơn, lãi ước tính, tỷ lệ hoàn, COD chờ về; biểu đồ theo ngày; so sánh theo page |
-| **Đơn hàng** | Chủ shop | Lọc, tìm, sửa đơn, báo trùng SĐT, đổi trạng thái hàng loạt, đánh dấu COD đã về, tạo đơn bằng cách dán tin nhắn |
-| **Kho gửi hàng** | Kho + chủ shop | Thẻ đơn chờ gửi, nút copy từng ô sang app Viettel Post, nhập mã vận đơn và phí ship, chuyển Đã gửi / Đã giao / Hoàn, in danh sách. Bấm **Bị hoàn** phải chọn **lý do hoàn** |
+| **Đơn hàng** | Chủ shop | **Tab trạng thái**: Tất cả · Chờ gửi (mọi ngày) · Đã gửi · Đã giao · Hoàn · Hủy (kèm số đơn; "Đã gửi", "COD chờ về" chỉ hiện khi có đơn). Lọc, tìm, sửa đơn, báo trùng SĐT, đổi trạng thái hàng loạt, đánh dấu COD, tạo đơn bằng cách dán tin nhắn, **Gửi Zalo kho** / **Chép lần lượt**. Mỗi dòng Đã giao / Đã gửi có nút **Bị hoàn** |
+| **Gửi hàng** (chỉ tài khoản Kho) | Kho | Trang riêng cho bên kho nếu họ dùng web: thẻ đơn chờ gửi, nút copy từng ô sang app Viettel Post, nhập mã vận đơn và phí ship, chuyển Đã gửi / Đã giao / Hoàn, in danh sách. Chủ shop không còn mục này trong menu (đã gộp vào Đơn hàng) |
 | **Khách hàng** | Chủ shop | 3 tab: **Tất cả** (lịch sử mua theo SĐT, đánh dấu VIP), **Khách quen** (mua nhiều, mua thường xuyên), **Sổ đỏ** (SĐT tạo đơn ảo / phá / bom hàng, có cảnh báo khi đặt lại). Chi tiết ở mục [bên dưới](#lý-do-hoàn-sổ-đỏ-khách-quen) |
 | **Thu chi** | Chủ shop | **Bảng chi quảng cáo theo ngày** (hàng = ngày, cột = page, gõ số là tự lưu, nút ⇣ chép số của ngày hôm trước), **giá vốn 1 hộp** (tính lãi), các khoản thu / chi khác (nhập hàng, ship, lương…); COD về và COD chờ về |
 | **Chia đơn cho kho** | Chủ shop | Mỗi tài khoản quyền **Kho** (chủ shop tạo, đưa cho 1 bên có hàng) **chỉ thấy đơn được chia cho mình**: không thấy đơn, mã vận đơn, ghi chú của kho khác, không thấy fanpage, link chat, giá vốn. Chỉ có 1 tài khoản kho thì mọi đơn tự vào kho đó. Nhiều kho: công tắc "Đơn mới giao cho…" ở trang Đơn hàng / Cài đặt để đổi kho khi hết hàng, kèm chuyển luôn các đơn chờ gửi. Chia từng đơn / hàng loạt. Tổng quan có bảng theo kho |
@@ -36,7 +36,7 @@ Dùng khi kho không dùng web, chỉ nhận đơn qua Zalo. Mỗi đơn là **m
 **Báo kho xong thì đơn tự chuyển trạng thái** (mặc định giữ Chờ gửi): Cài đặt → Chép & gửi Zalo → **Báo kho xong thì đơn**:
 
 - *Tự chuyển sang "Đã gửi"*.
-- ***Coi như xong: "Đã giao" + đã có tiền*** — hợp khi kho là bên riêng, tự gửi bằng app Viettel Post, không dùng web. Báo kho xong là đơn **Đã giao** và **tính tiền luôn** (tự đánh dấu COD đã về, không treo ở "COD chờ về"). Khách không nhận (shipper gọi số của shop) thì đổi đơn sang **Hoàn**: trang **Kho gửi hàng** → tab **Giao / Hoàn** (30 ngày gần nhất, tìm theo SĐT) → **Bị hoàn**, hoặc mở đơn ở trang Đơn hàng. Web tự bỏ tiền của đơn đó; lỡ tay thì bấm **Hoàn tác**, đơn về Đã giao và có tiền lại.
+- ***Coi như xong: "Đã giao" + đã có tiền*** — hợp khi kho là bên riêng, tự gửi bằng app Viettel Post, không dùng web. Báo kho xong là đơn **Đã giao** và **tính tiền luôn** (tự đánh dấu COD đã về, không treo ở "COD chờ về"). Khách không nhận (shipper gọi số của shop) thì đổi đơn sang **Hoàn**: trang **Đơn hàng** → tab **Đã giao** → gõ SĐT vào ô tìm → **Bị hoàn**. Web tự bỏ tiền của đơn đó; lỡ tay thì bấm **Hoàn tác**, đơn về Đã giao và có tiền lại.
 
 Áp dụng cho cả 3 cách gửi bên dưới; đơn được ghi giờ gửi / giờ giao và lịch sử như khi bấm tay. Quy tắc chung: đơn **rời khỏi Đã giao** (hoàn, hủy, về Chờ gửi) thì tự bỏ đánh dấu COD đã về.
 

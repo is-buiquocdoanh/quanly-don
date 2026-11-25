@@ -278,23 +278,33 @@ export function listOrders(q = {}, user = null) {
   if (scope) { where.push('kho_id = ?'); args.push(scope); }
   else if (q.kho === 'none') where.push('kho_id IS NULL');
   else if (toInt(q.kho)) { where.push('kho_id = ?'); args.push(toInt(q.kho)); }
-  if (isDate(q.from)) { where.push('created_at >= ?'); args.push(q.from + ' 00:00:00'); }
-  if (isDate(q.to)) { where.push('created_at <= ?'); args.push(q.to + ' 23:59:59'); }
-  if (q.status) {
-    const st = String(q.status).split(',').filter((s) => STATUS[s]);
-    if (st.length) { where.push(`status IN (${st.map(() => '?').join(',')})`); args.push(...st); }
-  }
+  // khoảng ngày; tab "Chờ gửi" ở trang Đơn hàng xem mọi ngày (all_dates_for=moi) để không sót đơn cũ chưa gửi
+  const dateW = [];
+  const dateA = [];
+  if (isDate(q.from)) { dateW.push('created_at >= ?'); dateA.push(q.from + ' 00:00:00'); }
+  if (isDate(q.to)) { dateW.push('created_at <= ?'); dateA.push(q.to + ' 23:59:59'); }
   if (q.page) { where.push('page = ?'); args.push(String(q.page)); }
   if (q.dup === '1') where.push("dup_codes <> ''");
-  if (q.cod === 'pending') where.push("status = 'da_giao' AND cod_received = 0");
-  if (q.cod === 'done') where.push('cod_received = 1');
-  if (q.reason) { where.push('return_reason = ?'); args.push(String(q.reason)); }
   if (q.q) {
     const s = '%' + String(q.q).trim() + '%';
     const p = normalizePhone(q.q);
     where.push('(code LIKE ? OR name LIKE ? OR phone LIKE ? OR address LIKE ? OR tracking_code LIKE ?)');
     args.push(s, s, p.length >= 3 && /^\d+$/.test(String(q.q).replace(/[\s.]/g, '')) ? '%' + p.replace(/^0/, '') + '%' : s, s, s);
   }
+  // số đơn theo trạng thái (cho các tab), cùng bộ lọc nhưng chưa lọc trạng thái
+  let byStatus = null;
+  if (q.counts === '1') {
+    const W = (extra) => { const all = [...where, ...extra]; return all.length ? 'WHERE ' + all.join(' AND ') : ''; };
+    byStatus = Object.fromEntries(db.prepare(`SELECT status, COUNT(*) n FROM orders ${W(dateW)} GROUP BY status`).all(...args, ...dateA).map((r) => [r.status, r.n]));
+    if (q.all_dates_for === 'moi') byStatus.moi = db.prepare(`SELECT COUNT(*) n FROM orders ${W(["status = 'moi'"])}`).get(...args).n;
+    byStatus.cod = db.prepare(`SELECT COUNT(*) n FROM orders ${W([...dateW, "status = 'da_giao' AND cod_received = 0"])}`).get(...args, ...dateA).n;
+  }
+  const st = q.status ? String(q.status).split(',').filter((s) => STATUS[s]) : [];
+  if (!(q.all_dates_for === 'moi' && st.length === 1 && st[0] === 'moi')) { where.push(...dateW); args.push(...dateA); }
+  if (st.length) { where.push(`status IN (${st.map(() => '?').join(',')})`); args.push(...st); }
+  if (q.cod === 'pending') where.push("status = 'da_giao' AND cod_received = 0");
+  if (q.cod === 'done') where.push('cod_received = 1');
+  if (q.reason) { where.push('return_reason = ?'); args.push(String(q.reason)); }
   const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
   const limit = Math.min(toInt(q.limit, 300), 2000);
   const offset = toInt(q.offset, 0);
@@ -302,7 +312,7 @@ export function listOrders(q = {}, user = null) {
   const rows = db.prepare(`SELECT orders.*, (SELECT flag FROM customers c WHERE c.id = orders.customer_id) AS cflag
     FROM orders ${w} ORDER BY created_at ${order} LIMIT ? OFFSET ?`).all(...args, limit, offset);
   const sum = db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(qty),0) qty, COALESCE(SUM(total),0) total FROM orders ${w}`).get(...args);
-  return { orders: forKho(rows, user), count: sum.n, qty: sum.qty, total: sum.total };
+  return { orders: forKho(rows, user), count: sum.n, qty: sum.qty, total: sum.total, ...(byStatus ? { by_status: byStatus } : {}) };
 }
 
 export function orderDetail(id, user = null) {
