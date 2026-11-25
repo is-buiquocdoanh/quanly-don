@@ -648,3 +648,17 @@ test('Zalo: SĐT trong tin Zalo tách nhóm (tránh Zalo tự kèm danh thiếp)
   await admin('PUT', '/api/settings', { zalo_phone_format: 'linh tinh' });
   assert.equal((await admin('GET', '/api/bootstrap')).settings.zalo_phone_format, 'raw');
 });
+
+test('Zalo: báo kho xong chuyển thẳng "Đã giao" (kho làm thủ công), có giờ gửi + giờ giao', async () => {
+  const tok = (await admin('GET', '/api/me/api-token')).token;
+  await admin('PUT', '/api/settings', { zalo_auto_shipped: 2 });
+  assert.equal((await admin('GET', '/api/bootstrap')).settings.zalo_auto_shipped, 2);
+  const o = (await admin('POST', '/api/orders', { name: 'Giao luôn', phone: '0917000111', address: 'Xã A', qty: 1, total: 95000 })).order;
+  await ext({ action: 'zalo_mark', token: tok, ids: [o.id] });
+  const d = await admin('GET', '/api/orders/' + o.id);
+  assert.equal(d.order.status, 'da_giao');
+  assert.ok(d.order.shipped_at && d.order.done_at);
+  assert.ok(d.events.some((e) => /Chờ gửi → Đã giao/.test(e.action)));
+  await admin('PUT', '/api/settings', { zalo_auto_shipped: 9 }); // giá trị lạ → tắt
+  assert.equal((await admin('GET', '/api/bootstrap')).settings.zalo_auto_shipped, 0);
+});

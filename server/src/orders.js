@@ -43,11 +43,13 @@ export function markZaloSent(ids, user, how) {
       n++;
     }
   });
-  // Cài đặt "báo kho xong thì chuyển Đã gửi": đơn đang Chờ gửi → Đã gửi (qua updateOrder để ghi giờ gửi + lịch sử như bấm tay)
-  if (Number(getSettings().zalo_auto_shipped) === 1 && user) {
+  // Cài đặt "báo kho xong thì đơn": 1 = Đã gửi, 2 = Đã giao (kho làm thủ công, không cập nhật web).
+  // Chỉ đổi đơn đang Chờ gửi; qua updateOrder để ghi giờ + lịch sử như bấm tay.
+  const target = { 1: 'da_gui', 2: 'da_giao' }[Number(getSettings().zalo_auto_shipped)];
+  if (target && user) {
     for (const id of done) {
       const o = db.prepare('SELECT status FROM orders WHERE id = ?').get(id);
-      if (o?.status === 'moi') updateOrder(id, { status: 'da_gui' }, user);
+      if (o?.status === 'moi') updateOrder(id, { status: target }, user);
     }
   }
   return n;
@@ -161,7 +163,8 @@ export function createOrder(input, user) {
 
 function applyStatus(o, status, now) {
   const sets = { status };
-  if (status === 'da_gui' && !o.shipped_at) sets.shipped_at = now;
+  // đơn Đã giao / Hoàn chắc chắn đã gửi đi: chuyển thẳng từ Chờ gửi thì ghi luôn giờ gửi
+  if ((status === 'da_gui' || status === 'da_giao' || status === 'hoan') && !o.shipped_at) sets.shipped_at = now;
   if (status === 'moi') sets.shipped_at = null;
   if (status === 'da_giao' || status === 'hoan') sets.done_at = now;
   if (status === 'moi' || status === 'da_gui') sets.done_at = null;

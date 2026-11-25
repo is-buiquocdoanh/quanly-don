@@ -1637,7 +1637,7 @@ async function zaloCard() {
   const waiting = ['starting', 'qr', 'scanned'].includes(z.status);
   const logged = ['on', 'saved'].includes(z.status);
   const expired = z.status === 'expired';
-  const auto = Number(S.settings.zalo_auto_shipped) === 1;
+  const auto = Number(S.settings.zalo_auto_shipped) || 0; // 0 giữ Chờ gửi · 1 Đã gửi · 2 Đã giao
   box.innerHTML = `
     <section class="scard"><header><h2>Khi gửi đơn báo kho qua Zalo</h2><p>Mỗi đơn là <b>1 tin</b> vào nhóm Zalo của kho. Áp dụng cho mọi cách gửi: extension trên Zalo Web, web tự gửi bằng Zalo phụ, Chép lần lượt.</p></header>
     <div class="scard-b">
@@ -1656,10 +1656,10 @@ async function zaloCard() {
           <span class="hint" style="margin:2px 0 0" id="zPhoneEx"></span></label>
         <label class="full">Báo kho xong thì đơn
           <select name="zalo_auto_shipped">
-            <option value="0" ${auto ? '' : 'selected'}>Giữ "Chờ gửi" (chỉ gắn nhãn Đã báo Zalo)</option>
-            <option value="1" ${auto ? 'selected' : ''}>Tự chuyển sang "Đã gửi"</option>
+            ${[[0, 'Giữ "Chờ gửi" (chỉ gắn nhãn Đã báo Zalo)'], [1, 'Tự chuyển sang "Đã gửi"'], [2, 'Tự chuyển sang "Đã giao" (kho làm thủ công, không dùng web)']]
+              .map(([v, l]) => `<option value="${v}" ${auto === v ? 'selected' : ''}>${l}</option>`).join('')}
           </select>
-          <span class="hint" style="margin:2px 0 0">Đơn chuyển "Đã gửi" được ghi giờ gửi và lịch sử như khi bấm tay. Đơn không còn ở Chờ gửi (vd đã Hủy) thì giữ nguyên.</span></label>
+          <span class="hint" style="margin:2px 0 0">Đơn được ghi giờ gửi / giờ giao và lịch sử như khi bấm tay. Chọn "Đã giao" thì đơn tính vào <b>COD chờ về</b> ngay. Đơn không còn ở Chờ gửi (vd đã Hủy) thì giữ nguyên.</span></label>
       </form>
       <div class="actions"><button class="btn" data-save>Lưu</button></div>
     </div></section>

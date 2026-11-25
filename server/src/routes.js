@@ -194,7 +194,8 @@ add('PUT', '/api/settings', 'admin', ({ body }) => {
     if (k === 'active_kho') v = khoIdOrNull(v) || 0;
     if (k === 'copy_sep' && !['pipe', 'dash', 'semi', 'tab', 'newline'].includes(v)) v = 'pipe';
     if (k === 'zalo_phone_format' && !['raw', 'space', 'dot'].includes(v)) v = 'raw';
-    if (k === 'copy_labels' || k === 'zalo_auto_shipped') v = v ? 1 : 0;
+    if (k === 'copy_labels') v = v ? 1 : 0;
+    if (k === 'zalo_auto_shipped') v = [0, 1, 2].includes(v) ? v : 0; // 0 giữ Chờ gửi · 1 Đã gửi · 2 Đã giao
     // ≤ 60 giây: mỗi đơn là 1 request chờ hết khoảng giãn cách, Cloudflare cắt request quá 100 giây
     if (k === 'zalo_gap_min' || k === 'zalo_gap_max') v = Math.min(60, Math.max(2, v || SETTING_DEFAULTS[k]));
     setSetting(k, v);
