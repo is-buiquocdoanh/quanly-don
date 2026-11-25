@@ -31,6 +31,8 @@ Dùng khi kho không dùng web, chỉ nhận đơn qua Zalo. Mỗi đơn là **m
 
 **Hằng ngày:** trang **Đơn hàng** → tick các đơn → **Gửi Zalo kho**. Web gửi lần lượt, đơn cũ trước, mỗi tin cách nhau vài giây (20 đơn mất khoảng 1 phút). Gửi xong các đơn có nhãn **Đã báo Zalo**. Gửi lại đơn đã báo thì web hỏi trước.
 
+**Không kèm danh thiếp:** Zalo thấy 10 số liền nhau là tự đính kèm danh thiếp vào tin. Cài đặt → Chép & gửi Zalo → **Số điện thoại trong tin Zalo** → chọn *Cách nhóm 0961 251 352* (hoặc *Dấu chấm 0961.251.352* nếu Zalo vẫn kèm danh thiếp) để chỉ gửi chữ. Chỉ áp dụng cho tin gửi Zalo; nút **Chép** thường vẫn giữ số liền.
+
 **Báo kho xong thì đơn tự chuyển "Đã gửi"** (mặc định tắt): Cài đặt → Chép & gửi Zalo → *Khi gửi đơn qua Zalo* → **Báo kho xong thì đơn: Tự chuyển sang "Đã gửi"**. Áp dụng cho cả 3 cách gửi bên dưới; đơn được ghi giờ gửi và lịch sử "Chờ gửi → Đã gửi" như khi bấm tay. Đơn không còn ở Chờ gửi (vd đã Hủy) thì không bị đổi.
 
 **Gửi trên Zalo Web bằng extension** (không cần Zalo phụ, dùng Zalo đang đăng nhập ở trình duyệt). Cần extension **2.6.0** trở lên, tải ở Cài đặt → Extension & bảo mật.

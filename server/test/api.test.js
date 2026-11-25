@@ -628,3 +628,23 @@ test('Zalo: cài đặt "báo kho xong thì chuyển Đã gửi" (mặc định 
   assert.equal((await admin('GET', '/api/orders/' + h.id)).order.status, 'huy');
   await admin('PUT', '/api/settings', { zalo_auto_shipped: 0 });
 });
+
+test('Zalo: SĐT trong tin Zalo tách nhóm (tránh Zalo tự kèm danh thiếp), Chép thường giữ nguyên', async () => {
+  const tok = (await admin('GET', '/api/me/api-token')).token;
+  await admin('PUT', '/api/settings', { copy_sep: 'pipe', copy_labels: 0 });
+  const o = (await admin('POST', '/api/orders', { name: 'Danh thiếp', phone: '0961251352', address: 'Xã A', qty: 1, total: 95000 })).order;
+  const pick = async () => (await ext({ action: 'zalo_pending', token: tok })).orders.find((x) => x.id === o.id);
+  // mặc định giữ nguyên
+  assert.equal((await admin('GET', '/api/bootstrap')).settings.zalo_phone_format, 'raw');
+  let p = await pick();
+  assert.equal(p.text, 'Danh thiếp | 0961251352 | Xã A | 1 hộp | 95.000đ');
+  assert.equal(p.key, '0961251352');
+  await admin('PUT', '/api/settings', { zalo_phone_format: 'space' });
+  p = await pick();
+  assert.equal(p.text, 'Danh thiếp | 0961 251 352 | Xã A | 1 hộp | 95.000đ');
+  assert.equal(p.key, '0961 251 352');
+  await admin('PUT', '/api/settings', { zalo_phone_format: 'dot' });
+  assert.equal((await pick()).text, 'Danh thiếp | 0961.251.352 | Xã A | 1 hộp | 95.000đ');
+  await admin('PUT', '/api/settings', { zalo_phone_format: 'linh tinh' });
+  assert.equal((await admin('GET', '/api/bootstrap')).settings.zalo_phone_format, 'raw');
+});

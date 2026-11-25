@@ -13,7 +13,7 @@ import { getSite, saveSite, POLICIES, listPosts, getPost, savePost, deletePost }
 import { markdown } from './site/markdown.js';
 import { saveUpload, listUploads } from './site/uploads.js';
 import { metaStatus, listEvents, sendTest, tokenPage, seenPages, pageSubscriptions, subscribePage } from './meta.js';
-import { forKho, getOrder, markZaloSent, orderText } from './orders.js';
+import { forKho, getOrder, markZaloSent, orderText, zaloPhone } from './orders.js';
 import { extInfo } from './extzip.js';
 import { zaloStatus, startQR, logout, listGroups, chooseGroup, sendToGroup } from './zalo.js';
 
@@ -193,6 +193,7 @@ add('PUT', '/api/settings', 'admin', ({ body }) => {
     if (k === 'price_table' && v && !Object.keys(parsePriceTable(v)).length) throw bad('Bảng giá không đọc được. Mỗi dòng ghi: số hộp = giá, ví dụ 2 = 130000');
     if (k === 'active_kho') v = khoIdOrNull(v) || 0;
     if (k === 'copy_sep' && !['pipe', 'dash', 'semi', 'tab', 'newline'].includes(v)) v = 'pipe';
+    if (k === 'zalo_phone_format' && !['raw', 'space', 'dot'].includes(v)) v = 'raw';
     if (k === 'copy_labels' || k === 'zalo_auto_shipped') v = v ? 1 : 0;
     // ≤ 60 giây: mỗi đơn là 1 request chờ hết khoảng giãn cách, Cloudflare cắt request quá 100 giây
     if (k === 'zalo_gap_min' || k === 'zalo_gap_max') v = Math.min(60, Math.max(2, v || SETTING_DEFAULTS[k]));
@@ -399,7 +400,8 @@ add('POST', '/api/ext', 'none', async ({ body, baseUrl }) => {
       const orders = listOrders({ from, status: 'moi', sort: 'asc', limit: 500 }).orders
         .filter((o) => !o.zalo_sent_at)
         .map((o) => ({ id: o.id, code: o.code, time: fmtTime(o.created_at), name: o.name, phone: o.phone, qty: o.qty, total: o.total,
-          kho: names && o.kho_id ? names[o.kho_id] || '' : '', text: orderText(o, s) }));
+          kho: names && o.kho_id ? names[o.kho_id] || '' : '', text: orderText(o, s, { zalo: true }),
+          key: zaloPhone(o.phone, s.zalo_phone_format) })); // key: SĐT đúng như trong tin, extension dùng để nhận ra tin đã lên khung chat
       return { ok: true, orders, gap: { min: s.zalo_gap_min, max: s.zalo_gap_max }, group: s.zalo_group_name || '' };
     }
     case 'zalo_mark': // extension đã gửi xong 1 đơn trên Zalo Web

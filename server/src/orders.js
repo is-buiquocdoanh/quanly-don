@@ -13,10 +13,19 @@ function addEvent(orderId, userId, action) {
 /** Nội dung 1 đơn khi chép / gửi Zalo — giống orderLine() ở public/app.js (theo Cài đặt copy_sep, copy_labels). */
 const SEPS = { pipe: ' | ', dash: ' - ', semi: '; ', tab: '\t', newline: '\n' };
 const vnd = (n) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + 'đ';
-export function orderText(o, s = getSettings()) {
+/** SĐT trong tin gửi Zalo: Zalo thấy 10 số liền nhau là tự đính kèm danh thiếp → tách nhóm để chỉ gửi chữ.
+ *  Cài đặt zalo_phone_format: raw (giữ nguyên) | space (0961 251 352) | dot (0961.251.352). Giống zaloPhone() ở public/app.js. */
+export function zaloPhone(phone, fmt) {
+  const p = String(phone || '');
+  if (!/^\d{10}$/.test(p) || !['space', 'dot'].includes(fmt)) return p;
+  const j = fmt === 'dot' ? '.' : ' ';
+  return [p.slice(0, 4), p.slice(4, 7), p.slice(7)].join(j);
+}
+export function orderText(o, s = getSettings(), { zalo = false } = {}) {
   const sep = SEPS[s.copy_sep] ?? SEPS.pipe;
   const lab = Number(s.copy_labels) === 1;
-  return [['Tên', o.name], ['SĐT', o.phone], ['Địa chỉ', o.address], ['SL', `${o.qty || '?'} hộp`], ['Tổng tiền', vnd(o.total)]]
+  const phone = zalo ? zaloPhone(o.phone, s.zalo_phone_format) : o.phone;
+  return [['Tên', o.name], ['SĐT', phone], ['Địa chỉ', o.address], ['SL', `${o.qty || '?'} hộp`], ['Tổng tiền', vnd(o.total)]]
     .map(([k, v]) => (lab ? `${k}: ${v}` : v)).join(sep);
 }
 

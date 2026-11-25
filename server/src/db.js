@@ -131,6 +131,7 @@ export const SETTING_DEFAULTS = {
   // giãn cách giữa 2 đơn khi tự gửi Zalo: mỗi lần lấy ngẫu nhiên trong khoảng [min, max] giây (2–60)
   zalo_gap_min: 3,
   zalo_gap_max: 5,
+  zalo_phone_format: 'raw',  // SĐT trong tin gửi Zalo: raw | space (0961 251 352) | dot (0961.251.352) — tránh Zalo tự kèm danh thiếp
   zalo_auto_shipped: 0,      // 1 = báo kho qua Zalo xong thì đơn Chờ gửi tự chuyển sang Đã gửi
 };
 

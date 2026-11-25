@@ -602,10 +602,17 @@ VIEWS.orders = async (root) => {
 
 // nội dung khi bấm "Chép" một đơn: tên, SĐT, địa chỉ, số hộp, tổng tiền, ngăn cách theo Cài đặt
 const SEPS = { pipe: ' | ', dash: ' - ', semi: '; ', tab: '\t', newline: '\n' };
-function orderLine(o, settings = S.settings) {
+// SĐT trong tin gửi Zalo: tách nhóm để Zalo không tự kèm danh thiếp (giống zaloPhone() ở server/src/orders.js)
+function zaloPhone(phone, fmt) {
+  const p = String(phone || '');
+  if (!/^\d{10}$/.test(p) || !['space', 'dot'].includes(fmt)) return p;
+  return [p.slice(0, 4), p.slice(4, 7), p.slice(7)].join(fmt === 'dot' ? '.' : ' ');
+}
+/** zalo: true = tin gửi Zalo (Gửi Zalo kho, Chép lần lượt) → SĐT theo Cài đặt "SĐT trong tin Zalo". */
+function orderLine(o, settings = S.settings, { zalo = false } = {}) {
   const sep = SEPS[settings.copy_sep] ?? SEPS.pipe;
   const lab = Number(settings.copy_labels) === 1;
-  return [['Tên', o.name], ['SĐT', o.phone], ['Địa chỉ', o.address], ['SL', `${o.qty || '?'} hộp`], ['Tổng tiền', money(o.total)]]
+  return [['Tên', o.name], ['SĐT', zalo ? zaloPhone(o.phone, settings.zalo_phone_format) : o.phone], ['Địa chỉ', o.address], ['SL', `${o.qty || '?'} hộp`], ['Tổng tiền', money(o.total)]]
     .map(([k, v]) => (lab ? `${k}: ${v}` : v)).join(sep);
 }
 function ordersText(list, settings = S.settings) {
@@ -1641,6 +1648,12 @@ async function zaloCard() {
         <label><span>Đến <span class="opt">(giây, tối đa 60)</span></span>
           <input name="zalo_gap_max" type="number" min="2" max="60" step="1" inputmode="numeric" value="${Number(z.gap?.max) || 5}"></label>
         <div class="full zgap-est small muted"></div>
+        <label class="full">Số điện thoại trong tin Zalo
+          <select name="zalo_phone_format" id="zPhoneFmt">
+            ${[['raw', 'Giữ nguyên 0961251352 (Zalo tự kèm danh thiếp)'], ['space', 'Cách nhóm 0961 251 352 (chỉ gửi chữ)'], ['dot', 'Dấu chấm 0961.251.352 (chỉ gửi chữ)']]
+              .map(([k, l]) => `<option value="${k}" ${(S.settings.zalo_phone_format || 'raw') === k ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+          <span class="hint" style="margin:2px 0 0" id="zPhoneEx"></span></label>
         <label class="full">Báo kho xong thì đơn
           <select name="zalo_auto_shipped">
             <option value="0" ${auto ? '' : 'selected'}>Giữ "Chờ gửi" (chỉ gắn nhãn Đã báo Zalo)</option>
@@ -1697,6 +1710,15 @@ async function zaloCard() {
   gapMin.addEventListener('input', est);
   gapMax.addEventListener('input', est);
   est();
+  // xem trước tin Zalo với kiểu SĐT đang chọn
+  const fmtSel = $('#zPhoneFmt', box);
+  const phEx = () => {
+    const sample = { name: 'Bùi Thanh Tâm', phone: '0949047192', address: 'Xã Nghĩa Đàn, Nghệ An', qty: 2, total: 130000 };
+    $('#zPhoneEx', box).textContent = 'Tin gửi: ' + orderLine(sample, { ...S.settings, zalo_phone_format: fmtSel.value }, { zalo: true }).replace(/\n/g, ' ⏎ ')
+      + '. Chỉ áp dụng cho tin gửi Zalo; nút Chép thường vẫn giữ số liền để dán vào app vận chuyển.';
+  };
+  fmtSel.addEventListener('change', phEx);
+  phEx();
   if (waiting) {
     // đang chờ quét QR: hỏi lại trạng thái mỗi 2 giây (đang gõ số giây thì đợi, không vẽ lại mất chữ)
     const tick = () => { if (!box.isConnected) return; if (box.querySelector('.zgap')?.contains(document.activeElement)) return setTimeout(tick, 2000); zaloCard(); };
@@ -1752,7 +1774,7 @@ async function zaloSend(list, onDone) {
     $('#zProg', m.el).innerHTML = `Đang gửi đơn ${sent + 1}/${list.length}: <b>${esc(o.name)}</b><div class="small muted">Mỗi đơn cách nhau ngẫu nhiên ${z.gap?.min}–${z.gap?.max} giây (đổi ở Cài đặt → Chép & gửi Zalo)</div>`;
     $('#zBar', m.el).style.width = `${(sent / list.length) * 100}%`;
     try {
-      await api('POST', '/api/zalo/send', { id: o.id, text: orderLine(o) });
+      await api('POST', '/api/zalo/send', { id: o.id, text: orderLine(o, S.settings, { zalo: true }) });
       sent++;
     } catch (e) {
       const rest = list.slice(sent);
@@ -1789,7 +1811,7 @@ function zaloCopy(list, onDone) {
       <button class="btn sm sec" data-z="next">${i + 1 < list.length ? 'Đơn tiếp' : 'Xong'}</button>
       <button class="btn sm sec" data-z="stop">Dừng</button>`;
   };
-  const copyCur = () => copyText(orderLine(list[i]), false);
+  const copyCur = () => copyText(orderLine(list[i], S.settings, { zalo: true }), false);
   const finish = async () => {
     window.removeEventListener('blur', onBlur);
     window.removeEventListener('focus', onFocus);
@@ -1819,7 +1841,7 @@ function zaloCopy(list, onDone) {
     if (a === 'next') next();
     if (a === 'stop') finish();
     if (a === 'share') {
-      try { await navigator.share({ text: orderLine(list[i]) }); next(); } catch { /* bấm hủy */ }
+      try { await navigator.share({ text: orderLine(list[i], S.settings, { zalo: true }) }); next(); } catch { /* bấm hủy */ }
     }
   });
   copyCur(); draw();

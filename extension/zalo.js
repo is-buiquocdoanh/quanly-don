@@ -310,7 +310,7 @@
       st.prog = Math.round((sent / list.length) * 100);
       st.msg = `Đang gửi ${sent + 1}/${list.length}: ${o.name}`;
       draw();
-      const r = await typeAndSend(o.text, String(o.phone || ''));
+      const r = await typeAndSend(o.text, String(o.key || o.phone || '')); // key: SĐT đúng như trong tin (có thể đã tách nhóm)
       if (r.err) { Object.assign(st, { msg: `Dừng ở đơn ${o.name}: ${r.err}`, err: true, diag: r.diag || null }); break; }
       st.done.add(o.id);
       sent++;
