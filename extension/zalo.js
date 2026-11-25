@@ -90,6 +90,7 @@
   /** Các phần tử đang hiện trên cùng hàng với ô soạn tin, bên phải nó (nút Gửi, 👍, biểu tượng cảm xúc…). */
   function rowEls(el) {
     const ir = el.getBoundingClientRect();
+    if (!el.isConnected || ir.height < 4) return []; // ô cũ đã bị Zalo gỡ khỏi trang
     return [...document.querySelectorAll('button, div, span, i, svg, a, img')].filter((b) => {
       if (b.closest('#qld-zalo-host') || el.contains(b) || b.contains(el)) return false;
       const r = b.getBoundingClientRect();
@@ -112,29 +113,33 @@
       if (inputText(el) && same(inputText(el), lastSent)) { el.focus(); document.execCommand('selectAll'); document.execCommand('delete'); await sleep(200); }
     }
     if (inputText(el)) return { err: 'Ô soạn tin đang có chữ. Xóa đi rồi gửi lại (để không gửi lẫn).' };
+    // Zalo VẼ LẠI ô soạn tin (thay bằng phần tử mới) ngay khi có chữ → luôn tìm lại ô hiện tại, không giữ phần tử cũ
+    const E = () => { const c = chatInput(); return c && c.isConnected ? c : el; };
     const shownBefore = new Set(rowEls(el));
     el.focus();
     // cách 1: gõ chữ như bàn phím; cách 2: giả lập dán (Ctrl+V)
     document.execCommand('insertText', false, text);
-    await sleep(200);
-    if (!inputText(el)) {
+    await sleep(300);
+    if (!inputText(E())) {
       const dt = new DataTransfer();
       dt.setData('text/plain', text);
-      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
-      await sleep(300);
+      E().dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+      await sleep(400);
     }
-    const diag = () => ({ input: desc(el), inputText: inputText(el).slice(0, 60), placeholder: placeholderText().slice(0, 80), row: rowEls(el).slice(0, 30).map(desc) });
-    if (!inputText(el)) return { err: 'Không dán được chữ vào ô chat của Zalo (Zalo có thể vừa đổi giao diện).', diag: diag() };
+    const diag = () => ({ input: desc(E()), stale: !el.isConnected, inputText: inputText(E()).slice(0, 60), placeholder: placeholderText().slice(0, 80), row: rowEls(E()).slice(0, 30).map(desc) });
+    if (!inputText(E())) return { err: 'Không dán được chữ vào ô chat của Zalo (Zalo có thể vừa đổi giao diện).', diag: diag() };
     await sleep(150);
-    const base = pageCount(key, el);
-    const sent = () => !inputText(el) || (key && pageCount(key, el) > base);
+    const base = pageCount(key, E());
+    const sent = () => { const c = E(); return !inputText(c) || (key && pageCount(key, c) > base); };
     const waitSent = async (ms) => { for (let t = 0; t < ms; t += 150) { if (sent()) return true; await sleep(150); } return sent(); };
-    // gửi: nhấn Enter
-    const press = (type) => el.dispatchEvent(new KeyboardEvent(type, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+    // gửi: nhấn Enter (vào ô hiện tại, đặt lại con trỏ vào ô trước)
+    const inp = E();
+    inp.focus();
+    const press = (type) => inp.dispatchEvent(new KeyboardEvent(type, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
     press('keydown'); press('keypress'); press('keyup');
     if (await waitSent(3000)) { lastSent = text; return { err: '' }; }
     // không được thì bấm nút Gửi: nút vừa hiện ra khi ô có chữ, hoặc nút có chữ / thuộc tính "Gửi", "send"…; bỏ qua 👍, cảm xúc, đính kèm
-    const row = rowEls(el).filter((b) => !NOT_SEND.test(attrs(b)));
+    const row = rowEls(E()).filter((b) => !NOT_SEND.test(attrs(b)));
     const label = (b) => (b.getAttribute('title') || b.getAttribute('aria-label') || (b.children.length ? '' : b.textContent) || '').trim();
     const btn = row.find((b) => /^(gửi|send)$/iu.test(label(b)))
       || row.find((b) => LOOKS_SEND.test(attrs(b)))

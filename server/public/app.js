@@ -1652,7 +1652,7 @@ async function zaloCard() {
     </div></section>
 
     <section class="scard"><header><h2>Cách 1 · Extension trên Zalo Web <span class="badge st-da_giao" style="vertical-align:2px">Không cần đăng nhập ở đây</span></h2>
-      <p>Extension "Bắt đơn Mess" (bản <b>2.6.3</b> trở lên) gõ từng đơn vào ô chat và gửi bằng <b>chính Zalo đang đăng nhập trên trình duyệt</b>.</p></header>
+      <p>Extension "Bắt đơn Mess" (bản <b>2.6.5</b> trở lên) gõ từng đơn vào ô chat và gửi bằng <b>chính Zalo đang đăng nhập trên trình duyệt</b>.</p></header>
     <div class="scard-b">
       <ol class="steps" style="margin:0">
         <li>Mở <a href="https://chat.zalo.me" target="_blank" rel="noopener">chat.zalo.me</a>, bấm vào <b>nhóm kho</b>.</li>
