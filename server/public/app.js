@@ -652,8 +652,9 @@ const SEPS = { pipe: ' | ', dash: ' - ', semi: '; ', tab: '\t', newline: '\n' };
 // SĐT trong tin gửi Zalo: tách nhóm để Zalo không tự kèm danh thiếp (giống zaloPhone() ở server/src/orders.js)
 function zaloPhone(phone, fmt) {
   const p = String(phone || '');
-  if (!/^\d{10}$/.test(p) || !['space', 'dot'].includes(fmt)) return p;
-  return [p.slice(0, 4), p.slice(4, 7), p.slice(7)].join(fmt === 'dot' ? '.' : ' ');
+  const j = { space: ' ', dot: '.', zw: '​' }[fmt]; // zw: ký tự ẩn, nhìn vẫn liền
+  if (!/^\d{10}$/.test(p) || !j) return p;
+  return [p.slice(0, 4), p.slice(4, 7), p.slice(7)].join(j);
 }
 /** zalo: true = tin gửi Zalo (Gửi Zalo kho, Chép lần lượt) → SĐT theo Cài đặt "SĐT trong tin Zalo". */
 function orderLine(o, settings = S.settings, { zalo = false } = {}) {
@@ -1794,7 +1795,7 @@ async function zaloCard() {
         <div class="full zgap-est small muted"></div>
         <label class="full">Số điện thoại trong tin Zalo
           <select name="zalo_phone_format" id="zPhoneFmt">
-            ${[['raw', 'Giữ nguyên 0961251352 (Zalo tự kèm danh thiếp)'], ['space', 'Cách nhóm 0961 251 352 (chỉ gửi chữ)'], ['dot', 'Dấu chấm 0961.251.352 (chỉ gửi chữ)']]
+            ${[['raw', 'Giữ nguyên 0961251352 (Zalo tự kèm danh thiếp)'], ['space', 'Cách nhóm 0961 251 352 (chỉ gửi chữ)'], ['dot', 'Dấu chấm 0961.251.352 (chỉ gửi chữ)'], ['zw', 'Viết liền 0961251352 + ký tự ẩn (chỉ gửi chữ)']]
               .map(([k, l]) => `<option value="${k}" ${(S.settings.zalo_phone_format || 'raw') === k ? 'selected' : ''}>${l}</option>`).join('')}
           </select>
           <span class="hint" style="margin:2px 0 0" id="zPhoneEx"></span></label>
@@ -1809,7 +1810,7 @@ async function zaloCard() {
     </div></section>
 
     <section class="scard"><header><h2>Cách 1 · Extension trên Zalo Web <span class="badge st-da_giao" style="vertical-align:2px">Không cần đăng nhập ở đây</span></h2>
-      <p>Extension "Bắt đơn Mess" (bản <b>2.7.0</b> trở lên) gõ từng đơn vào ô chat và gửi bằng <b>chính Zalo đang đăng nhập trên trình duyệt</b>.</p></header>
+      <p>Extension "Bắt đơn Mess" (bản <b>2.7.1</b> trở lên) gõ từng đơn vào ô chat và gửi bằng <b>chính Zalo đang đăng nhập trên trình duyệt</b>.</p></header>
     <div class="scard-b">
       <ol class="steps" style="margin:0">
         <li>Mở <a href="https://chat.zalo.me" target="_blank" rel="noopener">chat.zalo.me</a>, bấm vào <b>nhóm kho</b>.</li>
@@ -1859,7 +1860,8 @@ async function zaloCard() {
   const phEx = () => {
     const sample = { name: 'Bùi Thanh Tâm', phone: '0949047192', address: 'Xã Nghĩa Đàn, Nghệ An', qty: 2, total: 130000 };
     $('#zPhoneEx', box).textContent = 'Tin gửi: ' + orderLine(sample, { ...S.settings, zalo_phone_format: fmtSel.value }, { zalo: true }).replace(/\n/g, ' ⏎ ')
-      + '. Chỉ áp dụng cho tin gửi Zalo; nút Chép thường vẫn giữ số liền để dán vào app vận chuyển.';
+      + (fmtSel.value === 'zw' ? ' (giữa 0949, 047, 192 có ký tự ẩn, nhìn không thấy). Kho chép số này dán vào app Viettel Post thì nên thử 1 lần xem app có nhận không.' : '.')
+      + ' Chỉ áp dụng cho tin gửi Zalo; nút Chép thường vẫn giữ số liền để dán vào app vận chuyển.';
   };
   fmtSel.addEventListener('change', phEx);
   phEx();

@@ -15,10 +15,12 @@ const SEPS = { pipe: ' | ', dash: ' - ', semi: '; ', tab: '\t', newline: '\n' };
 const vnd = (n) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + 'đ';
 /** SĐT trong tin gửi Zalo: Zalo thấy 10 số liền nhau là tự đính kèm danh thiếp → tách nhóm để chỉ gửi chữ.
  *  Cài đặt zalo_phone_format: raw (giữ nguyên) | space (0961 251 352) | dot (0961.251.352). Giống zaloPhone() ở public/app.js. */
+// zw = ký tự ẩn U+200B: nhìn vẫn liền 0961251352, nhưng Zalo không nhận ra là SĐT
+const ZALO_JOIN = { space: ' ', dot: '.', zw: '​' };
 export function zaloPhone(phone, fmt) {
   const p = String(phone || '');
-  if (!/^\d{10}$/.test(p) || !['space', 'dot'].includes(fmt)) return p;
-  const j = fmt === 'dot' ? '.' : ' ';
+  if (!/^\d{10}$/.test(p) || !ZALO_JOIN[fmt]) return p;
+  const j = ZALO_JOIN[fmt];
   return [p.slice(0, 4), p.slice(4, 7), p.slice(7)].join(j);
 }
 export function orderText(o, s = getSettings(), { zalo = false } = {}) {

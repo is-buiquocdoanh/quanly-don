@@ -645,6 +645,10 @@ test('Zalo: SĐT trong tin Zalo tách nhóm (tránh Zalo tự kèm danh thiếp)
   assert.equal(p.key, '0961 251 352');
   await admin('PUT', '/api/settings', { zalo_phone_format: 'dot' });
   assert.equal((await pick()).text, 'Danh thiếp | 0961.251.352 | Xã A | 1 hộp | 95.000đ');
+  await admin('PUT', '/api/settings', { zalo_phone_format: 'zw' });
+  p = await pick();
+  assert.equal(p.text, 'Danh thiếp | 0961​251​352 | Xã A | 1 hộp | 95.000đ');
+  assert.equal(p.text.replace(/​/g, ''), 'Danh thiếp | 0961251352 | Xã A | 1 hộp | 95.000đ'); // nhìn vẫn liền
   await admin('PUT', '/api/settings', { zalo_phone_format: 'linh tinh' });
   assert.equal((await admin('GET', '/api/bootstrap')).settings.zalo_phone_format, 'raw');
 });

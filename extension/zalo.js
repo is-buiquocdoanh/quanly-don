@@ -101,7 +101,8 @@
     const el = chatInput();
     if (!el) return { err: 'Không thấy ô soạn tin. Mở cuộc chat nhóm kho trên Zalo Web trước.' };
     // còn chữ của đơn vừa gửi (Zalo xóa ô chat chậm) → chờ; quá 6 giây thì tự xóa (chỉ khi đúng là chữ của đơn trước)
-    const same = (a, b) => a.replace(/\s+/g, ' ').trim() === b.replace(/\s+/g, ' ').trim();
+    const clean = (x) => x.replace(/​/g, '').replace(/\s+/g, ' ').trim(); // bỏ ký tự ẩn trong SĐT
+    const same = (a, b) => clean(a) === clean(b);
     if (inputText(el) && lastSent && same(inputText(el), lastSent)) {
       for (let t = 0; t < 6000 && inputText(el); t += 200) await sleep(200);
       if (inputText(el) && same(inputText(el), lastSent)) { el.focus(); document.execCommand('selectAll'); document.execCommand('delete'); await sleep(200); }
