@@ -58,7 +58,7 @@ export function parseUA(ua = '') {
 const hostOf = (r) => { try { return new URL(r).hostname.replace(/^www\.|^m\.|^l\.|^lm\./, ''); } catch { return ''; } };
 
 /** Nguồn của phiên từ trang dẫn tới + tham số utm/fbclid trên đường dẫn đầu tiên. */
-export function classifySource({ ref = '', us = '', um = '', fb = 0, g = 0, tt = 0 } = {}, ownHost = '') {
+export function classifySource({ r = '', ref = r, us = '', um = '', fb = 0, g = 0, tt = 0 } = {}, ownHost = '') {
   const s = String(us).toLowerCase();
   const m = String(um).toLowerCase();
   const host = hostOf(ref);
@@ -75,7 +75,7 @@ export function classifySource({ ref = '', us = '', um = '', fb = 0, g = 0, tt =
   if (/youtube|youtu\.be/.test(host) || s === 'youtube') return 'YouTube';
   if (/bing|coccoc|yahoo|duckduckgo/.test(host)) return 'Tìm kiếm khác';
   if (s) return s.slice(0, 40);
-  if (!host || (ownHost && host === ownHost.replace(/^www\./, ''))) return 'Trực tiếp';
+  if (!host || (ownHost && host === ownHost.replace(/:\d+$/, '').replace(/^www\./, ''))) return 'Trực tiếp';
   return host.slice(0, 60);
 }
 
@@ -200,31 +200,58 @@ export function siteStats(from, to) {
 }
 
 // ---------------------------------------------------------------- Facebook Pixel + Conversions API
-const GRAPH = 'https://graph.facebook.com/v21.0';
-const capiLast = { at: '', ok: null, error: '', event: '' };
+// Phiên bản Graph API: Meta giữ mỗi bản ~2 năm; đổi bằng biến môi trường META_GRAPH_VERSION khi cần.
+const GRAPH = `https://graph.facebook.com/${process.env.META_GRAPH_VERSION || 'v24.0'}`;
+const capiLast = { at: '', ok: null, error: '', event: '', trace: '' };
+export const PIXEL_ITEM = { id: 'hu-35g', name: 'Trứng sâu canxi Ruồi Lính Đen (Hũ 35g)' };
 
 export function pixelStatus() {
   const s = getSite();
   return { pixel_id: s.fb_pixel_id || '', capi: !!s.fb_capi_token, test_code: s.fb_test_code || '', last: { ...capiLast } };
 }
 
-const sha = (v) => crypto.createHash('sha256').update(String(v).trim().toLowerCase()).digest('hex');
+const sha = (v) => crypto.createHash('sha256').update(String(v), 'utf8').digest('hex');
+/** SĐT Việt Nam → 84xxxxxxxxx (chỉ chữ số, không dấu +). */
+export function phone84(raw) {
+  let d = String(raw || '').replace(/\D/g, '');
+  if (!d) return '';
+  if (d.startsWith('84') && d.length >= 11) return d;
+  return '84' + d.replace(/^0/, '');
+}
+/** Tên chuẩn hóa cho Facebook: chữ thường, bỏ dấu câu và khoảng trắng, giữ chữ có dấu (UTF-8). */
+const normName = (s) => String(s || '').normalize('NFC').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+/** Tên người Việt: họ = chữ đầu, tên = chữ cuối ("Nguyễn Văn Nông" → ln nguyễn, fn nông). */
+export function splitNameVN(full) {
+  const w = String(full || '').trim().split(/\s+/).map(normName).filter(Boolean);
+  if (!w.length) return {};
+  if (w.length === 1) return { fn: w[0] };
+  return { fn: w[w.length - 1], ln: w[0] };
+}
+/** Đọc 1 cookie trong header Cookie của request. */
+export function cookieOf(header, name) {
+  const m = String(header || '').match(new RegExp('(?:^|;)\\s*' + name + '=([^;]*)'));
+  if (!m) return '';
+  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+}
+const FB_ID_RE = /^fb\.\d\.\d{10,13}\.[\w.-]+$/;
 
-/** Gửi sự kiện Purchase phía server (Conversions API). Cùng event_id với Pixel trên trình duyệt → Facebook tự gộp, không đếm đôi.
- *  Không chặn đặt hàng: lỗi chỉ ghi lại để xem trong trang quản lý. */
-export async function capiPurchase(order, { ip = '', ua = '', url = '', fbp = '', fbc = '' } = {}) {
-  const s = getSite();
-  if (!s.fb_pixel_id || !s.fb_capi_token || !order) return;
-  const phone = String(order.phone || '').replace(/\D/g, '');
+/** Dữ liệu gửi Conversions API cho 1 đơn (tách riêng để test). */
+export function buildPurchase(order, { ip = '', ua = '', url = '', fbp = '', fbc = '', testCode = '' } = {}) {
+  const ph = phone84(order.phone);
+  const nm = splitNameVN(order.name);
+  const qty = Number(order.qty) || 1;
+  const total = Number(order.total) || 0;
   const user = {
-    ...(phone ? { ph: [sha('84' + phone.replace(/^0/, ''))] } : {}),
+    ...(ph ? { ph: [sha(ph)], external_id: [sha(ph)] } : {}),
+    ...(nm.fn ? { fn: [sha(nm.fn)] } : {}),
+    ...(nm.ln ? { ln: [sha(nm.ln)] } : {}),
     country: [sha('vn')],
-    ...(ip ? { client_ip_address: ip } : {}),
-    ...(ua ? { client_user_agent: ua } : {}),
-    ...(fbp ? { fbp: str(fbp, 200) } : {}),
-    ...(fbc ? { fbc: str(fbc, 300) } : {}),
+    ...(ip ? { client_ip_address: String(ip) } : {}),
+    ...(ua ? { client_user_agent: String(ua).slice(0, 500) } : {}),
+    ...(FB_ID_RE.test(fbp) ? { fbp } : {}),
+    ...(FB_ID_RE.test(fbc) ? { fbc } : {}),
   };
-  const body = {
+  return {
     data: [{
       event_name: 'Purchase',
       event_time: Math.floor(Date.now() / 1000),
@@ -232,23 +259,41 @@ export async function capiPurchase(order, { ip = '', ua = '', url = '', fbp = ''
       action_source: 'website',
       ...(url ? { event_source_url: str(url, 500) } : {}),
       user_data: user,
-      custom_data: { currency: 'VND', value: Number(order.total) || 0, num_items: Number(order.qty) || 1, content_name: str(order.product, 200), content_type: 'product' },
+      custom_data: {
+        currency: 'VND', value: total, content_type: 'product', content_ids: [PIXEL_ITEM.id],
+        contents: [{ id: PIXEL_ITEM.id, quantity: qty, item_price: Math.round(total / qty) }],
+        num_items: qty, content_name: str(order.product, 200) || PIXEL_ITEM.name, order_id: order.code,
+      },
     }],
-    ...(s.fb_test_code ? { test_event_code: s.fb_test_code } : {}),
+    ...(testCode ? { test_event_code: testCode } : {}),
   };
-  capiLast.at = nowVN();
-  capiLast.event = `Purchase ${order.code}`;
-  try {
-    const res = await fetch(`${GRAPH}/${encodeURIComponent(s.fb_pixel_id)}/events?access_token=${encodeURIComponent(s.fb_capi_token)}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(10000),
-    });
-    const j = await res.json().catch(() => ({}));
-    if (!res.ok || j.error) throw new Error(j.error?.message || `HTTP ${res.status}`);
-    capiLast.ok = true;
-    capiLast.error = '';
-  } catch (e) {
-    capiLast.ok = false;
-    capiLast.error = String(e?.message || e).slice(0, 300);
-    console.error('[capi]', capiLast.error);
+}
+
+/** Gửi sự kiện Purchase phía máy chủ (Conversions API). Cùng event_id (= mã đơn) với Pixel trên trình duyệt → Facebook tự gộp.
+ *  Không chặn đặt hàng; thử lại 3 lần (2s, 10s, 60s) khi lỗi mạng / Facebook bận; kết quả hiện ở "Lần gửi gần nhất". */
+export async function capiPurchase(order, opts = {}) {
+  const s = getSite();
+  if (!s.fb_pixel_id || !s.fb_capi_token || !order) return;
+  const body = JSON.stringify(buildPurchase(order, { ...opts, testCode: s.fb_test_code || '' }));
+  const url = `${GRAPH}/${encodeURIComponent(s.fb_pixel_id)}/events?access_token=${encodeURIComponent(s.fb_capi_token)}`;
+  const waits = [2000, 10000, 60000];
+  for (let i = 0; ; i++) {
+    let retry = false;
+    try {
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: AbortSignal.timeout(10000) });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || j.error) {
+        retry = res.status >= 500 || res.status === 429 || !!j.error?.is_transient;
+        throw new Error((j.error?.message || `HTTP ${res.status}`) + (j.error?.fbtrace_id ? ` (fbtrace ${j.error.fbtrace_id})` : ''));
+      }
+      Object.assign(capiLast, { at: nowVN(), ok: true, error: '', event: `Purchase ${order.code}`, trace: j.fbtrace_id || '' });
+      return;
+    } catch (e) {
+      if (e?.name === 'TimeoutError' || e?.name === 'TypeError') retry = true; // mạng lỗi / hết giờ
+      Object.assign(capiLast, { at: nowVN(), ok: false, error: String(e?.message || e).slice(0, 300) + (retry && i < waits.length ? ' · sẽ thử lại' : ''), event: `Purchase ${order.code}`, trace: '' });
+      console.error('[capi]', order.code, capiLast.error);
+      if (!retry || i >= waits.length) return;
+      await new Promise((r) => setTimeout(r, waits[i]).unref?.());
+    }
   }
 }

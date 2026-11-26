@@ -1302,7 +1302,7 @@ async function webTraffic(body) {
       <dl class="kv" style="margin:12px 0 14px">
         <dt>Pixel</dt><dd>${px.pixel_id ? `<span class="badge st-da_giao">Đã gắn</span> ${esc(px.pixel_id)}` : '<span class="badge">Chưa gắn</span>'}</dd>
         <dt>Conversions API</dt><dd>${px.capi ? '<span class="badge st-da_giao">Đã bật</span> máy chủ báo đơn cho Facebook' : '<span class="badge">Chưa bật</span> nên bật để Facebook nhận đủ đơn (iPhone, trình duyệt chặn quảng cáo)'}</dd>
-        ${px.last?.at ? `<dt>Lần gửi gần nhất</dt><dd>${esc(px.last.at)} · ${esc(px.last.event)} · ${px.last.ok ? '✓ Facebook đã nhận' : `<span class="neg">Lỗi: ${esc(px.last.error)}</span>`}</dd>` : ''}
+        ${px.last?.at ? `<dt>Lần gửi gần nhất</dt><dd>${esc(px.last.at)} · ${esc(px.last.event)} · ${px.last.ok ? `✓ Facebook đã nhận${px.last.trace ? ` <span class="muted small">(fbtrace ${esc(px.last.trace)})</span>` : ''}` : `<span class="neg">Lỗi: ${esc(px.last.error)}</span>`}</dd>` : ''}
         ${px.test_code ? `<dt>Mã thử</dt><dd><span class="neg">Đang bật mã thử ${esc(px.test_code)}</span>: xóa khi kiểm tra xong, nếu không đơn gửi từ máy chủ chỉ hiện ở mục Kiểm tra sự kiện</dd>` : ''}
       </dl>
       <form class="form" id="pxf">

@@ -901,6 +901,7 @@ test('website: thống kê truy cập (thiết bị, nguồn, đơn) + Facebook 
   await admin('PUT', '/api/site', { fb_pixel_id: '1234567890123456', fb_capi_token: 'SECRET_TOKEN_X' });
   const home = await siteGet('/');
   assert.match(home.body, /fbq\('init','1234567890123456'\)/);
+  assert.match(home.body, /fbq\('set','autoConfig',false,'1234567890123456'\);fbq\('init'/);
   assert.doesNotMatch(home.body, /SECRET_TOKEN_X/);
   const st2 = await admin('GET', `/api/site/stats?from=${today}&to=${today}`);
   assert.equal(st2.pixel.pixel_id, '1234567890123456');

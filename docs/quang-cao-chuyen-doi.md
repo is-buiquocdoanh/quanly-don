@@ -13,6 +13,15 @@ Web quản lý đơn đã làm sẵn phần kỹ thuật. Bạn chỉ cần lấ
 3. Nếu Facebook hỏi cách cài, chọn **Tự cài đặt mã** hoặc bỏ qua. Không cần chép đoạn mã nào, web đã có sẵn.
 4. Chép **ID tập dữ liệu / Pixel ID**. Đây là dãy 15–16 chữ số.
 
+### Cài đặt nên chọn trong tab Cài đặt của Pixel
+
+| Cài đặt | Chọn |
+|---|---|
+| Sự kiện tự động (Facebook tự thêm sự kiện) | **Tắt** (web cũng đã tắt bằng `autoConfig`) |
+| So khớp nâng cao tự động | **Bật** |
+| Cookie của bên thứ nhất | **Bật** (cần cho `_fbp`, `_fbc`) |
+| Công cụ thiết lập sự kiện (bấm chọn nút) | Không dùng |
+
 ## Bước 2. Dán Pixel ID vào web quản lý đơn
 
 **Website → Truy cập & quảng cáo**, kéo xuống ô **Quảng cáo chuyển đổi** → dán vào ô **Pixel ID** → **Lưu**.
@@ -35,7 +44,18 @@ Pixel chạy trên trình duyệt nên dễ bị mất: iPhone chặn theo dõi,
 2. Tìm mục **Conversions API** → **Tạo mã truy cập** → chép mã (chuỗi rất dài).
 3. Dán vào ô **Mã truy cập Conversions API** trên web → **Lưu**. Mã được giữ kín, không hiện trên website.
 
-Máy chủ chỉ gửi cho Facebook: số tiền, số hũ, và **số điện thoại đã mã hóa một chiều** (Facebook dùng để khớp với tài khoản Facebook của khách, không đọc được số gốc). Không gửi tên, địa chỉ.
+Mỗi đơn, máy chủ gửi cho Facebook (để khớp đơn với tài khoản Facebook của khách, càng đủ thì **Chất lượng so khớp sự kiện** càng cao):
+
+| Khóa | Cách gửi |
+|---|---|
+| Điện thoại `ph` + `external_id` | `84xxxxxxxxx`, mã hóa SHA-256 |
+| Tên `fn`, họ `ln` | "Nguyễn Văn Nông" → tên `nông`, họ `nguyễn`, chữ thường, mã hóa SHA-256 |
+| Quốc gia | `vn`, mã hóa SHA-256 |
+| IP, trình duyệt | IP thật của khách (qua Cloudflare), không mã hóa, không lưu lại trên máy chủ |
+| `fbp`, `fbc` | Cookie Facebook của khách. `fbc` có khi khách bấm vào quảng cáo (`fbclid`), web lưu ngay lúc vào trang nên khách chuyển trang rồi mới đặt vẫn còn |
+| Đơn | Số tiền (VND), số hũ, mã sản phẩm `hu-35g`, mã đơn |
+
+Không gửi địa chỉ giao hàng. Gửi lỗi (mạng, Facebook bận) thì máy chủ tự thử lại 3 lần.
 
 ## Bước 4. Kiểm tra đã chạy chưa
 
@@ -43,8 +63,11 @@ Máy chủ chỉ gửi cho Facebook: số tiền, số hũ, và **số điện t
 2. Dán vào ô **Mã thử sự kiện** trên web → **Lưu**.
 3. Mở **doanhwork.com/dat-hang** trên điện thoại, đặt thử 1 đơn.
 4. Trong tab Kiểm tra sự kiện phải thấy: PageView, ViewContent, InitiateCheckout, **Purchase** (cả "Trình duyệt" và "Máy chủ", ghi "Đã loại bỏ trùng lặp" là đúng).
+   Bấm vào Mua hàng (Máy chủ): phần khóa dữ liệu người dùng phải có Điện thoại, Tên, Họ, IP, Tác nhân người dùng, fbp, external_id, Quốc gia (và fbc nếu mở web bằng link có `?fbclid=...`, ví dụ `https://doanhwork.com/?fbclid=test123`).
 5. Ở web quản lý, mục "Lần gửi gần nhất" phải ghi **✓ Facebook đã nhận**. Nếu ghi lỗi, đọc nội dung lỗi (thường là chép thiếu mã).
 6. **Xóa mã thử** rồi Lưu. Nếu không xóa, đơn gửi từ máy chủ chỉ hiện trong mục Kiểm tra, không được tính cho quảng cáo. Sau đó hủy đơn thử trong trang Đơn hàng.
+
+Sau 1–2 ngày có đơn thật: Trình quản lý sự kiện → Tổng quan → Mua hàng → **Chất lượng so khớp sự kiện** nên từ 6/10 trở lên.
 
 ## Bước 5. Xác minh tên miền (1 lần)
 

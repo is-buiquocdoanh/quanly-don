@@ -53,7 +53,7 @@ Chỉ để xác nhận, đóng gói, giao đơn hàng, chăm sóc khách và tr
 
 ## Thống kê truy cập và quảng cáo
 - Website tự đếm lượt xem trang (loại thiết bị, trình duyệt, trang được xem, bạn đến từ đâu) để cải thiện website. Không lưu địa chỉ IP.
-- Website có thể dùng Meta Pixel (Facebook) để đo hiệu quả quảng cáo. Khi bạn đặt hàng, Facebook nhận thông báo "có đơn hàng" kèm giá trị đơn và số điện thoại đã được mã hóa một chiều (Facebook không đọc được số gốc). Bạn có thể tắt theo dõi bằng cách chặn cookie bên thứ ba trong trình duyệt.
+- Website dùng Meta Pixel, Conversions API và cookie của chính website (_fbp, _fbc) để đo hiệu quả quảng cáo. Khi bạn đặt hàng, Facebook nhận thông báo "có đơn hàng" kèm giá trị đơn, số hũ, cùng số điện thoại, họ và tên đã được mã hóa một chiều (Facebook không đọc được thông tin gốc), địa chỉ IP và loại trình duyệt. Không gửi địa chỉ giao hàng. Bạn có thể hạn chế bằng cách chặn cookie trong trình duyệt.
 
 ## Quyền truy cập Facebook / Google
 - Ứng dụng nhắn tin chỉ đọc và trả lời tin nhắn gửi tới fanpage của cửa hàng.

@@ -7,7 +7,7 @@ import { db, getSettings } from '../db.js';
 import { createOrder, getCustomerByPhone } from '../orders.js';
 import { normalizePhone, str, toInt, bad, HttpError, nowVN } from '../util.js';
 import { getSite, getPriceTable } from './content.js';
-import { recordHit, capiPurchase } from './stats.js';
+import { recordHit, capiPurchase, cookieOf } from './stats.js';
 
 const RATE_WINDOW_MS = 15 * 60e3;
 const RATE_MAX = 6;
@@ -100,7 +100,8 @@ export function createPublicOrder(input = {}, ip = '', meta = {}) {
   // thống kê website (nguồn / thiết bị của đơn) + báo Facebook có đơn (nếu đã cài Pixel + Conversions API); lỗi không làm hỏng đơn
   const t = input._t && typeof input._t === 'object' ? input._t : {};
   try { recordHit(t, { ip, ua: meta.ua || '', host: meta.host || '', order }); } catch (e) { console.error('[stats]', e); }
-  capiPurchase(order, { ip, ua: meta.ua, url: str(t.u, 500) || (meta.host ? `https://${meta.host}/dat-hang` : ''), fbp: input.fbp, fbc: input.fbc }).catch(() => {});
+  capiPurchase(order, { ip, ua: meta.ua, url: str(t.u, 500) || (meta.host ? `https://${meta.host}/dat-hang` : ''),
+    fbp: str(input.fbp, 200) || cookieOf(meta.cookie, '_fbp'), fbc: str(input.fbc, 500) || cookieOf(meta.cookie, '_fbc') }).catch(() => {});
 
   return {
     order: {

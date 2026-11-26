@@ -34,18 +34,53 @@
       fetch('/api/t', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
     }
     const fbq = (...a) => { try { if (typeof window.fbq === 'function') window.fbq(...a); } catch { /* bỏ qua */ } };
-    const cookie = (k) => (document.cookie.match(new RegExp('(?:^|; )' + k + '=([^;]*)')) || [])[1] || '';
-    // để gửi kèm đơn hàng (máy chủ báo Facebook bằng Conversions API, gộp với Pixel)
-    const forOrder = () => ({
-      _t: base(),
-      fbp: cookie('_fbp'),
-      fbc: cookie('_fbc') || (src.fbclid ? `fb.1.${src.at || Date.now()}.${src.fbclid}` : ''),
-    });
-    return { send, fbq, forOrder };
+    const eid = (p) => `${p}-${rid()}${rid()}`;
+    // ---- cookie _fbp / _fbc của Facebook (bên thứ nhất). Pixel tự tạo; đoạn này dự phòng khi Pixel bị chặn / tải chậm
+    const cookie = (k) => { const m = document.cookie.match(new RegExp('(?:^|;)\\s*' + k + '=([^;]*)')); try { return m ? decodeURIComponent(m[1]) : ''; } catch { return m ? m[1] : ''; } };
+    const host = location.hostname.replace(/^www\./, '');
+    const setCookie = (k, v) => {
+      const dom = /\./.test(host) && !/^[\d.]+$/.test(host) && !/localhost$/.test(host) ? `; domain=.${host}` : '';
+      document.cookie = `${k}=${encodeURIComponent(v)}; expires=${new Date(Date.now() + 90 * 864e5).toUTCString()}; path=/${dom}; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
+    };
+    if (pixelOn()) {
+      const fbclid = new URLSearchParams(location.search).get('fbclid');
+      if (fbclid) { const cur = cookie('_fbc'); if (!cur || !cur.endsWith('.' + fbclid)) setCookie('_fbc', `fb.1.${Date.now()}.${fbclid}`); }
+    }
+    function pixelOn() { return !!document.querySelector('meta[name="qld-pixel"]'); }
+    const getFbp = () => {
+      let v = cookie('_fbp');
+      if (!v && pixelOn()) { v = `fb.1.${Date.now()}.${Math.floor(Math.random() * 1e10)}`; setCookie('_fbp', v); }
+      return v;
+    };
+    const getFbc = () => cookie('_fbc') || (src.fbclid ? `fb.1.${src.at || Date.now()}.${src.fbclid}` : '');
+    // để gửi kèm đơn hàng (máy chủ báo Facebook bằng Conversions API, gộp với Pixel nhờ cùng mã đơn)
+    const forOrder = () => {
+      const o = { _t: base() };
+      const fbp = getFbp();
+      const fbc = getFbc();
+      if (fbp) o.fbp = fbp;
+      if (fbc) o.fbc = fbc;
+      return o;
+    };
+    // sự kiện chỉ bắn 1 lần mỗi phiên
+    const once = (k) => { if (S('qld_once_' + k)) return false; S('qld_once_' + k, '1'); return true; };
+    return { send, fbq, forOrder, eid, once, S };
   })();
 
   T.send('view');
-  if (document.querySelector('[data-order-form]')) T.fbq('track', 'ViewContent', { content_name: 'Trứng sâu canxi hũ 35g', content_type: 'product', currency: 'VND', value: 130000 });
+  const PIXEL_ITEM = { id: 'hu-35g', name: 'Trứng sâu canxi Ruồi Lính Đen (Hũ 35g)', unit: 65000 };
+  // Xem nội dung: khi form đặt hàng thực sự hiện trên màn hình (1 lần mỗi phiên)
+  const firstForm = document.querySelector('[data-order-form]');
+  if (firstForm) {
+    const fireVC = () => {
+      if (!T.once('vc')) return;
+      T.fbq('track', 'ViewContent', { content_type: 'product', content_ids: [PIXEL_ITEM.id], content_name: PIXEL_ITEM.name, currency: 'VND', value: 130000 }, { eventID: T.eid('vc') });
+    };
+    if ('IntersectionObserver' in window) {
+      const vio = new IntersectionObserver((en) => { if (en.some((x) => x.isIntersecting)) { vio.disconnect(); fireVC(); } }, { threshold: 0.25 });
+      vio.observe(firstForm);
+    } else fireVC();
+  }
 
   // lượt bấm: gọi điện, Zalo, Messenger, nút đặt hàng, chọn combo
   document.addEventListener('click', (e) => {
@@ -64,7 +99,7 @@
     else if (/dat-hang/.test(href)) label = 'Nút Đặt hàng';
     if (!label) return;
     T.send('click', { l: label });
-    if (contact) T.fbq('track', 'Contact', { content_name: label });
+    if (contact) T.fbq('track', 'Contact', { content_name: label }, { eventID: T.eid('ct') });
   }, true);
 
   // bắt đầu điền form đặt hàng (1 lần mỗi trang)
@@ -74,7 +109,10 @@
       if (started) return;
       started = true;
       T.send('form');
-      T.fbq('track', 'InitiateCheckout', { currency: 'VND', content_type: 'product' });
+      if (T.once('ic')) {
+        const q = Math.max(1, parseInt(f.querySelector('[name="qty"]')?.value, 10) || 2);
+        T.fbq('track', 'InitiateCheckout', { currency: 'VND', value: q * PIXEL_ITEM.unit, num_items: q, content_type: 'product', content_ids: [PIXEL_ITEM.id] }, { eventID: T.eid('ic') });
+      }
     });
   });
 
@@ -326,8 +364,15 @@
           return;
         }
         const o = data.order;
-        if (!data.duplicate_recent) {
-          T.fbq('track', 'Purchase', { value: Number(o.total) || 0, currency: 'VND', num_items: Number(o.qty) || 1, content_name: o.product, content_type: 'product' }, { eventID: o.code });
+        // Mua hàng: chỉ sau khi máy chủ đã tạo đơn; cùng mã đơn với Conversions API để Facebook không đếm đôi; mỗi đơn 1 lần
+        if (!data.duplicate_recent && !T.S('qld_buy_' + o.code)) {
+          T.S('qld_buy_' + o.code, '1');
+          const q = Number(o.qty) || 1;
+          T.fbq('track', 'Purchase', {
+            value: Number(o.total) || 0, currency: 'VND', content_type: 'product', content_ids: [PIXEL_ITEM.id],
+            contents: [{ id: PIXEL_ITEM.id, quantity: q, item_price: Math.round((Number(o.total) || 0) / q) }],
+            num_items: q, content_name: o.product || PIXEL_ITEM.name, order_id: o.code,
+          }, { eventID: o.code });
         }
         if (doneBox) {
           const set = (k, v) => { const el = doneBox.querySelector(`[data-done-${k}]`); if (el) el.textContent = v; };

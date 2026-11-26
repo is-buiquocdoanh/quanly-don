@@ -172,7 +172,7 @@ async function serveSite(req, res, url, host, proto) {
       } else {
         throw new HttpError(415, 'Định dạng không được hỗ trợ');
       }
-      const result = createPublicOrder(body, ip, { ua: String(req.headers['user-agent'] || ''), host });
+      const result = createPublicOrder(body, ip, { ua: String(req.headers['user-agent'] || ''), host, cookie: String(req.headers.cookie || '') });
       send(res, 200, { ok: true, ...result });
     } catch (e) {
       const status = e instanceof HttpError ? e.status : 500;
