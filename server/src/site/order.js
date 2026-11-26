@@ -7,6 +7,7 @@ import { db, getSettings } from '../db.js';
 import { createOrder, getCustomerByPhone } from '../orders.js';
 import { normalizePhone, str, toInt, bad, HttpError, nowVN } from '../util.js';
 import { getSite, getPriceTable } from './content.js';
+import { recordHit, capiPurchase } from './stats.js';
 
 const RATE_WINDOW_MS = 15 * 60e3;
 const RATE_MAX = 6;
@@ -48,7 +49,7 @@ export function calcOrderTotal(site, productName, qty) {
   return { total: 0, unit: 0, ship: 0, source: 'contact' };
 }
 
-export function createPublicOrder(input = {}, ip = '') {
+export function createPublicOrder(input = {}, ip = '', meta = {}) {
   // Honeypot chống bot tự điền form
   if (str(input.website || input.company || '', 100)) {
     throw bad('Yêu cầu không hợp lệ');
@@ -95,6 +96,11 @@ export function createPublicOrder(input = {}, ip = '') {
     note,
     page: 'Website',
   }, null);
+
+  // thống kê website (nguồn / thiết bị của đơn) + báo Facebook có đơn (nếu đã cài Pixel + Conversions API); lỗi không làm hỏng đơn
+  const t = input._t && typeof input._t === 'object' ? input._t : {};
+  try { recordHit(t, { ip, ua: meta.ua || '', host: meta.host || '', order }); } catch (e) { console.error('[stats]', e); }
+  capiPurchase(order, { ip, ua: meta.ua, url: str(t.u, 500) || (meta.host ? `https://${meta.host}/dat-hang` : ''), fbp: input.fbp, fbc: input.fbc }).catch(() => {});
 
   return {
     order: {

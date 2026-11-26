@@ -844,3 +844,68 @@ test('website: trang đặt hàng, đặt đơn trực tiếp vào quản lý đ
   const blocked = await sitePost('/api/orders', { name: 'X' });
   assert.equal(blocked.status, 405);
 });
+
+function sitePostUA(p, body, ua) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body);
+    const req = http.request({
+      host: '127.0.0.1', port: PORT, path: p, method: 'POST',
+      headers: { Host: 'site.localhost', 'X-Forwarded-Proto': 'https', 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data), 'User-Agent': ua },
+    }, (res) => {
+      let b = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => (b += c));
+      res.on('end', () => resolve({ status: res.statusCode, body: b, json: (() => { try { return JSON.parse(b); } catch { return null; } })() }));
+    });
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}
+
+test('website: thống kê truy cập (thiết bị, nguồn, đơn) + Facebook Pixel', async () => {
+  const IPHONE_FB = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 [FBAN/FBIOS;FBAV/450.0]';
+  const PC = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
+  const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+  const before = (await admin('GET', `/api/site/stats?from=${today}&to=${today}`)).totals;
+
+  const ad = { v: 'vidA', s: 'sesA', r: 'https://l.facebook.com/', us: 'facebook', um: 'paid', uc: 'Tet-2027', fb: 1 };
+  assert.equal((await sitePostUA('/api/t', { t: 'view', p: '/dat-hang', n: 1, ...ad }, IPHONE_FB)).status, 204);
+  await sitePostUA('/api/t', { t: 'form', p: '/dat-hang', ...ad }, IPHONE_FB);
+  await sitePostUA('/api/t', { t: 'click', p: '/dat-hang', l: 'Chat Zalo', ...ad }, IPHONE_FB);
+  await sitePostUA('/api/t', { t: 'view', p: '/', n: 1, v: 'vidB', s: 'sesB' }, PC);
+  await sitePostUA('/api/t', { t: 'view', p: '/', v: 'bot', s: 'bot' }, 'Googlebot/2.1');           // bot: bỏ
+  await sitePostUA('/api/t', { t: 'order', p: '/', v: 'x', s: 'x' }, PC);                          // tự khai đơn: bỏ
+  const o = await sitePostUA('/api/dat-hang', { name: 'Khách quảng cáo', phone: '0911222333', address: 'Thôn 1, xã A, huyện B, Nghệ An', qty: 2, _t: { ...ad, p: '/dat-hang' } }, IPHONE_FB);
+  assert.equal(o.json.ok, true);
+
+  const st = await admin('GET', `/api/site/stats?from=${today}&to=${today}`);
+  const T = st.totals;
+  assert.equal(T.views - before.views, 2);
+  assert.equal(T.visitors - before.visitors, 2);
+  assert.equal(T.orders - before.orders, 1);
+  assert.equal(T.revenue - before.revenue, 130000);
+  assert.ok(T.clicks - before.clicks >= 1);
+  const src = st.sources.find((s) => s.key === 'Quảng cáo Facebook');
+  assert.ok(src && src.orders >= 1 && src.visitors >= 1);
+  assert.ok(st.sources.find((s) => s.key === 'Trực tiếp'));
+  assert.ok(st.devices.find((d) => d.key === 'Điện thoại'));
+  assert.ok(st.devices.find((d) => d.key === 'Máy tính'));
+  assert.ok(st.browsers.find((d) => d.key === 'Trong app Facebook'));
+  assert.ok(st.campaigns.find((c) => c.key === 'Tet-2027' && c.orders >= 1));
+  assert.ok(st.recent.some((h) => h.type === 'order' && h.order_code === o.json.order.code));
+  assert.equal(st.by_day.length, 1);
+
+  // Pixel: sai định dạng bị chặn; gắn đúng thì trang có mã Pixel, không lộ mã Conversions API
+  assert.match((await admin('PUT', '/api/site', { fb_pixel_id: 'abc' })).error, /Pixel ID/);
+  await admin('PUT', '/api/site', { fb_pixel_id: '1234567890123456', fb_capi_token: 'SECRET_TOKEN_X' });
+  const home = await siteGet('/');
+  assert.match(home.body, /fbq\('init','1234567890123456'\)/);
+  assert.doesNotMatch(home.body, /SECRET_TOKEN_X/);
+  const st2 = await admin('GET', `/api/site/stats?from=${today}&to=${today}`);
+  assert.equal(st2.pixel.pixel_id, '1234567890123456');
+  assert.equal(st2.pixel.capi, true);
+  assert.equal(JSON.stringify(st2).includes('SECRET_TOKEN_X'), false);
+  await admin('PUT', '/api/site', { fb_pixel_id: '', fb_capi_token: '' });
+  assert.doesNotMatch((await siteGet('/')).body, /fbq\('init'/);
+});

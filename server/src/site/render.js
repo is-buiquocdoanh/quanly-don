@@ -84,6 +84,14 @@ function mobileDock(site, path) {
   </div>`;
 }
 
+// Meta Pixel (chỉ chèn khi đã nhập Pixel ID trong trang quản lý → Website → Truy cập & quảng cáo)
+function pixelScript(site) {
+  const id = String(site.fb_pixel_id || '');
+  if (!/^\d{8,20}$/.test(id)) return '';
+  return `<script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${id}');fbq('track','PageView');</script>
+<noscript><img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id=${id}&amp;ev=PageView&amp;noscript=1"></noscript>`;
+}
+
 function layout(ctx, { title, description, path, image, body, type = 'website', jsonLd = null, noindex = false }) {
   const { site, base, cssVer, jsVer } = ctx;
   const fullTitle = title ? `${title} · ${site.brand}` : `${site.brand} · ${site.tagline}`;
@@ -121,6 +129,7 @@ ${img ? `<meta property="og:image" content="${esc(abs(img))}">` : ''}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Lora:ital,wght@0,600;0,700;1,600&display=swap">
 <link rel="stylesheet" href="/site.css?v=${cssVer}">
 <script type="application/ld+json">${JSON.stringify(jsonLd ? [org, jsonLd] : org).replace(/</g, '\\u003c')}</script>
+${pixelScript(site)}
 </head>
 <body>
 <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>

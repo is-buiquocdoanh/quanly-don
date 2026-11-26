@@ -79,7 +79,7 @@ const Charts = (() => {
       const m = { t: 14, r: 14, b: 28, l: 46 };
       const n = labels.length;
       const all = series.flatMap((s) => s.values);
-      const tk = niceTicks(Math.min(0, ...all), Math.max(0, ...all), 4);
+      const tk = niceTicks(Math.min(0, ...all), Math.max(0, ...all), 4, !!opts.int);
       const min = tk[0], max = tk[tk.length - 1];
       const iw = W - m.l - m.r, ih = H - m.t - m.b;
       const x = (i) => m.l + (n <= 1 ? iw / 2 : (i * iw) / (n - 1));

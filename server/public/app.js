@@ -1134,7 +1134,7 @@ async function openCustomer(id, onDone) {
 
 // ================================================================ WEBSITE (doanhwork.com)
 // Sửa nội dung website công khai: thông tin shop, sản phẩm, bài viết blog, chính sách.
-const webState = { tab: 'info' };
+const webState = { tab: 'traffic' };
 // địa chỉ website công khai: don.doanhwork.com → doanhwork.com; chạy thử trên máy → site.localhost
 const siteUrl = () => (/^(localhost|127\.)/.test(location.hostname)
   ? `${location.protocol}//site.localhost${location.port ? ':' + location.port : ''}`
@@ -1225,8 +1225,126 @@ function bindMdFields(root) {
   });
 }
 
+// ---------------------------------------------------------------- Website → Truy cập & quảng cáo
+const trafState = { range: null };
+async function webTraffic(body) {
+  trafState.range ||= makeRange('d7');
+  const rp = rangePicker(trafState.range, () => webTraffic(body).catch(fail));
+  const r = await api('GET', `/api/site/stats?from=${trafState.range.from}&to=${trafState.range.to}`);
+  const T = r.totals;
+  const site = siteUrl();
+  const rate = (a, b) => (b ? pct(a / b) : '–');
+  const labels = r.by_day.map((d) => dd(d.date));
+  const tile = (label, value, sub) => `<div class="tile"><div class="tile-l">${label}</div><div class="tile-v">${value}</div><div class="tile-s">${sub}</div></div>`;
+  const DEV_COLORS = { 'Điện thoại': '#2a78d6', 'Máy tính': '#1baf7a', 'Máy tính bảng': '#eda100' };
+  const tbl = (head, rows, empty = 'Chưa có dữ liệu') => rows.length
+    ? `<div class="table-wrap"><table class="tbl traf-tbl"><thead><tr>${head.map((h, i) => `<th${i ? ' class="num"' : ''}>${h}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map((c) => `<tr>${c.map((v, i) => `<td${i ? ' class="num"' : ''}>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+    : `<div class="empty sm">${empty}</div>`;
+  const funnel = [
+    { label: 'Vào website', value: T.sessions },
+    { label: 'Thấy form đặt', value: T.order_page_sessions },
+    { label: 'Điền form', value: T.form_sessions },
+    { label: 'Đặt xong', value: T.orders },
+  ];
+  const px = r.pixel || {};
+  const utm = 'utm_source=facebook&utm_medium=paid&utm_campaign={{campaign.name}}&utm_content={{ad.name}}';
+  const TYPE_TXT = { view: 'Xem', click: 'Bấm', order: 'ĐẶT HÀNG' };
+
+  body.innerHTML = `
+    <div class="page-head" style="margin-bottom:12px"><div><h2 style="margin:0">Lượt truy cập website</h2>
+      <p class="page-sub">Tự đếm trên ${esc(site.replace(/^https?:\/\//, ''))}: không tính bot, không lưu IP. Số liệu bắt đầu từ lúc cập nhật bản này.</p></div>${rp.html}</div>
+    <section class="tiles">
+      ${tile('Khách truy cập', num(T.visitors), `${num(T.new_visitors)} khách mới · ${num(T.sessions)} lượt vào`)}
+      ${tile('Lượt xem trang', num(T.views), `${T.sessions ? (T.views / T.sessions).toLocaleString('vi-VN', { maximumFractionDigits: 1 }) : 0} trang mỗi lượt vào · ${rate(T.bounce_sessions, T.sessions)} xem 1 trang rồi thoát`)}
+      ${tile('Bấm liên hệ / đặt hàng', num(T.clicks), 'Gọi, Zalo, Messenger, nút Đặt, chọn combo')}
+      ${tile('Đơn từ website', num(T.orders), `${money(T.revenue)} · ${rate(T.orders, T.visitors)} khách đặt hàng`)}
+    </section>
+    <section class="grid g-2-1">
+      <div class="panel"><div class="panel-h"><h2>Theo ngày</h2><span class="panel-note">Khách truy cập · Lượt xem · Đơn</span></div><div class="chart" id="tDays"></div></div>
+      <div class="panel"><div class="panel-h"><h2>Phễu đặt hàng</h2><span class="panel-note">% so với bước trước</span></div>
+        ${Charts.hbars(funnel.map((f, i) => ({ label: f.label, value: f.value, sub: i ? rate(f.value, funnel[i - 1].value) : '' })), { fmt: num, color: '#1baf7a' })}</div>
+    </section>
+    <section class="grid g-2-1">
+      <div class="panel"><div class="panel-h"><h2>Nguồn truy cập</h2><span class="panel-note">Khách đến từ đâu, nguồn nào ra đơn</span></div>
+        ${tbl(['Nguồn', 'Khách', 'Lượt xem', 'Đơn', 'Tỉ lệ ra đơn', 'Doanh thu'], r.sources.map((s) => [esc(s.key), num(s.visitors), num(s.views), num(s.orders), rate(s.orders, s.visitors), money(s.revenue)]))}</div>
+      <div class="panel"><div class="panel-h"><h2>Thiết bị</h2></div>
+        ${Charts.stack(r.devices.map((d) => ({ key: d.key, label: d.key, value: d.visitors, color: DEV_COLORS[d.key] || '#b8b6ae' })), { fmt: (v) => num(v) + ' khách' })}
+        ${r.devices.some((d) => d.orders) ? `<p class="small muted" style="margin:10px 0 0">Đơn: ${r.devices.filter((d) => d.orders).map((d) => `${esc(d.key)} ${num(d.orders)}`).join(' · ')}</p>` : ''}</div>
+    </section>
+    <section class="grid g-1-1">
+      <div class="panel"><div class="panel-h"><h2>Trình duyệt / ứng dụng</h2><span class="panel-note">"Trong app Facebook" = bấm từ quảng cáo / bài đăng</span></div>
+        ${Charts.hbars(r.browsers.map((b) => ({ label: b.key, value: b.visitors, sub: b.orders ? `${num(b.orders)} đơn` : '' })), { fmt: (v) => num(v) + ' khách' })}</div>
+      <div class="panel"><div class="panel-h"><h2>Hệ điều hành</h2></div>
+        ${Charts.hbars(r.os.map((b) => ({ label: b.key, value: b.visitors, sub: b.orders ? `${num(b.orders)} đơn` : '' })), { fmt: (v) => num(v) + ' khách', color: '#1baf7a' })}</div>
+    </section>
+    <section class="grid g-1-1">
+      <div class="panel"><div class="panel-h"><h2>Trang được xem nhiều</h2></div>
+        ${tbl(['Trang', 'Lượt xem', 'Khách'], r.pages.map((p) => [`<a href="${esc(site + p.key)}" target="_blank" rel="noopener">${esc(p.key)}</a>`, num(p.views), num(p.visitors)]))}</div>
+      <div class="panel"><div class="panel-h"><h2>Khách bấm gì</h2></div>
+        ${Charts.hbars(r.clicks.map((c) => ({ label: c.key, value: c.clicks })), { fmt: (v) => num(v) + ' lần', color: '#eb6834' })}
+        <div class="panel-h" style="margin-top:18px"><h2>Giờ truy cập</h2></div><div class="chart" id="tHours"></div></div>
+    </section>
+    <div class="panel"><div class="panel-h"><h2>Chiến dịch quảng cáo (utm_campaign)</h2><span class="panel-note">Có số liệu khi quảng cáo gắn tham số URL bên dưới</span></div>
+      ${tbl(['Chiến dịch', 'Khách', 'Lượt xem', 'Đơn', 'Tỉ lệ ra đơn', 'Doanh thu'], r.campaigns.map((s) => [esc(s.key), num(s.visitors), num(s.views), num(s.orders), rate(s.orders, s.visitors), money(s.revenue)]), 'Chưa có lượt vào từ link có utm_campaign')}</div>
+    <div class="panel"><div class="panel-h"><h2>Vừa truy cập</h2><span class="panel-note">40 lượt gần nhất</span></div>
+      ${r.recent.length ? `<div class="table-wrap"><table class="tbl traf-tbl"><thead><tr><th>Lúc</th><th>Việc</th><th>Trang / nút</th><th>Nguồn</th><th>Thiết bị</th></tr></thead><tbody>
+        ${r.recent.map((h) => `<tr${h.type === 'order' ? ' class="traf-order"' : ''}><td class="nowrap small">${dd(h.at)} ${esc(h.at.slice(11, 16))}</td>
+          <td class="small">${TYPE_TXT[h.type] || esc(h.type)}</td>
+          <td class="small">${h.type === 'order' ? `<b>${esc(h.order_code)}</b> · ${money(h.value)}` : esc(h.label || h.path)}</td>
+          <td class="small">${esc(h.source)}${h.campaign ? `<div class="cell-sub">${esc(h.campaign)}</div>` : ''}</td>
+          <td class="small">${esc(h.device)}<div class="cell-sub">${esc(h.os)} · ${esc(h.browser)}</div></td></tr>`).join('')}</tbody></table></div>`
+        : '<div class="empty sm">Chưa có lượt truy cập nào được ghi.</div>'}</div>
+
+    <div class="card" id="pxCard">
+      <h2 style="margin-top:0">Quảng cáo chuyển đổi (Facebook Pixel)</h2>
+      <p class="hint">Cài xong thì Facebook biết khách nào <b>đặt hàng</b> trên website, để chạy quảng cáo mục tiêu <b>Doanh số → Mua hàng</b>. Hướng dẫn từng bước: <code>docs/quang-cao-chuyen-doi.md</code>.</p>
+      <dl class="kv" style="margin:12px 0 14px">
+        <dt>Pixel</dt><dd>${px.pixel_id ? `<span class="badge st-da_giao">Đã gắn</span> ${esc(px.pixel_id)}` : '<span class="badge">Chưa gắn</span>'}</dd>
+        <dt>Conversions API</dt><dd>${px.capi ? '<span class="badge st-da_giao">Đã bật</span> máy chủ báo đơn cho Facebook' : '<span class="badge">Chưa bật</span> nên bật để Facebook nhận đủ đơn (iPhone, trình duyệt chặn quảng cáo)'}</dd>
+        ${px.last?.at ? `<dt>Lần gửi gần nhất</dt><dd>${esc(px.last.at)} · ${esc(px.last.event)} · ${px.last.ok ? '✓ Facebook đã nhận' : `<span class="neg">Lỗi: ${esc(px.last.error)}</span>`}</dd>` : ''}
+        ${px.test_code ? `<dt>Mã thử</dt><dd><span class="neg">Đang bật mã thử ${esc(px.test_code)}</span>: xóa khi kiểm tra xong, nếu không đơn gửi từ máy chủ chỉ hiện ở mục Kiểm tra sự kiện</dd>` : ''}
+      </dl>
+      <form class="form" id="pxf">
+        <label>Pixel ID (dãy số)<input name="fb_pixel_id" value="${esc(px.pixel_id)}" inputmode="numeric" placeholder="VD: 1234567890123456"></label>
+        <label>Mã thử sự kiện (chỉ khi đang kiểm tra)<input name="fb_test_code" value="${esc(px.test_code)}" placeholder="VD: TEST12345"></label>
+        <label class="full">Mã truy cập Conversions API ${px.capi ? '(đã lưu, để trống = giữ nguyên)' : ''}<input name="fb_capi_token" type="password" autocomplete="off" placeholder="${px.capi ? '••••••••  (đã lưu)' : 'Dán mã tạo trong Trình quản lý sự kiện → Cài đặt'}"></label>
+      </form>
+      <div class="actions"><button class="btn sec sm" id="pxOff" ${px.capi ? '' : 'hidden'}>Xóa mã Conversions API</button><span class="spacer"></span><button class="btn" id="pxSave">Lưu</button></div>
+      <h3 style="margin:18px 0 8px">Tham số URL cho quảng cáo</h3>
+      <p class="hint">Dán vào ô <b>Tham số URL</b> (URL parameters) của mỗi quảng cáo, để bảng "Nguồn" và "Chiến dịch" ở trên biết khách đến từ quảng cáo nào.</p>
+      <div class="copyrow"><label>Tham số URL<input readonly class="mono" value="${esc(utm)}"></label><button class="btn sec" data-cp="${esc(utm)}">Chép</button></div>
+      <div class="copyrow"><label>Link đích của quảng cáo<input readonly value="${esc(site)}/dat-hang"></label><button class="btn sec" data-cp="${esc(site)}/dat-hang">Chép</button></div>
+    </div>`;
+  rp.bind(body);
+
+  Charts.line($('#tDays', body), {
+    labels, titles: r.by_day.map((d) => dd(d.date)), height: 240, int: true, fmt: (v) => Charts.short(v), valueFmt: num,
+    series: [
+      { name: 'Khách truy cập', color: '#2a78d6', values: r.by_day.map((d) => d.visitors), area: true },
+      { name: 'Lượt xem', color: '#b8b6ae', values: r.by_day.map((d) => d.views) },
+      { name: 'Đơn', color: '#1baf7a', values: r.by_day.map((d) => d.orders) },
+    ],
+  });
+  Charts.bars($('#tHours', body), {
+    labels: r.by_hour.map((h) => h.hour + 'h'), titles: r.by_hour.map((h) => `${h.hour}h – ${h.hour + 1}h`), every: 3, int: true,
+    name: 'Lượt xem', values: r.by_hour.map((h) => h.views), color: '#2a78d6', fmt: (v) => num(v), valueFmt: (v) => num(v) + ' lượt xem', height: 160,
+  });
+  body.querySelectorAll('[data-cp]').forEach((b) => b.addEventListener('click', () => copyText(b.dataset.cp, b)));
+  const savePx = async (data, btn) => {
+    btn.disabled = true;
+    try { await api('PUT', '/api/site', data); toast('Đã lưu. Website cập nhật ngay.'); await webTraffic(body); } catch (err) { fail(err); btn.disabled = false; }
+  };
+  $('#pxSave', body).addEventListener('click', (e) => {
+    const d = formData($('#pxf', body));
+    if (!d.fb_capi_token) delete d.fb_capi_token;
+    savePx(d, e.currentTarget);
+  });
+  $('#pxOff', body).addEventListener('click', (e) => { if (confirm('Xóa mã Conversions API? Facebook sẽ chỉ nhận đơn qua Pixel trên trình duyệt.')) savePx({ fb_capi_token: '' }, e.currentTarget); });
+}
+
 VIEWS.website = async (root) => {
-  const TABS = { info: 'Thông tin shop', products: 'Sản phẩm', posts: 'Bài viết', policies: 'Chính sách' };
+  const TABS = { traffic: 'Truy cập & quảng cáo', info: 'Thông tin shop', products: 'Sản phẩm', posts: 'Bài viết', policies: 'Chính sách' };
   root.innerHTML = `
     <div class="toolbar page-title"><h1>Website</h1><span class="spacer"></span>
       <a class="btn sec sm" href="${esc(siteUrl())}" target="_blank" rel="noopener">Xem website ↗</a></div>
@@ -1246,6 +1364,7 @@ VIEWS.website = async (root) => {
   async function show() {
     const body = $('#wbody');
     body.innerHTML = '<div class="loading">Đang tải…</div>';
+    if (webState.tab === 'traffic') return webTraffic(body);
     if (webState.tab === 'posts') return showPosts(body);
     const { site, policies } = await api('GET', '/api/site');
     if (webState.tab === 'info') return showInfo(body, site);

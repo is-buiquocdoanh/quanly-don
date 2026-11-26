@@ -2,6 +2,82 @@
 (() => {
   const fmtMoney = (n) => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
 
+  // 0. Thống kê truy cập (gửi về trang quản lý đơn) + sự kiện Facebook Pixel (nếu shop đã cài Pixel)
+  const T = (() => {
+    const store = (st, k, v) => { try { if (v === undefined) return st.getItem(k); st.setItem(k, v); return v; } catch { return null; } };
+    const L = (k, v) => store(window.localStorage, k, v);
+    const S = (k, v) => store(window.sessionStorage, k, v);
+    const rid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    let isNew = 0;
+    let vid = L('qld_v');
+    if (!vid) { vid = L('qld_v', rid()) || ''; isNew = vid ? 1 : 0; } // trình duyệt chặn lưu → để trống, máy chủ tự tính
+    const sid = S('qld_s') || S('qld_s', rid()) || '';
+    // nguồn của phiên: lấy ở trang đầu tiên khách vào (trang dẫn tới + utm + fbclid)
+    let src = null;
+    try { src = JSON.parse(S('qld_src') || 'null'); } catch { src = null; }
+    if (!src) {
+      const q = new URLSearchParams(location.search);
+      src = {
+        r: document.referrer || '', us: q.get('utm_source') || '', um: q.get('utm_medium') || '', uc: q.get('utm_campaign') || '',
+        fb: q.has('fbclid') ? 1 : 0, g: q.has('gclid') ? 1 : 0, tt: q.has('ttclid') ? 1 : 0,
+        fbclid: (q.get('fbclid') || '').slice(0, 200), at: Date.now(),
+      };
+      S('qld_src', JSON.stringify(src));
+    }
+    const base = () => ({ v: vid, s: sid, p: location.pathname, u: location.href.split('#')[0].slice(0, 500), r: src.r, us: src.us, um: src.um, uc: src.uc, fb: src.fb, g: src.g, tt: src.tt });
+    function send(t, extra = {}) {
+      const body = JSON.stringify({ ...base(), t, n: t === 'view' ? isNew : 0, ...extra });
+      if (t === 'view') isNew = 0;
+      try {
+        if (navigator.sendBeacon && navigator.sendBeacon('/api/t', new Blob([body], { type: 'application/json' }))) return;
+      } catch { /* dùng fetch */ }
+      fetch('/api/t', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+    }
+    const fbq = (...a) => { try { if (typeof window.fbq === 'function') window.fbq(...a); } catch { /* bỏ qua */ } };
+    const cookie = (k) => (document.cookie.match(new RegExp('(?:^|; )' + k + '=([^;]*)')) || [])[1] || '';
+    // để gửi kèm đơn hàng (máy chủ báo Facebook bằng Conversions API, gộp với Pixel)
+    const forOrder = () => ({
+      _t: base(),
+      fbp: cookie('_fbp'),
+      fbc: cookie('_fbc') || (src.fbclid ? `fb.1.${src.at || Date.now()}.${src.fbclid}` : ''),
+    });
+    return { send, fbq, forOrder };
+  })();
+
+  T.send('view');
+  if (document.querySelector('[data-order-form]')) T.fbq('track', 'ViewContent', { content_name: 'Trứng sâu canxi hũ 35g', content_type: 'product', currency: 'VND', value: 130000 });
+
+  // lượt bấm: gọi điện, Zalo, Messenger, nút đặt hàng, chọn combo
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('a, button');
+    if (!el) return;
+    const href = el.getAttribute('href') || '';
+    let label = '';
+    let contact = false;
+    if (/^tel:/i.test(href)) { label = 'Gọi điện'; contact = true; }
+    else if (/zalo\.me|zalo\.vn/i.test(href)) { label = 'Chat Zalo'; contact = true; }
+    else if (/m\.me\/|messenger\.com/i.test(href)) { label = 'Nhắn Messenger'; contact = true; }
+    else if (/facebook\.com/i.test(href)) label = 'Mở fanpage';
+    else if (/tiktok\.com/i.test(href)) label = 'Mở TikTok';
+    else if (el.hasAttribute('data-pick-qty')) label = `Chọn combo ${el.getAttribute('data-pick-qty')} hũ`;
+    else if (el.hasAttribute('data-order-submit')) label = 'Bấm gửi đơn';
+    else if (/dat-hang/.test(href)) label = 'Nút Đặt hàng';
+    if (!label) return;
+    T.send('click', { l: label });
+    if (contact) T.fbq('track', 'Contact', { content_name: label });
+  }, true);
+
+  // bắt đầu điền form đặt hàng (1 lần mỗi trang)
+  document.querySelectorAll('[data-order-form]').forEach((f) => {
+    let started = false;
+    f.addEventListener('input', () => {
+      if (started) return;
+      started = true;
+      T.send('form');
+      T.fbq('track', 'InitiateCheckout', { currency: 'VND', content_type: 'product' });
+    });
+  });
+
   // 1. Hiệu ứng xuất hiện khi cuộn trang (Scroll Reveal)
   const reveals = document.querySelectorAll('[data-reveal]');
   if (reveals.length && 'IntersectionObserver' in window) {
@@ -227,6 +303,7 @@
         qty: parseInt(String(fd.get('qty') || '2'), 10) || 2,
         note: String(fd.get('note') || '').trim(),
         website: String(fd.get('website') || ''),
+        ...T.forOrder(),
       };
 
       if (payload.name.length < 2) { showError('Vui lòng nhập họ tên người nhận.'); form.querySelector('[name="name"]')?.focus(); return; }
@@ -249,6 +326,9 @@
           return;
         }
         const o = data.order;
+        if (!data.duplicate_recent) {
+          T.fbq('track', 'Purchase', { value: Number(o.total) || 0, currency: 'VND', num_items: Number(o.qty) || 1, content_name: o.product, content_type: 'product' }, { eventID: o.code });
+        }
         if (doneBox) {
           const set = (k, v) => { const el = doneBox.querySelector(`[data-done-${k}]`); if (el) el.textContent = v; };
           set('code', o.code);

@@ -6,6 +6,10 @@ Tra cứu: mỗi trang trên web làm được gì, dành cho ai. Cài đặt th
 
 Website công khai ở doanhwork.com (sản phẩm, trang trại, blog, chính sách), sửa ở mục **Website** trong web quản lý. Xem [Giai đoạn 9](9-website.md).
 
+- **Đặt hàng trên website** (`/dat-hang`): đơn vào thẳng Đơn hàng, page = **🌐 Website**.
+- **Truy cập & quảng cáo** (tab đầu của mục Website): khách truy cập, lượt xem, khách mới, nguồn (Quảng cáo Facebook, Facebook, Google, Zalo, Trực tiếp…), thiết bị (điện thoại / máy tính), hệ điều hành, trình duyệt / trong app Facebook, trang xem nhiều, lượt bấm (Gọi, Zalo, Messenger, nút Đặt), phễu đặt hàng, giờ truy cập, chiến dịch (utm_campaign), 40 lượt gần nhất. Tự đếm, không tính bot, không lưu IP, giữ 400 ngày.
+- **Facebook Pixel + Conversions API**: dán Pixel ID và mã Conversions API ở cùng tab để chạy quảng cáo chuyển đổi (sự kiện Mua hàng kèm giá trị đơn). Hướng dẫn: [quang-cao-chuyen-doi.md](quang-cao-chuyen-doi.md).
+
 ## Các trang trên web
 
 | Trang | Ai dùng | Chức năng |

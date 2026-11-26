@@ -49,7 +49,11 @@ const DEFAULT_POLICIES = {
 - Khi bạn nhắn tin cho fanpage: nội dung tin nhắn và mã người gửi do Facebook cung cấp, để trả lời và tạo đơn.
 
 ## Chúng tôi dùng thông tin để làm gì
-Chỉ để xác nhận, đóng gói, giao đơn hàng, chăm sóc khách và trả lời câu hỏi. **Không bán, không chia sẻ cho bên thứ ba**, không dùng cho quảng cáo. Đơn vị vận chuyển chỉ nhận tên, số điện thoại, địa chỉ để giao hàng.
+Chỉ để xác nhận, đóng gói, giao đơn hàng, chăm sóc khách và trả lời câu hỏi. **Không bán thông tin của bạn.** Đơn vị vận chuyển chỉ nhận tên, số điện thoại, địa chỉ để giao hàng.
+
+## Thống kê truy cập và quảng cáo
+- Website tự đếm lượt xem trang (loại thiết bị, trình duyệt, trang được xem, bạn đến từ đâu) để cải thiện website. Không lưu địa chỉ IP.
+- Website có thể dùng Meta Pixel (Facebook) để đo hiệu quả quảng cáo. Khi bạn đặt hàng, Facebook nhận thông báo "có đơn hàng" kèm giá trị đơn và số điện thoại đã được mã hóa một chiều (Facebook không đọc được số gốc). Bạn có thể tắt theo dõi bằng cách chặn cookie bên thứ ba trong trình duyệt.
 
 ## Quyền truy cập Facebook / Google
 - Ứng dụng nhắn tin chỉ đọc và trả lời tin nhắn gửi tới fanpage của cửa hàng.
@@ -242,7 +246,7 @@ export function getSite() {
 }
 
 const TEXT_FIELDS = ['brand', 'tagline', 'hero_text', 'hero_image', 'logo', 'phone', 'zalo', 'messenger', 'fanpage', 'tiktok',
-  'email', 'address', 'map_url', 'business_name', 'business_no', 'tax_code'];
+  'email', 'address', 'map_url', 'business_name', 'business_no', 'tax_code', 'fb_pixel_id', 'fb_capi_token', 'fb_test_code'];
 
 // Chỉ lưu những mục chủ shop đã sửa (không chép cả nội dung mặc định), để sau này cập nhật nội dung mặc định
 // trong code thì các mục chưa sửa tự nhận bản mới.
@@ -252,6 +256,12 @@ export function saveSite(input) {
   const next = saved;
   for (const k of TEXT_FIELDS) if (k in input) next[k] = str(input[k], k === 'hero_text' ? 600 : 300);
   for (const k of ['farm', 'usage']) if (k in input) next[k] = str(input[k], 20000);
+  if ('fb_pixel_id' in input) {
+    next.fb_pixel_id = String(input.fb_pixel_id || '').replace(/\s/g, '');
+    if (next.fb_pixel_id && !/^\d{8,20}$/.test(next.fb_pixel_id)) throw bad('Pixel ID là dãy số (15–16 số) lấy trong Trình quản lý sự kiện của Facebook');
+  }
+  if ('fb_capi_token' in input) next.fb_capi_token = String(input.fb_capi_token || '').replace(/\s/g, '').slice(0, 400);
+  if ('fb_test_code' in input) next.fb_test_code = String(input.fb_test_code || '').replace(/[^\w]/g, '').slice(0, 40);
   if (Array.isArray(input.products)) {
     next.products = input.products.slice(0, 20).map((p) => ({
       name: str(p.name, 120), spec: str(p.spec, 120), price: toInt(p.price), image: str(p.image, 300), desc: str(p.desc, 1000),

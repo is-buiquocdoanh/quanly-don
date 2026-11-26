@@ -12,6 +12,7 @@ import { HttpError, hashPassword, randomToken, nowVN, todayVN } from './util.js'
 import { verifyWebhook, checkSignature, saveEvents, logProblem } from './meta.js';
 import { renderSite } from './site/render.js';
 import { createPublicOrder } from './site/order.js';
+import { recordHit } from './site/stats.js';
 import { uploadFile, UPLOAD_MIME } from './site/uploads.js';
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -171,13 +172,25 @@ async function serveSite(req, res, url, host, proto) {
       } else {
         throw new HttpError(415, 'Định dạng không được hỗ trợ');
       }
-      const result = createPublicOrder(body, ip);
+      const result = createPublicOrder(body, ip, { ua: String(req.headers['user-agent'] || ''), host });
       send(res, 200, { ok: true, ...result });
     } catch (e) {
       const status = e instanceof HttpError ? e.status : 500;
       if (status === 500) console.error(e);
       send(res, status, { ok: false, error: status === 500 ? 'Hệ thống đang bận, vui lòng thử lại sau hoặc gọi trực tiếp cho shop.' : e.message });
     }
+    return;
+  }
+  // nhịp thống kê truy cập (trang web gửi bằng sendBeacon); luôn trả 204, không lộ lỗi
+  if (req.method === 'POST' && pathname === '/api/t') {
+    const ip = req.headers['cf-connecting-ip'] || String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
+    try {
+      const raw = await readBody(req, 4096);
+      const t = JSON.parse(raw || '{}');
+      if (t && typeof t === 'object' && t.t !== 'order') recordHit(t, { ip, ua: String(req.headers['user-agent'] || ''), host });
+    } catch { /* bỏ qua nhịp hỏng */ }
+    res.writeHead(204, { 'Cache-Control': 'no-store' });
+    res.end();
     return;
   }
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { Allow: 'GET, HEAD' }); res.end(); return; }

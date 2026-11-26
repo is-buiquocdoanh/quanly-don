@@ -11,6 +11,7 @@ import { listKho, khoIdOrNull, adoptUnassigned, khoName } from './kho.js';
 import { aiEnabled, aiParse } from './ai.js';
 import { getSite, saveSite, POLICIES, POST_CATEGORIES, listPosts, getPost, savePost, deletePost } from './site/content.js';
 import { markdown } from './site/markdown.js';
+import { siteStats } from './site/stats.js';
 import { saveUpload, listUploads } from './site/uploads.js';
 import { metaStatus, listEvents, sendTest, tokenPage, seenPages, pageSubscriptions, subscribePage } from './meta.js';
 import { forKho, getOrder, markZaloSent, orderText, zaloPhone } from './orders.js';
@@ -306,6 +307,7 @@ add('DELETE', '/api/users/:id', 'admin', ({ params, user }) => {
 
 add('GET', '/api/site', 'admin', () => ({ site: getSite(), policies: POLICIES }));
 add('PUT', '/api/site', 'admin', ({ body }) => ({ site: saveSite(body) }));
+add('GET', '/api/site/stats', 'admin', ({ query }) => siteStats(String(query.from || ''), String(query.to || '')));
 add('GET', '/api/posts', 'admin', () => ({ posts: listPosts({ all: true, limit: 500 }), categories: POST_CATEGORIES }));
 add('GET', '/api/posts/:id', 'admin', ({ params }) => {
   const p = getPost(toInt(params.id));
