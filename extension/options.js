@@ -98,5 +98,9 @@ document.addEventListener('keydown', (e) => {
   const k = recording;
   recording = null;
   keyMsg('');
-  chrome.storage.sync.set({ [k]: c });
+  // đổi phím mở khung sang phím khác → tắt "Ctrl+C tự mở khung", để khung chỉ hiện khi nhấn đúng phím đã đặt
+  if (k === 'openKey' && c !== Keys.DEFAULTS.openKey) {
+    chrome.storage.sync.set({ [k]: c, copyOpens: false });
+    keyMsg(`Đã đặt ${Keys.label(c)} — Ctrl+C không còn tự mở khung (bật lại ở công tắc trên nếu muốn)`);
+  } else chrome.storage.sync.set({ [k]: c });
 }, true);

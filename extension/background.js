@@ -47,6 +47,16 @@ async function init() {
   showState(enabled);
 }
 chrome.runtime.onInstalled.addListener(init);
+
+// bản cũ: đã đổi phím mở khung nhưng Ctrl+C vẫn mở → khi cập nhật, tắt Ctrl+C một lần cho người đã đổi phím
+chrome.runtime.onInstalled.addListener(async ({ reason }) => {
+  if (reason !== 'update') return;
+  const { copyOpensFixed } = await chrome.storage.local.get('copyOpensFixed');
+  if (copyOpensFixed) return;
+  chrome.storage.local.set({ copyOpensFixed: true });
+  const { openKey, copyOpens } = await chrome.storage.sync.get({ openKey: 'Alt+S', copyOpens: true });
+  if (copyOpens && openKey !== 'Alt+S') chrome.storage.sync.set({ copyOpens: false });
+});
 chrome.runtime.onStartup.addListener(init);
 init();
 
