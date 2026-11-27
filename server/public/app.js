@@ -1567,11 +1567,11 @@ VIEWS.finance = async (root) => {
     for (const c of r.cells) val[c.date + '|' + c.page] = c.amount;
     const dates = [];
     for (let d = end; d >= from && dates.length < 62; d = addDays(d, -1)) dates.push(d);
-    box.innerHTML = `<div class="table-wrap flat ads-wrap"><table class="ads-t"><thead><tr><th>Ngày</th>${pages.map((p) => `<th class="right">${esc(p || PAGE0)}</th>`).join('')}<th class="right">Tổng ngày</th><th></th></tr></thead>
+    box.innerHTML = `<div class="table-wrap flat ads-wrap"><table class="ads-t"><thead><tr><th>Ngày</th>${pages.map((p) => `<th class="right"><div class="ads-th" title="${esc(p || PAGE0)}">${esc(p || PAGE0)}</div></th>`).join('')}<th class="right ads-sum-col">Tổng ngày</th><th class="ads-act"></th><th class="ads-fill"></th></tr></thead>
       <tbody>${dates.map((d) => `<tr data-d="${d}"><td class="nowrap"><b>${WD[new Date(d + 'T00:00:00Z').getUTCDay()]}</b> ${dd(d)}${d === S.today ? ' <span class="badge st-da_giao">Hôm nay</span>' : ''}</td>
         ${pages.map((p, i) => `<td class="right"><input class="ads-in" data-p="${esc(p)}" data-c="${i}" inputmode="numeric" placeholder="—" value="${val[d + '|' + p] ? num(val[d + '|' + p]) : ''}"></td>`).join('')}
-        <td class="right nowrap ads-sum"></td><td>${d > from ? '<button class="btn sm sec ads-copy" title="Chép số của ngày hôm trước vào các ô còn trống">⇣</button>' : ''}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td>Cả kỳ</td>${pages.map((_, i) => `<td class="right nowrap" data-tc="${i}"></td>`).join('')}<td class="right nowrap" id="adsAll"></td><td></td></tr></tfoot></table></div>
+        <td class="right nowrap ads-sum ads-sum-col"></td><td class="ads-act">${d > from ? '<button class="btn sm sec ads-copy" title="Chép số của ngày hôm trước vào các ô còn trống">⇣</button>' : ''}</td><td class="ads-fill"></td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>Cả kỳ</td>${pages.map((_, i) => `<td class="right nowrap" data-tc="${i}"></td>`).join('')}<td class="right nowrap ads-sum-col" id="adsAll"></td><td class="ads-act"></td><td class="ads-fill"></td></tr></tfoot></table></div>
       ${dates.length === 62 ? '<p class="muted small">Chỉ hiện 62 ngày gần nhất của kỳ. Chọn kỳ ngắn hơn để xem ngày cũ.</p>' : ''}`;
     sumAds();
   }

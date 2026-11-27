@@ -664,10 +664,17 @@ textarea.md { width: 100%; font: 14px/1.6 ui-monospace, SFMono-Regular, Consolas
 .ads-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 12px; }
 .ads-h h2 { margin: 0; }
 .ads-wrap { max-height: 460px; overflow: auto; }
-.ads-t th, .ads-t td { padding: 6px 12px; vertical-align: middle; }
-.ads-t thead th { position: sticky; top: 0; z-index: 1; background: #f9fafb; }
-.ads-t tfoot td { position: sticky; bottom: 0; background: #f9fafb; font-weight: 700; border-top: 1px solid var(--line-2); }
-.ads-in { width: 120px; text-align: right; padding: 6px 10px; box-shadow: none; font-variant-numeric: tabular-nums; transition: background .3s, border-color .3s; }
+.card .ads-t th, .card .ads-t td { padding: 6px 6px; vertical-align: middle; width: 1%; }
+.card .ads-t th:first-child, .card .ads-t td:first-child { padding-right: 12px; }
+.card .ads-t .ads-sum-col { padding-left: 12px; padding-right: 8px; }
+.card .ads-t .ads-act { padding-left: 4px; padding-right: 16px; }
+.table-wrap.flat .ads-t .ads-fill { width: auto; padding: 0; }
+.card .ads-t thead th { position: sticky; top: 0; z-index: 2; background: #f9fafb; vertical-align: bottom; }
+.ads-t tfoot td { position: sticky; bottom: 0; z-index: 2; background: #f9fafb; font-weight: 700; border-top: 1px solid var(--line-2); }
+.ads-t th:first-child, .ads-t td:first-child { position: sticky; left: 0; background: var(--card); z-index: 1; }
+.card .ads-t thead th:first-child, .card .ads-t tfoot td:first-child { background: #f9fafb; z-index: 3; }
+.ads-th { width: 112px; white-space: normal; line-height: 1.3; margin-left: auto; word-break: break-word; }
+.ads-in { width: 112px; text-align: right; padding: 6px 8px; box-shadow: none; font-variant-numeric: tabular-nums; transition: background .3s, border-color .3s; }
 .ads-in::placeholder { color: var(--faint); }
 .ads-in.ok { border-color: var(--brand); background: var(--brand-soft); }
 .ads-in.bad { border-color: var(--bad); background: var(--bad-soft); }
