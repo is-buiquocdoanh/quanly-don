@@ -150,6 +150,9 @@ td.addr { max-width: 320px; }
 .cell-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .card table td { padding-left: 0; }
 .card table td:last-child { padding-right: 0; }
+/* bảng có viền (table-wrap thường) trong card: giữ lề như tiêu đề, chữ không dính sát khung */
+.card .table-wrap:not(.flat) td { padding-left: 16px; }
+.card .table-wrap:not(.flat) td:last-child { padding-right: 16px; }
 .tbl th, .tbl td { padding-left: 10px; padding-right: 10px; }
 .inbar { position: relative; min-width: 110px; height: 26px; display: flex; align-items: center; }
 .inbar span { position: absolute; left: 0; top: 3px; bottom: 3px; background: #dbeafe; border-radius: 4px; }
