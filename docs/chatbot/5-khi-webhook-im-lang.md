@@ -9,7 +9,7 @@ Thẻ Messenger trên web ghi lại **mọi lần Meta gọi tới**, kể cả 
 | Web hiện | Nghĩa là | Làm gì |
 |---|---|---|
 | **Không có dòng nào mới** | Meta không gọi tới server | Sang 5.2 |
-| **⚠ Bị từ chối** | Meta có gọi, nhưng chữ ký sai: `META_APP_SECRET` không phải của app này | Lấy lại khóa bí mật ([Bước 1.3](1-tao-app-lay-ma.md#13-lấy-3-mã)), `docker compose up -d` |
+| **⚠ Bị từ chối** | Meta có gọi, nhưng chữ ký sai: `META_APP_SECRET` không phải của app này | Lấy lại khóa bí mật ([Bước 1.3](1-tao-app-lay-ma.md#13-lấy-3-mã)), dán vào web → Messenger → Nhập / đổi mã Meta |
 | **Khách nhắn (standby)** | Meta có gọi, nhưng app khác (Pancake…) đang giữ quyền trả lời | Gỡ app kia ([Giai đoạn 8](../8-messenger.md#gỡ-pancake-hoặc-công-cụ-inbox-cũ-khỏi-page)) |
 | **Khách nhắn** | Chiều nhận chạy đúng | Nếu lỗi ở lúc trả lời: sang 5.4 |
 
@@ -35,7 +35,7 @@ Dán `META_PAGE_TOKEN` vào https://developers.facebook.com/tools/debug/accessto
 |---|---|
 | App ID là app khác | Tạo lại mã Trang trong đúng app đang nhận webhook |
 | Trang khác Trang khách nhắn vào | Tạo mã cho đúng Trang. Lỗi trả lời `#100 (2018001)` là do chỗ này |
-| Mã hết hạn / không hợp lệ | Tạo mã mới, thay vào `.env`, `docker compose up -d` |
+| Mã hết hạn / không hợp lệ | Tạo mã mới, dán vào ô `META_PAGE_TOKEN` trên web → Lưu mã |
 | Thiếu `pages_messaging` | Tạo lại mã, bật đủ quyền trong cửa sổ hỏi quyền |
 
 ## Vẫn kẹt?

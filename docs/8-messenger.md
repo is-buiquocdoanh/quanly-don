@@ -14,25 +14,19 @@ Vào https://developers.facebook.com → **Ứng dụng của tôi** → **trung
 
 | Mã | Lấy ở đâu |
 |---|---|
-| `META_VERIFY_TOKEN` | Tự đặt một chuỗi khó đoán, ví dụ chạy `openssl rand -hex 16` trên server |
+| `META_VERIFY_TOKEN` | Tự đặt một chuỗi khó đoán (chữ + số, khoảng 20–30 ký tự) |
 | `META_APP_SECRET` | **Cài đặt ứng dụng → Thông tin cơ bản → Khóa bí mật của ứng dụng** → Hiển thị |
 | `META_PAGE_TOKEN` | **Messenger → Cài đặt API Messenger** → mục *Mã truy cập*: chọn page → **Tạo mã** |
 
-Thêm vào `~/apps/quanly-don/.env` trên server rồi khởi động lại web:
-```bash
-cd ~/apps/quanly-don
-nano .env                      # thêm 3 dòng META_VERIFY_TOKEN=…, META_APP_SECRET=…, META_PAGE_TOKEN=…
-docker compose up -d           # nạp lại .env
-```
-Vào web → mục **Messenger** (menu bên trái): 3 mã phải hiện dấu ✓.
+Vào web → mục **Messenger** → **Nhập / đổi mã Meta** → dán 3 mã → **Lưu mã**. Có hiệu lực ngay, không cần SSH hay khởi động lại. 3 mã phải hiện dấu ✓. Mã chỉ nhập trên web, không đặt trong `.env`.
 
-> Ba mã này là bí mật: không gửi qua chat, không đưa lên GitHub (`.env` đã được git bỏ qua).
+> Ba mã này là bí mật: không gửi qua chat, không chụp màn hình gửi đi.
 
 ## 2. Nối webhook với web
 
 1. Meta → **Webhooks** → chọn **Page** ở cột trái.
 2. **URL gọi lại**: `https://don.doanhwork.com/api/meta/webhook` (copy ở mục **Messenger** của web).
-3. **Xác minh mã**: dán đúng `META_VERIFY_TOKEN` → **Xác minh và lưu**. Báo lỗi thì xem lại bước 1 (đã `docker compose up -d` chưa).
+3. **Xác minh mã**: dán đúng `META_VERIFY_TOKEN` → **Xác minh và lưu**. Báo lỗi thì xem lại bước 1 (đã bấm **Lưu mã** chưa).
 4. Kéo xuống danh sách trường, tìm **messages** → bật **Đăng ký**.
 5. **Messenger → Cài đặt API Messenger** → mục *Webhooks*: ở dòng page, bấm **Thêm gói đăng ký** và tick **messages**.
 
@@ -59,9 +53,9 @@ Những lỗi đã gặp thật khi cài cho page của shop (24/11/2026):
 
 | Hiện tượng | Nguyên nhân | Cách sửa |
 |---|---|---|
-| Meta báo *"Không thể xác thực URL gọi lại hoặc mã xác minh"* | `META_VERIFY_TOKEN` trên server khác chuỗi dán ở Meta | Trên server: `docker exec quanly-don printenv META_VERIFY_TOKEN` phải ra đúng chuỗi đó. Trong `.env` chỉ 1 dòng, không ngoặc kép, không ghi chú cùng dòng |
+| Meta báo *"Không thể xác thực URL gọi lại hoặc mã xác minh"* | `META_VERIFY_TOKEN` trên server khác chuỗi dán ở Meta | Web → Messenger → **Nhập / đổi mã Meta**: dán lại đúng chuỗi đó vào ô `META_VERIFY_TOKEN` → Lưu mã, rồi bấm Xác minh lại ở Meta |
 | Bấm **Thử nghiệm** thì web hiện *Tin mẫu*, nhưng nhắn thật vào page thì không thấy gì | Page **chưa đăng ký** nhận tin cho app, hoặc page đang bị **app khác giữ quyền chính** (ở shop này là **Pancake** dùng trước đây) | Gỡ Pancake (xem bên dưới), rồi Meta → Messenger → Cài đặt API Messenger → **2. Tạo mã truy cập** → dòng page → **Thêm đăng ký** → tick `messages`, `messaging_postbacks`, `message_echoes` → **Confirm** |
-| Web hiện dòng **⚠ Bị từ chối** | `META_APP_SECRET` sai | Copy lại *Khóa bí mật của ứng dụng* (Cài đặt ứng dụng → Thông tin cơ bản) vào `.env` trên server → `docker compose up -d` |
+| Web hiện dòng **⚠ Bị từ chối** | `META_APP_SECRET` sai | Copy lại *Khóa bí mật của ứng dụng* (Cài đặt ứng dụng → Thông tin cơ bản) vào ô `META_APP_SECRET` trên web (Messenger → Nhập / đổi mã Meta) → Lưu mã |
 | Web hiện **Khách nhắn (standby)** | Một app khác (Pancake, Botcake, ManyChat…) đang là **ứng dụng nhận tin chính** của page; app này chỉ được xem | Gỡ app kia, hoặc Business Suite → Cài đặt → Hộp thư / Nhắn tin nâng cao → *Ứng dụng nhận tin chính* = **trungsau_canxi** |
 | **Trả lời thử** báo *(#100) Không tìm thấy người dùng phù hợp (2018001)* | Mã người nhắn là **theo từng page**: người đó nhắn vào page A, còn `META_PAGE_TOKEN` là mã của page B | Thẻ Messenger có cột **Page** và dòng *"Mã page đang dùng là của…"*: đặt `META_PAGE_TOKEN` của đúng page có tin |
 | Nút **Kiểm tra page đăng ký nhận tin** báo *(#200) Requires pages_manage_metadata* | Mã page thiếu quyền `pages_manage_metadata` | Xét duyệt ứng dụng → Quyền và tính năng → thêm `pages_manage_metadata` (Standard access) → **tạo lại** mã page → thay `META_PAGE_TOKEN`. Nút này chỉ để tiện kiểm tra, không bắt buộc |

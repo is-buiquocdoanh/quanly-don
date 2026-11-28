@@ -1,8 +1,8 @@
 // Messenger webhook — BẢN THỬ NGHIỆM: chỉ nhận + lưu tin nhắn Meta gửi tới, và gửi được 1 tin trả lời thử bằng tay.
 // Mục đích: kiểm tra app Meta (Standard access) có nhận / trả lời được KHÁCH THẬT không, trước khi làm chatbot.
 //
-// Cấu hình: nhập trên web (Messenger → Mã Meta, lưu trong bảng meta_secrets) hoặc trong .env của server.
-// Mã nhập trên web được ưu tiên; ô bỏ trống thì dùng .env:
+// Cấu hình: chỉ nhập trên web (Messenger → Nhập / đổi mã Meta), lưu trong bảng meta_secrets — không đọc .env.
+// (Bản cũ đọc .env: lần khởi động đầu tiên của bản này tự chép mã trong .env sang bảng, 1 lần duy nhất.)
 //   META_VERIFY_TOKEN  chuỗi tự đặt, dán giống hệt vào ô "Xác minh mã" ở Meta → Webhooks
 //   META_APP_SECRET    Meta → Cài đặt ứng dụng → Thông tin cơ bản → Khóa bí mật của ứng dụng (để kiểm tra chữ ký)
 //   META_PAGE_TOKEN    mã truy cập của page (Messenger → Cài đặt API → Tạo mã), để gửi tin trả lời thử
@@ -27,16 +27,20 @@ CREATE INDEX IF NOT EXISTS idx_meta_events_at ON meta_events(id DESC);
 db.exec('CREATE TABLE IF NOT EXISTS meta_secrets (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
 const KEYS = { verify_token: 'META_VERIFY_TOKEN', app_secret: 'META_APP_SECRET', page_token: 'META_PAGE_TOKEN' };
 const saved = (k) => (db.prepare('SELECT value FROM meta_secrets WHERE key = ?').get(k)?.value || '').trim();
-const env = (k) => saved(k) || (process.env[k] || '').trim();
-const source = (k) => (saved(k) ? 'web' : (process.env[k] || '').trim() ? 'env' : '');
+const env = saved;
+const putSecret = db.prepare('INSERT INTO meta_secrets(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+if (!saved('_env_imported')) {
+  for (const k of Object.values(KEYS)) if (!saved(k) && (process.env[k] || '').trim()) putSecret.run(k, process.env[k].trim());
+  putSecret.run('_env_imported', '1');
+}
 
-/** Lưu mã nhập trên web. Ô bỏ trống = giữ nguyên; clear: ['app_secret'…] = xóa mã đã lưu trên web (quay về .env). */
+/** Lưu mã nhập trên web. Ô bỏ trống = giữ nguyên; clear: ['app_secret'…] = xóa mã đó. */
 export function saveMetaConfig(body = {}) {
   for (const [f, k] of Object.entries(KEYS)) {
     const v = String(body[f] ?? '').replace(/\s+/g, '');
     if (v) {
       if (v.length > 1000) throw bad(`${k} quá dài`);
-      db.prepare('INSERT INTO meta_secrets(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(k, v);
+      putSecret.run(k, v);
     } else if ((body.clear || []).includes(f)) db.prepare('DELETE FROM meta_secrets WHERE key = ?').run(k);
   }
   tokenPageCache = null;
@@ -50,8 +54,7 @@ export function metaStatus() {
     verify_token: !!env('META_VERIFY_TOKEN'),
     app_secret: !!env('META_APP_SECRET'),
     page_token: !!env('META_PAGE_TOKEN'),
-    // mã đang lấy từ đâu ('web' | 'env' | '') + 4 ký tự cuối để nhận ra, không lộ cả mã
-    source: Object.fromEntries(Object.entries(KEYS).map(([f, k]) => [f, source(k)])),
+    // 4 ký tự cuối để nhận ra mã nào đang dùng, không lộ cả mã
     tail: Object.fromEntries(Object.entries(KEYS).map(([f, k]) => [f, env(k) ? '…' + env(k).slice(-4) : ''])),
   };
 }
@@ -111,7 +114,7 @@ const WANT_FIELDS = ['messages', 'messaging_postbacks', 'message_echoes', 'stand
 /** Page (của META_PAGE_TOKEN) đang đăng ký những app nào, nhận những trường nào. */
 export async function pageSubscriptions() {
   const token = env('META_PAGE_TOKEN');
-  if (!token) throw bad('Server chưa đặt META_PAGE_TOKEN');
+  if (!token) throw bad('Chưa nhập META_PAGE_TOKEN (web → Messenger → Nhập / đổi mã Meta)');
   const [r, app] = await Promise.all([graph('GET', 'me/subscribed_apps', token), graph('GET', 'app?fields=id,name', token).catch(() => ({}))]);
   return {
     app: { id: String(app.id || ''), name: app.name || '' },  // app của mã page = app này
@@ -123,7 +126,7 @@ export async function pageSubscriptions() {
 /** Đăng ký page nhận tin cho app (giống bấm "Thêm đăng ký" trên Meta). */
 export async function subscribePage() {
   const token = env('META_PAGE_TOKEN');
-  if (!token) throw bad('Server chưa đặt META_PAGE_TOKEN');
+  if (!token) throw bad('Chưa nhập META_PAGE_TOKEN (web → Messenger → Nhập / đổi mã Meta)');
   await graph('POST', `me/subscribed_apps?subscribed_fields=${WANT_FIELDS.join(',')}`, token);
   return pageSubscriptions();
 }
@@ -136,7 +139,7 @@ export function seenPages() {
 /** GET: Meta gọi 1 lần khi bấm "Xác minh và lưu" → trả lại hub.challenge nếu đúng mã. */
 export function verifyWebhook(query) {
   const token = env('META_VERIFY_TOKEN');
-  if (!token) throw new HttpError(503, 'Server chưa đặt META_VERIFY_TOKEN');
+  if (!token) throw new HttpError(503, 'Chưa nhập META_VERIFY_TOKEN (web → Messenger → Nhập / đổi mã Meta)');
   if (query['hub.mode'] === 'subscribe' && query['hub.verify_token'] === token) {
     logProblem('verify', 'Meta xác minh URL webhook: thành công (app vừa bấm "Xác minh và lưu" đã trỏ về server này)');
     return String(query['hub.challenge'] || '');
@@ -148,7 +151,7 @@ export function verifyWebhook(query) {
 /** Kiểm tra chữ ký X-Hub-Signature-256 = HMAC-SHA256(raw body, app secret). */
 export function checkSignature(raw, header) {
   const secret = env('META_APP_SECRET');
-  if (!secret) throw new HttpError(503, 'Server chưa đặt META_APP_SECRET');
+  if (!secret) throw new HttpError(503, 'Chưa nhập META_APP_SECRET (web → Messenger → Nhập / đổi mã Meta)');
   const want = 'sha256=' + crypto.createHmac('sha256', secret).update(raw, 'utf8').digest('hex');
   const got = String(header || '');
   if (got.length !== want.length || !crypto.timingSafeEqual(Buffer.from(got), Buffer.from(want))) {
@@ -202,7 +205,7 @@ export function listEvents(limit = 50) {
 /** Gửi 1 tin trả lời thử tới người đã nhắn (trong 24 giờ kể từ tin cuối của họ). */
 export async function sendTest(senderId, text) {
   const token = env('META_PAGE_TOKEN');
-  if (!token) throw bad('Server chưa đặt META_PAGE_TOKEN');
+  if (!token) throw bad('Chưa nhập META_PAGE_TOKEN (web → Messenger → Nhập / đổi mã Meta)');
   if (!/^\d{5,30}$/.test(String(senderId || ''))) throw bad('Người nhận không hợp lệ');
   const res = await fetch(`${GRAPH}/me/messages?access_token=${encodeURIComponent(token)}`, {
     method: 'POST',

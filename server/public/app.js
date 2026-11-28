@@ -2145,13 +2145,13 @@ async function metaCard() {
         ${[['verify_token', 'META_VERIFY_TOKEN', 'Chuỗi tự đặt, dán giống hệt vào ô "Xác minh mã" ở Meta → Webhooks'],
            ['app_secret', 'META_APP_SECRET', 'Cài đặt ứng dụng → Thông tin cơ bản → Khóa bí mật của ứng dụng'],
            ['page_token', 'META_PAGE_TOKEN', 'Messenger → Cài đặt API Messenger → Tạo mã (của page)']].map(([f, k, hint]) => {
-          const src = r.status.source?.[f];
-          const now = src ? `đang dùng ${esc(r.status.tail[f])} (${src === 'web' ? 'nhập trên web' : 'từ .env'})` : 'chưa có';
+          const src = r.status[f];
+          const now = src ? `đang dùng ${esc(r.status.tail[f])}` : 'chưa có';
           return `<label class="full">${k} <span class="muted small">· ${now}</span>
             <input type="password" name="${f}" placeholder="${src ? 'Để trống = giữ mã đang dùng' : 'Dán mã vào đây'}" spellcheck="false">
-            <span class="muted small">${hint}${src === 'web' ? ` · <a href="#" data-clear="${f}">xóa mã trên web</a>` : ''}</span></label>`;
+            <span class="muted small">${hint}${src ? ` · <a href="#" data-clear="${f}">xóa mã này</a>` : ''}</span></label>`;
         }).join('')}
-        <div class="actions full"><button class="btn sm" type="submit">Lưu mã</button><span class="muted small">Mã chỉ lưu trên server, không hiện lại đầy đủ. Nhập trên web được ưu tiên hơn .env.</span></div>
+        <div class="actions full"><button class="btn sm" type="submit">Lưu mã</button><span class="muted small">Mã chỉ lưu trên server, không hiện lại đầy đủ.</span></div>
       </form>
     </details>
     ${tp ? (tp.error ? `<div class="warn">META_PAGE_TOKEN không dùng được: ${esc(tp.error)}</div>` : `<div class="small" style="margin:4px 0;line-height:1.7">
@@ -2159,7 +2159,7 @@ async function metaCard() {
       ${tp.id ? `<div>Của page: <b>${esc(tp.name || '(không đọc được tên)')}</b> <span class="mono muted">(${esc(tp.id)})</span></div>` : ''}
       ${tp.scopes ? `<div>Quyền của mã: ${tp.scopes.map((x) => `<span class="badge${x === 'pages_messaging' ? ' st-da_giao' : ''}">${esc(x)}</span>`).join(' ')}</div>` : ''}
       </div>
-      ${tp.secret_ok === false ? `<div class="warn">META_APP_SECRET trên server <b>không phải khóa bí mật của app ${esc(tp.app?.name || '')}</b>. Meta sẽ ký tin nhắn bằng khóa của app này nên web sẽ từ chối hết. Copy lại khóa ở Cài đặt ứng dụng → Thông tin cơ bản của đúng app này.</div>` : ''}
+      ${tp.secret_ok === false ? `<div class="warn">META_APP_SECRET đã nhập <b>không phải khóa bí mật của app ${esc(tp.app?.name || '')}</b>. Meta sẽ ký tin nhắn bằng khóa của app này nên web sẽ từ chối hết. Copy lại khóa ở Cài đặt ứng dụng → Thông tin cơ bản của đúng app này rồi dán vào ô bên trên.</div>` : ''}
       ${tp.valid === false ? '<div class="warn">Mã page đã hết hạn hoặc bị thu hồi. Tạo mã mới ở Messenger → Cài đặt API.</div>' : ''}
       ${tp.scopes && !tp.scopes.includes('pages_messaging') ? '<div class="warn">Mã page <b>thiếu quyền pages_messaging</b> nên không gửi được tin. Tạo lại mã và cho phép quyền nhắn tin.</div>' : ''}`) : ''}
     ${other.length ? `<div class="warn soft">Có tin đến từ page khác với page của mã (${other.map((p) => `<span class="mono">${esc(p.page_id)}</span>: ${p.n} tin`).join(', ')}). Mã người nhắn chỉ dùng được với đúng page họ nhắn vào, nên "Trả lời thử" các tin đó sẽ báo lỗi (#100). Muốn thử page nào thì đặt META_PAGE_TOKEN của page đó.</div>` : ''}
@@ -2179,7 +2179,7 @@ async function metaCard() {
   });
   box.querySelectorAll('[data-clear]').forEach((a) => a.addEventListener('click', async (e) => {
     e.preventDefault();
-    if (!confirm('Xóa mã này trên web? (nếu .env có mã thì sẽ dùng mã trong .env)')) return;
+    if (!confirm('Xóa mã này? Messenger sẽ ngừng chạy cho tới khi nhập mã mới.')) return;
     try { await api('PUT', '/api/meta/config', { clear: [a.dataset.clear] }); toast('Đã xóa'); metaCard(); } catch (err) { fail(err); }
   }));
   const showSubs = (s) => {

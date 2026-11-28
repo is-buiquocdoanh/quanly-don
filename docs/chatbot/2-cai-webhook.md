@@ -11,16 +11,16 @@
 
 ## 2.2. Thử URL trước khi dán vào Meta
 
-Trên server chạy lệnh sau. Lệnh tự đọc mã xác minh trong container, không cần gõ mã:
-```bash
-curl -s "https://don.doanhwork.com/api/meta/webhook?hub.mode=subscribe&hub.challenge=12345&hub.verify_token=$(docker exec quanly-don printenv META_VERIFY_TOKEN)"; echo
+Mở link sau trên trình duyệt, thay `MA_XAC_MINH` bằng đúng `META_VERIFY_TOKEN` đã nhập trên web:
+```
+https://don.doanhwork.com/api/meta/webhook?hub.mode=subscribe&hub.challenge=12345&hub.verify_token=MA_XAC_MINH
 ```
 
 | Kết quả | Nghĩa là |
 |---|---|
 | `12345` | URL và mã đều đúng, sang 2.3 |
-| `Sai mã xác minh` | Mã trong container khác `.env`: chạy lại `docker compose up -d` |
-| `Server chưa đặt META_VERIFY_TOKEN` | Chưa thêm mã vào `.env` (Bước 1.5) |
+| `Sai mã xác minh` | Chuỗi trong link khác mã đã lưu trên web: nhập lại ở Messenger → Nhập / đổi mã Meta |
+| `Chưa nhập META_VERIFY_TOKEN…` | Chưa nhập mã trên web ([Bước 1.5](1-tao-app-lay-ma.md#15-nhập-mã-trên-web)) |
 | Lỗi kết nối / trang lỗi Cloudflare | Web hoặc Tunnel đang tắt: xem [Giai đoạn 7](../7-van-hanh-su-co.md) |
 
 ## 2.3. Dán vào Meta

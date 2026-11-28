@@ -292,7 +292,7 @@ const server = http.createServer(async (req, res) => {
         checkSignature(raw, req.headers['x-hub-signature-256']);
       } catch (e) {
         // ghi lại để chủ shop thấy trên web; chỉ ghi khi có header chữ ký (request của Meta), tránh rác từ người lạ
-        if (req.headers['x-hub-signature-256']) logProblem('rejected', `Từ chối: ${e.message}. Kiểm tra META_APP_SECRET trên server có đúng "Khóa bí mật của ứng dụng" không.`);
+        if (req.headers['x-hub-signature-256']) logProblem('rejected', `Từ chối: ${e.message}. Kiểm tra META_APP_SECRET (web → Messenger → Nhập / đổi mã Meta) có đúng "Khóa bí mật của ứng dụng" không.`);
         throw e;
       }
       let body;

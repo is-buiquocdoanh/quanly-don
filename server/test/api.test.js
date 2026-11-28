@@ -380,9 +380,9 @@ test('Messenger webhook: tin standby (app khác giữ quyền chính) vẫn hi�
   assert.match((await admin('POST', '/api/meta/subscribe')).error, /META_PAGE_TOKEN/);
 });
 
-test('Messenger: nhập mã Meta trên web (ưu tiên hơn .env), không trả mã ra ngoài, xóa thì quay về .env', async () => {
+test('Messenger: mã Meta nhập trên web (mã cũ trong .env được chép sang 1 lần), không trả mã ra ngoài, xóa được', async () => {
   const st = (await admin('PUT', '/api/meta/config', { app_secret: ' web-secret-123 ' })).status;
-  assert.deepEqual([st.app_secret, st.source.app_secret, st.tail.app_secret, st.source.verify_token], [true, 'web', '…-123', 'env']);
+  assert.deepEqual([st.app_secret, st.tail.app_secret, st.verify_token, st.tail.verify_token], [true, '…-123', true, '…-abc']);
   assert.equal(JSON.stringify(await admin('GET', '/api/meta/events')).includes('web-secret-123'), false);
   assert.equal(JSON.stringify(await admin('GET', '/api/bootstrap')).includes('web-secret-123'), false);
   const { createHmac } = await import('node:crypto');
@@ -393,8 +393,10 @@ test('Messenger: nhập mã Meta trên web (ưu tiên hơn .env), không trả m
   await admin('PUT', '/api/meta/config', { verify_token: 'web-verify' });
   assert.equal((await fetch(BASE + '/api/meta/webhook?hub.mode=subscribe&hub.challenge=77&hub.verify_token=web-verify')).status, 200);
   assert.equal((await (await fetch(BASE + '/api/meta/webhook', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status) >= 400, true);
-  const back = (await admin('PUT', '/api/meta/config', { clear: ['app_secret', 'verify_token'] })).status;
-  assert.deepEqual([back.source.app_secret, back.source.verify_token], ['env', 'env']);
+  const back = (await admin('PUT', '/api/meta/config', { clear: ['app_secret'] })).status;
+  assert.equal(back.app_secret, false); // không quay về .env
+  assert.equal((await post('secret-xyz')).status, 503);
+  await admin('PUT', '/api/meta/config', { app_secret: 'secret-xyz', verify_token: 'verify-abc' });
   assert.equal((await post('secret-xyz')).status, 200);
 });
 
