@@ -444,3 +444,163 @@ Thực tế khi đã quen tay, bạn không nhất thiết phải cân đo từn
 Bạn đã ước lượng được lượng phụ phẩm quanh nhà và muốn bắt đầu lứa nuôi đầu tiên? Xem [bảng giá combo hũ trứng 35g (miễn ship từ 2 hũ)](/san-pham) hoặc [đặt trứng trực tiếp tại đây](/dat-hang) — trại sẽ gửi kèm hướng dẫn chi tiết cho từng quy mô nuôi.`,
   },
 ];
+
+// Đợt bài bổ sung 2: thu hoạch sâu (kể cả khi khay ướt không sàng được) & tính lượng trứng cho đàn 30 con gà
+export const GUIDE_SEED_POSTS_V5 = [
+  {
+    slug: 'cach-thu-hoach-sau-canxi-ca-truong-hop-khay-bi-uot-khong-sang-duoc',
+    category: 'nuoi-sau',
+    title: 'Cách thu hoạch sâu canxi nhanh, sạch (kể cả khi khay bị ướt quá không sàng được)',
+    cover: '/img/sang-thu-hoach-sau-canxi.jpg',
+    summary: 'Hướng dẫn 4 cách thu hoạch sâu canxi sạch phân từ khay khô tơi tới khay bị ướt nhão không sàng nổi: sàng lưới, tách ánh nắng trên bạt, cấp cứu cám khô và tách rổ nước.',
+    body: `Nuôi tới ngày sâu béo mập rồi nhưng tới khâu **thu hoạch tách sâu khỏi phân**, nhiều bà con lại loay hoay tốn cả buổi — đặc biệt là khi **khay bị quá ướt, phân bết dính như bùn, đổ lên sàng bị bít kín lỗ không lắc được**.
+
+Bài viết này hướng dẫn đầy đủ từ **cách sàng khô chuẩn nhất** cho tới **3 mẹo "cấp cứu" thu sạch sâu khi khay lỡ bị ướt nhão**.
+
+## 1. Khi nào nên thu hoạch sâu canxi là ngon và bổ nhất?
+- Thời điểm vàng là khoảng **ngày 15–18 sau khi nở** (mùa đông có thể là ngày 18–22), khi sâu dài khoảng **1,5–2 cm**, thân màu **trắng kem, căng tròn béo mập**.
+- Lúc này hàm lượng **đạm, chất béo và canxi đạt cao nhất**, lớp vỏ ngoài còn mềm nên gà, vịt, chim, cá tiêu hóa rất tốt.
+- Nếu thấy trong khay xuất hiện khoảng **5–10% con chuyển sang màu nâu sẫm hoặc đen** (tiền nhộng) thì nên thu hoạch ngay để sâu không bị cứng vỏ hay bò tản ra ngoài tìm chỗ hóa kén.
+
+![Nhận biết độ tuổi thu hoạch chuẩn: sâu 16–18 ngày (đĩa phải) căng tròn, màu vàng kem là lúc giàu dinh dưỡng nhất](/img/giai-doan-lon-cua-sau-canxi.jpg)
+
+## 2. Cách 1 (Nhanh và nhàn nhất): Sàng rây khô khi khay tơi ráo
+Để sàng sâu nhanh như "đãi gạo", bí quyết không nằm ở sức lắc mà nằm ở **2 ngày chuẩn bị trước khi thu**:
+
+1. **Ngừng cho thức ăn ướt trước 1–2 ngày:** Khoảng ngày 14–15, bạn dừng cấp rau củ hay bã đậu ướt để sâu ăn sạch phần bã còn sót lại. Nếu mặt khay vẫn hơi ẩm, rắc thêm 1–2 nắm **cám gạo khô hoặc mùn cưa mịn** trộn đều.
+2. **Kiểm tra độ tơi:** Sau 24 giờ, lớp phân sâu sẽ chuyển sang dạng hạt tơi rời, bóp tay không dính bết.
+3. **Sàng tách sâu:** Dùng **sàng lưới sắt hoặc rổ nhựa mắt lỗ 3–4 mm** (sâu rất to có thể dùng lỗ 4–5 mm) đặt trên chậu lớn. Múc từng mẻ nhỏ 1–2 kg đổ lên sàng và lắc đều tay — phân tơi rơi sạch xuống chậu bên dưới, trên mặt sàng chỉ còn lại sâu trắng sạch sẽ.
+
+![Làm khô khay trước khi thu 1–2 ngày để giá thể tơi rời, không vón cục khi sàng](/img/kiem-tra-do-am-ba-dau.jpg)
+
+## 3. Khay bị ƯỚT QUÁ không sàng được: 3 cách xử lý sạch tới 95%
+Nếu chẳng may lứa nuôi bị dư nước (cho nhiều rau quả, trời mưa ẩm, nước đọng đáy khay) khiến phân dính bết không lọt qua sàng, bạn **tuyệt đối không nên cố ngồi nhặt từng con**. Hãy chọn 1 trong 3 cách sau:
+
+### Cách A: Tách sâu bằng ánh nắng trên bạt (Hiệu quả nhất, khuyên dùng!)
+Đây là mẹo "ruột" của các trại nuôi lớn vì tận dụng đúng tập tính **cực kỳ sợ ánh sáng** của sâu canxi:
+
+![Tách sâu khi khay quá ướt bằng ánh nắng trên bạt: sâu sợ nắng tự chui hết xuống dưới, chỉ việc gạt lớp phân ướt bên trên](/img/tach-sau-khi-khay-uot.jpg)
+
+1. **Trải bạt ra chỗ có nắng trực tiếp** (nếu trời mưa không có nắng, có thể đặt dưới bóng đèn công suất cao chiếu sát mặt bạt).
+2. **Đổ khay sâu ướt ra thành một mô dẹt** dày khoảng 7–10 cm trên mặt bạt.
+3. **Chờ 3–5 phút:** Toàn bộ đàn sâu gặp nắng gắt sẽ cuống cuồng **chui sâu hết xuống sát mặt bạt**, nhường lại lớp phân ướt phía trên hoàn toàn sạch bóng sâu!
+4. **Gạt bỏ lớp phân trên cùng:** Dùng tay đeo găng hoặc bay xây dựng nhẹ nhàng **gạt bỏ lớp phân dày 2–3 cm ở bề mặt** ra rìa bạt.
+5. **Lặp lại 3–4 lượt:** Cứ gạt xong lại chờ 2–3 phút cho sâu chui xuống sâu hơn rồi gạt tiếp. Chỉ sau **10–15 phút**, toàn bộ lớp phân ướt đã được gạt đi, để lộ nguyên một mảng sâu canxi sạch trơn nằm tụ dưới đáy bạt!
+
+> Lưu ý nhỏ: Không phơi sâu trực tiếp dưới nắng trưa quá gắt lâu hơn 15–20 phút để sâu không bị sốc nhiệt. Tách xong chuyển ngay sâu vào chậu râm mát.
+
+### Cách B: "Cấp cứu khô nhanh" bằng cám khô hoặc mùn cưa rồi sàng
+Phù hợp khi **trời mưa, trời lạnh không có nắng** và khay chỉ ẩm bết vừa phải (chưa thành vũng nước):
+- Đổ toàn bộ khay ra tấm bạt hoặc chậu rộng.
+- Rắc thêm khoảng **15–20% cám gạo khô, bột ngô hoặc trấu nghiền thật mịn** rồi trộn tơi lên.
+- Chờ khoảng **30–60 phút** để chất độn hút hết nước bám quanh hạt phân. Khi thấy hỗn hợp rời hạt ra là có thể đem sàng bình thường (phần phân trộn cám vẫn ủ làm phân bón rau cực tốt).
+
+### Cách C: Đãi sâu bằng nước (Chỉ dùng khi cho vật nuôi ăn NGAY trong ngày)
+Phù hợp khi khay đã quá nhão như bùn và bạn cần lấy sâu cho gà, vịt, cá ăn ngay trong buổi đó:
+- Cho từng ít hỗn hợp vào **rổ nhựa lỗ nhỏ (2–3 mm)**, nhúng rổ vào chậu nước sạch rồi lắc nhẹ (hoặc xịt vòi nước nhẹ). Phân tan theo nước chảy ra ngoài, sâu ở lại trong rổ.
+- **Lưu ý cực kỳ quan trọng:** Sâu sau khi rửa nước bị ướt thân, nếu để dồn đống trong xô lâu sẽ **nhanh bị ngạt chết và bốc mùi**. Vì vậy chỉ rửa lượng vừa đủ **cho ăn hết trong 1–2 giờ**, hoặc đem **chần nước sôi 1 phút rồi phơi / sấy khô** ngay lập tức.
+
+## 4. Mẹo tách tự động bằng rổ lưới & máng tự bò (nhàn tay)
+- **Tách bằng rổ đặt ngoài nắng:** Đổ hỗn hợp sâu và phân lên 1 chiếc rổ có lỗ vừa thân sâu (khoảng 4–5 mm), kê rổ gác lên miệng 1 cái chậu sạch rồi mang ra chỗ sáng. Sâu sợ sáng sẽ tự bò chui lọt hết qua lỗ rổ rơi xuống chậu sạch bên dưới, bỏ lại cục rác/bã to trên rổ!
+- **Thu sâu tiền nhộng tự bò:** Nếu bạn muốn thu sâu ở giai đoạn sắp hóa nhộng (màu nâu đen), có thể kê một tấm ván/máng nghiêng góc 35–45° từ đáy khay vắt qua miệng khay nối xuống xô khô đặt bên ngoài — sâu già sẽ tự bò theo máng rơi gọn vào xô.
+
+![Khi thấy sâu chuyển màu nâu đen bò lên thành khay, đó là dấu hiệu đã đủ tuổi thu hoạch hoặc dùng máng tự bò](/img/sau-den-hoa-nhong-thanh-khay.jpg)
+
+## 5. Bảng chọn nhanh cách thu hoạch theo tình trạng khay
+| Tình trạng khay tới ngày thu | Cách thu hoạch phù hợp nhất | Độ sạch & thời gian |
+|---|---|---|
+| Khay khô tơi, hạt phân rời | **Sàng rây lưới 3–4 mm** | Rất sạch (~98%), 5 phút/khay |
+| Khay ướt nhão, trời có nắng | **Trải bạt phơi nắng gạt lớp trên** | Sạch (~90–95%), 10–15 phút |
+| Khay ẩm bết, trời mưa/râm | **Trộn cám khô/mùn cưa rồi sàng** | Sạch (~90%), chờ thấm 30 phút |
+| Khay quá nhão, cần cho ăn gấp | **Đãi nước bằng rổ lỗ nhỏ** | Rất sạch, phải cho ăn ngay |
+
+## 6. Bảo quản sâu sau khi thu & tận dụng phân sâu
+- **Cho ăn tươi:** Giữ sâu tươi ở nơi râm mát trong khay khô (rải mỏng, không đậy kín) có thể giữ sống khỏe thêm **2–4 ngày** (nhiệt độ mát 15–20°C giữ được lâu hơn).
+- **Để dành lâu dài:** Rửa sạch sâu, chần nước sôi khoảng 1 phút rồi phơi khô dưới nắng hoặc rang/sấy khô, cho vào túi kín bảo quản dùng dần vài tháng.
+- **Phần phân sâu (frass):** Đừng đổ bỏ — gom vào bao hoặc đánh đống ủ thêm 2–4 tuần làm phân hữu cơ bón rau, cây ăn trái cực tốt (xem thêm bài [Cách ủ phân sâu canxi bón rau sạch](/blog/u-phan-sau-canxi-bon-rau-sach-va-cay-an-trai)).
+
+Cần đặt trứng cho lứa nuôi kế tiếp? Xem ngay [Combo 2 hũ 35g chỉ 130.000đ miễn phí ship](/dat-hang) hoặc [nhắn cho trại](/lien-he) nếu bạn muốn gửi ảnh khay nhờ tư vấn cách tách nhanh nhất!`,
+  },
+  {
+    slug: 'nuoi-30-con-ga-can-bao-nhieu-trung-sau-canxi-giong',
+    category: 'chan-nuoi',
+    title: 'Nuôi 30 con gà thì cần bao nhiêu trứng sâu canxi giống? Bảng tính chi tiết & lịch nuôi gối đầu',
+    cover: '/img/ga-tha-vuon.jpg',
+    summary: 'Tính chính xác lượng sâu tươi 30 con gà cần mỗi ngày theo từng lứa tuổi, quy đổi ra số hũ trứng 35g cần đặt mỗi tháng và mẹo nuôi gối đầu giúp ngày nào gà cũng có sâu tươi ăn đều.',
+    body: `Rất nhiều hộ chăn nuôi gia đình ở quê thường nuôi khoảng **20–40 con gà thả vườn hoặc gà đẻ trứng** và muốn tự nuôi sâu canxi để giảm tiền cám, giúp gà khỏe và đẻ đều hơn. Câu hỏi thực tế nhất là: **với đàn 30 con gà thì mỗi tháng cần mua bao nhiêu hũ trứng giống là vừa đủ — không thiếu mà cũng không bị dồn ứ dư sâu?**
+
+Dưới đây là cách tính chi tiết, sát thực tế từng con số để bạn áp dụng được ngay.
+
+## 1. Đàn 30 con gà ăn bao nhiêu sâu canxi mỗi ngày là chuẩn?
+Theo khuyến nghị chăn nuôi, sâu canxi rất giàu đạm (35–47%), béo và canxi nên hãy dùng làm **thức ăn bổ sung chiếm khoảng 15–25% khẩu phần hằng ngày** (thay một phần cám, không thay hoàn toàn để gà không bị thừa mỡ).
+
+Lượng sâu tươi phù hợp cho **30 con gà** theo từng giai đoạn tuổi:
+
+| Lứa tuổi đàn gà (30 con) | Lượng sâu / 1 con / ngày | Tổng cả đàn / ngày | Tổng cần trong 1 tháng |
+|---|---|---|---|
+| **Gà con** (15 – 30 ngày tuổi) | 5 – 10 g *(sâu non nhỏ)* | **0,15 – 0,3 kg** | 5 – 9 kg sâu tươi |
+| **Gà choai / thả vườn** (1 – 2,5 tháng) | 15 – 20 g | **0,45 – 0,6 kg** | 14 – 18 kg sâu tươi |
+| **Gà thịt lớn / Gà đẻ** (> 2,5 tháng) | 20 – 30 g | **0,6 – 0,9 kg** | 18 – 27 kg sâu tươi |
+
+> **Con số chốt dễ nhớ:** Với đàn **30 con gà thả vườn hoặc gà đẻ**, bạn chỉ cần đều đặn khoảng **0,5 – 0,8 kg sâu canxi tươi mỗi ngày** (tương đương **15 – 24 kg sâu tươi mỗi tháng**) là gà đã cực kỳ khỏe mạnh, mượt lông và giảm rõ rệt tiền cám!
+
+![Sâu canxi tươi giàu đạm và canxi giúp đàn gà thả vườn ăn khỏe, lớn nhanh và đẻ đều hơn](/img/sau-canxi.jpg)
+
+## 2. Quy đổi: 30 con gà cần đặt bao nhiêu hũ trứng 35g mỗi tháng?
+Trong điều kiện nuôi hộ gia đình thực tế (tận dụng bã đậu, cơm thừa, rau củ băm, cám gạo — không tính theo điều kiện phòng thí nghiệm), **1 hũ trứng chuẩn 35g của trại** thường cho thu hoạch ổn định ở mức hộ gia đình khoảng **7–12 kg sâu tươi/hũ** (chăm tốt, đủ đạm và đúng nhiệt độ có thể đạt cao hơn).
+
+Từ đó suy ra nhu cầu trứng giống cho **30 con gà**:
+- **Gói tiết kiệm / mới bắt đầu làm quen:** **2 hũ 35g / tháng** *(Combo 2 hũ 130.000đ — miễn phí ship)* → thu khoảng **15 – 20 kg sâu tươi/tháng**, đủ bổ sung đều **0,5 – 0,6 kg/ngày** cho cả đàn 30 con.
+- **Gói đầy đủ (cho gà thịt lớn / gà đẻ ăn hàng ngày):** **3 – 4 hũ 35g / tháng** *(195.000đ – 250.000đ — miễn phí ship)* → thu khoảng **22 – 35 kg sâu tươi/tháng**, thoải mái cho ăn 0,7–1 kg/ngày, dư có thể phơi sấy trữ cho mùa mưa lạnh.
+
+![Hũ trứng sâu canxi chuẩn 35g — với đàn 30 con gà chỉ cần từ 2–3 hũ mỗi tháng là đủ sâu tươi bổ sung quanh năm](/img/hu-trung-35g.jpg)
+
+### Bảng tra nhanh cho các quy mô đàn gà khác
+Nếu nhà bạn nuôi ít hơn hoặc nhiều hơn 30 con, có thể đối chiếu nhanh bảng sau (tính cho gà thả vườn / gà đẻ):
+
+| Quy mô đàn gà | Sâu tươi cần / ngày | Sâu tươi cần / tháng | Số hũ trứng 35g gợi ý / tháng | Phụ phẩm cần gom / ngày |
+|---|---|---|---|---|
+| **15 – 20 con** | 0,3 – 0,5 kg | 10 – 15 kg | **1 – 2 hũ** | 1,5 – 2,5 kg/ngày |
+| **30 con** | **0,5 – 0,8 kg** | **15 – 24 kg** | **2 – 3 hũ** | **2,5 – 4 kg/ngày** |
+| **50 con** | 1,0 – 1,4 kg | 30 – 42 kg | **4 – 5 hũ** | 5 – 7 kg/ngày |
+| **100 con** | 2,0 – 2,8 kg | 60 – 85 kg | **7 – 10 hũ** | 10 – 14 kg/ngày |
+
+## 3. Lượng phụ phẩm cần chuẩn bị cho đàn sâu nuôi 30 con gà
+Theo công thức chuẩn khoảng **5 kg thức ăn hỗn hợp ẩm → 1 kg sâu tươi** (xem chi tiết tại bài [Cách tính số lượng thức ăn nuôi sâu canxi](/blog/cach-tinh-so-luong-thuc-an-can-thiet-de-nuoi-sau-canxi)):
+- Để thu **15 – 20 kg sâu tươi/tháng** cho 30 con gà, bạn cần khoảng **75 – 100 kg phụ phẩm/tháng**, tức chỉ khoảng **2,5 – 3,5 kg/ngày**!
+- Lượng này cực kỳ dễ gom quanh nhà: cơm thừa + rau củ dạt ngoài chợ + mua thêm 1–2 kg bã đậu tươi mỗi ngày (giá chỉ 2.000–3.000đ/kg) trộn ít cám gạo là dư sức nuôi.
+
+![Cân đo lượng phụ phẩm quanh nhà mỗi ngày (~2,5–3,5 kg/ngày) là đủ nuôi mẻ sâu cung cấp đều cho 30 con gà](/img/can-do-thuc-an-cho-sau.jpg)
+
+## 4. Mẹo nuôi gối đầu để ngày nào 30 con gà cũng có sâu tươi (không bị dồn ứ)
+Một lỗi người mới rất hay gặp là mua **2–3 hũ về ấp cùng một ngày**. Sau 16 ngày, cả 20 kg sâu lớn cùng lúc → 30 con gà chỉ ăn hết 0,7 kg/ngày nên không ăn kịp, sâu để quá ngày sẽ già và hóa nhộng đen!
+
+Để khắc phục hoàn toàn, bạn áp dụng 1 trong 2 cách sau:
+
+### Cách 1: Đặt gối đầu 2 tuần/lần (cho hộ nuôi ổn định)
+- Cứ **12–15 ngày** ấp mới **1–2 hũ** (nếu muốn tiết kiệm ship, mỗi lần đặt **Combo 2 hũ freeship** dùng cho 1 tháng, hoặc rủ hàng xóm đặt chung chia mỗi nhà 1 hũ/đợt).
+- Từ ngày thứ 14 của lứa trước, bạn tỉa thu dần 0,6–0,8 kg/ngày trong suốt 7–8 ngày → vừa ăn hết lứa 1 là lứa 2 đã kịp lớn để thu nối tiếp!
+
+### Cách 2: Mẹo "hãm tốc độ lớn" khi nhận 2–3 hũ trong cùng 1 đơn hàng
+Vì trứng nhận về nên ấp ngay (không trữ tủ lạnh được), khi bạn đặt **Combo 2 hũ 35g (130k freeship)** về cùng lúc, hãy chia làm **2 nhóm khay khác chế độ ăn**:
+- **Nhóm Khay A (1 hũ — thu sớm ngày 14–20):** Cho ăn no đủ (bã đậu + cám + cơm thừa), đặt nơi ấm thoáng → sâu lớn nhanh, thu tỉa dần trong tuần thứ 3.
+- **Nhóm Khay B (1 hũ — thu muộn ngày 21–28):** Trong 10 ngày đầu cho ăn lượng vừa phải (ít hơn Khay A khoảng 30–40%) và đặt chỗ râm mát hơn. Sâu sẽ lớn chậm lại khoảng 1 tuần. Khi Khay A gần hết, bạn tăng thức ăn cho Khay B để thúc sâu béo lên thu nối tiếp!
+- **Nếu cuối lứa vẫn còn dư vài ký sâu béo:** Rửa sạch, chần nước sôi 1 phút rồi phơi nắng hoặc rang khô bảo quản trong hũ kín để trộn cám cho gà ăn dần cả tháng!
+
+![Thu tỉa sâu tươi đều đặn mỗi ngày giúp 30 con gà luôn có nguồn đạm sạch mà không bị dư thừa](/img/sang-thu-hoach-sau-canxi.jpg)
+
+## 5. Bài toán kinh tế thực tế cho đàn 30 con gà
+Thử nhẩm chi phí 1 tháng tự nuôi sâu từ **Combo 2 hũ 35g**:
+- **Tiền trứng giống:** 130.000đ (2 hũ 35g, miễn phí giao hàng tận nhà).
+- **Tiền phụ phẩm bổ sung** (nếu mua thêm ~60 kg bã đậu + ít cám gạo, phần còn lại tận dụng cơm thừa & rau dạt): khoảng 150.000 – 200.000đ.
+- **Tổng chi:** khoảng **280.000 – 330.000đ/tháng**.
+- **Thu về:** **15 – 20 kg sâu canxi tươi** (nếu mua sâu tươi ngoài thị trường giá 45.000–60.000đ/kg sẽ tốn 700.000–1.000.000đ), cắt giảm được 20–25% tiền cám công nghiệp, lại có thêm **15–20 kg phân sâu hữu cơ** bón rau sạch quanh nhà!
+
+## 6. Ba lưu ý nhỏ khi cho 30 con gà ăn sâu canxi
+1. **Rải đều ra máng dài hoặc sân rộng:** Tránh đổ vào 1 thau nhỏ khiến mấy con gà khỏe tranh ăn hết quá no, còn gà yếu không ăn được.
+2. **Tập cho ăn từ từ:** 3–4 ngày đầu chỉ rải khoảng 200–300 g cho đàn làm quen, sau đó mới tăng lên 500–800 g/ngày và quan sát phân gà.
+3. **Chọn cỡ sâu theo tuổi gà:** Gà con dưới 3 tuần tuổi nên cho ăn sâu non (7–10 ngày tuổi) mềm nhỏ, chưa nên cho ăn sâu già vỏ cứng.
+
+Bạn đang nuôi 30 con gà và muốn bắt đầu ngay lứa đầu tiên? **Combo 2 hũ 35g giá 130.000đ (miễn phí ship toàn quốc)** là lựa chọn vừa vặn nhất — [đặt trực tiếp tại đây](/dat-hang) hoặc [nhắn tin cho trại](/lien-he) để được hướng dẫn lịch ấp gối đầu phù hợp nhất với đàn gà nhà bạn!`,
+  },
+];
