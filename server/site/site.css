@@ -794,6 +794,9 @@ p { margin: 0 0 1em; }
 .prose ul, .prose ol { padding-left: 1.35em; margin: 0 0 1.1em; }
 .prose li { margin: .35em 0; }
 .prose img { border-radius: 14px; margin: 1.4em 0; box-shadow: var(--shadow-sm); }
+.prose .md-fig { margin: 1.5em 0; }
+.prose .md-fig img { width: 100%; margin: 0; border-radius: 14px; box-shadow: var(--shadow-sm); }
+.prose .md-fig figcaption { margin-top: 8px; text-align: center; font-size: 13.5px; color: var(--muted); font-style: italic; line-height: 1.45; }
 .prose blockquote {
   margin: 1.2em 0; padding: 14px 18px; border-left: 4px solid var(--amber);
   background: #fef9ec; border-radius: 0 12px 12px 0; color: var(--ink);

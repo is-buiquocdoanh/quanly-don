@@ -2,7 +2,7 @@
 import { db, tx, getSettings, setSetting, parsePriceTable } from '../db.js';
 import { nowVN, str, toInt, bad, HttpError } from '../util.js';
 import { slugify, plainText } from './markdown.js';
-import { SEED_POSTS, EXTRA_SEED_POSTS } from './seed-posts.js';
+import { SEED_POSTS, EXTRA_SEED_POSTS, GUIDE_SEED_POSTS } from './seed-posts.js';
 
 export const POST_CATEGORIES = {
   'nuoi-sau': 'Kỹ thuật nuôi sâu',
@@ -297,7 +297,7 @@ function seedPosts() {
   if (!settings.posts_seeded) {
     if (!db.prepare('SELECT 1 FROM posts LIMIT 1').get()) {
       SEED_POSTS.forEach((p, i) => {
-        const at = nowVN(new Date(Date.now() - (SEED_POSTS.length + EXTRA_SEED_POSTS.length - i) * 60e3));
+        const at = nowVN(new Date(Date.now() - (SEED_POSTS.length + EXTRA_SEED_POSTS.length + GUIDE_SEED_POSTS.length - i) * 60e3));
         ins.run(p.slug, p.title, p.summary, p.body, p.cover, p.category || 'nuoi-sau', at, now, now);
       });
     }
@@ -311,7 +311,7 @@ function seedPosts() {
       }
     }
     EXTRA_SEED_POSTS.forEach((p, i) => {
-      const at = nowVN(new Date(Date.now() - (EXTRA_SEED_POSTS.length - i) * 60e3));
+      const at = nowVN(new Date(Date.now() - (EXTRA_SEED_POSTS.length + GUIDE_SEED_POSTS.length - i) * 60e3));
       ins.run(p.slug, p.title, p.summary, p.body, p.cover, p.category || 'nong-nghiep', at, now, now);
     });
     setSetting('posts_seeded_v2', 1);
@@ -327,6 +327,13 @@ function seedPosts() {
       db.prepare('UPDATE posts SET cover = ? WHERE slug = ? AND cover = ?').run(newC, slug, oldC);
     }
     setSetting('posts_seeded_v3', 1);
+  }
+  if (!settings.posts_seeded_v4) {
+    GUIDE_SEED_POSTS.forEach((p, i) => {
+      const at = nowVN(new Date(Date.now() - (GUIDE_SEED_POSTS.length - i) * 60e3));
+      ins.run(p.slug, p.title, p.summary, p.body, p.cover, p.category || 'nuoi-sau', at, now, now);
+    });
+    setSetting('posts_seeded_v4', 1);
   }
 }
 

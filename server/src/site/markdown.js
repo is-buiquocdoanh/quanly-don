@@ -47,7 +47,24 @@ export function markdown(src) {
   let para = [];
   let list = null; // { tag, items }
   let quote = [];
-  const flushPara = () => { if (para.length) { html.push(`<p>${inline(para.join(' '))}</p>`); para = []; } };
+  const flushPara = () => {
+    if (!para.length) return;
+    const joined = para.join(' ');
+    const imgOnly = joined.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/);
+    if (imgOnly) {
+      const src = safeUrl(imgOnly[2]);
+      if (src) {
+        const alt = esc(imgOnly[1]);
+        html.push(alt
+          ? `<figure class="md-fig"><img src="${esc(src)}" alt="${alt}" loading="lazy"><figcaption>${alt}</figcaption></figure>`
+          : `<figure class="md-fig"><img src="${esc(src)}" alt="" loading="lazy"></figure>`);
+        para = [];
+        return;
+      }
+    }
+    html.push(`<p>${inline(joined)}</p>`);
+    para = [];
+  };
   const flushList = () => { if (list) { html.push(`<${list.tag}>${list.items.map((i) => `<li>${inline(i)}</li>`).join('')}</${list.tag}>`); list = null; } };
   const flushQuote = () => { if (quote.length) { html.push(`<blockquote><p>${inline(quote.join(' '))}</p></blockquote>`); quote = []; } };
   const flushAll = () => { flushPara(); flushList(); flushQuote(); };
