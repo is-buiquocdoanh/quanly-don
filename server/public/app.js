@@ -2183,6 +2183,14 @@ async function metaCard() {
     try { await api('PUT', '/api/meta/config', { clear: [a.dataset.clear] }); toast('Đã xóa'); metaCard(); } catch (err) { fail(err); }
   }));
   const showSubs = (s) => {
+    if (s.need_metadata) {
+      $('#metaSubsOut', box).innerHTML = `<div class="warn soft" style="font-size:13px;margin-bottom:8px;line-height:1.7">
+        Mã page chưa có quyền <b>pages_manage_metadata</b> nên web không xem / tự đăng ký được. <b>Không bắt buộc</b> — làm 1 trong 2 cách:
+        <div style="margin-top:6px"><b>Cách 1 (nhanh, làm trên Meta):</b> app <b>${esc(s.app?.name || '')}</b> → <b>Cài đặt API Messenger</b> → mục <b>Định cấu hình webhook / Tạo mã truy cập</b>, ở dòng của Trang bấm <b>Thêm đăng ký</b> (Add subscriptions) → tích <b>messages</b>, <b>messaging_postbacks</b> → Xác nhận. Xong nhắn thử vào Trang rồi bấm Tải lại.</div>
+        <div style="margin-top:4px"><b>Cách 2 (để nút này dùng được):</b> app → <b>Trường hợp sử dụng</b> → Messenger → <b>Tùy chỉnh</b> → <b>Quyền</b>: thêm <b>pages_manage_metadata</b> → quay lại Cài đặt API Messenger → <b>Tạo mã</b> lại cho Trang (tích đủ quyền) → dán mã mới vào ô META_PAGE_TOKEN ở trên.</div>
+      </div>`;
+      return;
+    }
     const mine = s.apps.find((a) => a.id === s.app.id);
     const missing = mine ? s.want.filter((f) => !mine.fields.includes(f)) : s.want;
     $('#metaSubsOut', box).innerHTML = `<div class="${mine && !missing.length ? '' : 'warn soft'}" style="font-size:13px;margin-bottom:8px">

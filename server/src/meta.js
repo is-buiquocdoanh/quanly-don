@@ -115,7 +115,13 @@ const WANT_FIELDS = ['messages', 'messaging_postbacks', 'message_echoes', 'stand
 export async function pageSubscriptions() {
   const token = env('META_PAGE_TOKEN');
   if (!token) throw bad('Chưa nhập META_PAGE_TOKEN (web → Messenger → Nhập / đổi mã Meta)');
-  const [r, app] = await Promise.all([graph('GET', 'me/subscribed_apps', token), graph('GET', 'app?fields=id,name', token).catch(() => ({}))]);
+  const app = await graph('GET', 'app?fields=id,name', token).catch(() => ({}));
+  let r;
+  try { r = await graph('GET', 'me/subscribed_apps', token); } catch (e) {
+    // mã page thiếu quyền pages_manage_metadata: không xem / tự đăng ký được → web hiện cách làm thay trên Meta
+    if (/pages_manage_metadata|\(mã 200\)/.test(e.message)) return { need_metadata: true, app: { id: String(app.id || ''), name: app.name || '' }, want: WANT_FIELDS, apps: [] };
+    throw e;
+  }
   return {
     app: { id: String(app.id || ''), name: app.name || '' },  // app của mã page = app này
     want: WANT_FIELDS,
