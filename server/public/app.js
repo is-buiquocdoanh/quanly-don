@@ -2139,6 +2139,21 @@ async function metaCard() {
     <p class="small" style="margin-top:0">Kiểm tra app Meta có nhận / trả lời được <b>khách thật</b> không. URL gọi lại dán vào Meta → Webhooks → Page:</p>
     <form class="form"><label class="full">URL gọi lại<input readonly value="${esc(r.webhook_url)}"></label></form>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${ok(r.status.verify_token, 'META_VERIFY_TOKEN')}${ok(r.status.app_secret, 'META_APP_SECRET')}${ok(r.status.page_token, 'META_PAGE_TOKEN')}</div>
+    <details id="metaCfg"${r.status.verify_token && r.status.app_secret && r.status.page_token ? '' : ' open'} style="margin:4px 0 10px">
+      <summary class="small" style="cursor:pointer"><b>Nhập / đổi mã Meta</b> <span class="muted">— lấy cả 3 mã từ <b>cùng một app</b></span></summary>
+      <form class="form" id="metaCfgForm" style="margin-top:8px" autocomplete="off">
+        ${[['verify_token', 'META_VERIFY_TOKEN', 'Chuỗi tự đặt, dán giống hệt vào ô "Xác minh mã" ở Meta → Webhooks'],
+           ['app_secret', 'META_APP_SECRET', 'Cài đặt ứng dụng → Thông tin cơ bản → Khóa bí mật của ứng dụng'],
+           ['page_token', 'META_PAGE_TOKEN', 'Messenger → Cài đặt API Messenger → Tạo mã (của page)']].map(([f, k, hint]) => {
+          const src = r.status.source?.[f];
+          const now = src ? `đang dùng ${esc(r.status.tail[f])} (${src === 'web' ? 'nhập trên web' : 'từ .env'})` : 'chưa có';
+          return `<label class="full">${k} <span class="muted small">· ${now}</span>
+            <input type="password" name="${f}" placeholder="${src ? 'Để trống = giữ mã đang dùng' : 'Dán mã vào đây'}" spellcheck="false">
+            <span class="muted small">${hint}${src === 'web' ? ` · <a href="#" data-clear="${f}">xóa mã trên web</a>` : ''}</span></label>`;
+        }).join('')}
+        <div class="actions full"><button class="btn sm" type="submit">Lưu mã</button><span class="muted small">Mã chỉ lưu trên server, không hiện lại đầy đủ. Nhập trên web được ưu tiên hơn .env.</span></div>
+      </form>
+    </details>
     ${tp ? (tp.error ? `<div class="warn">META_PAGE_TOKEN không dùng được: ${esc(tp.error)}</div>` : `<div class="small" style="margin:4px 0;line-height:1.7">
       ${tp.app ? `<div>Mã page thuộc app: <b>${esc(tp.app.name)}</b> <span class="mono muted">(${esc(tp.app.id)})</span></div>` : ''}
       ${tp.id ? `<div>Của page: <b>${esc(tp.name || '(không đọc được tên)')}</b> <span class="mono muted">(${esc(tp.id)})</span></div>` : ''}
@@ -2156,6 +2171,17 @@ async function metaCard() {
         <td class="small${e.kind === 'rejected' || e.kind === 'other' ? ' neg' : ''}">${esc(e.text)}</td><td>${e.kind === 'message' && (!tp?.id || e.page_id === tp.id) ? `<button class="btn sm sec" data-reply="${esc(e.sender_id)}">Trả lời thử</button>` : ''}</td></tr>`).join('')}
       </tbody></table></div>` : ''}`;
   $('#metaReload', box).addEventListener('click', () => metaCard());
+  $('#metaCfgForm', box).addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = Object.fromEntries(new FormData(e.target));
+    if (!Object.values(body).some((v) => v.trim())) return toast('Chưa nhập mã nào');
+    try { await api('PUT', '/api/meta/config', body); toast('Đã lưu mã Meta'); metaCard(); } catch (err) { fail(err); }
+  });
+  box.querySelectorAll('[data-clear]').forEach((a) => a.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (!confirm('Xóa mã này trên web? (nếu .env có mã thì sẽ dùng mã trong .env)')) return;
+    try { await api('PUT', '/api/meta/config', { clear: [a.dataset.clear] }); toast('Đã xóa'); metaCard(); } catch (err) { fail(err); }
+  }));
   const showSubs = (s) => {
     const mine = s.apps.find((a) => a.id === s.app.id);
     const missing = mine ? s.want.filter((f) => !mine.fields.includes(f)) : s.want;

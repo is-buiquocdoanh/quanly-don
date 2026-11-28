@@ -326,7 +326,7 @@ test('Messenger webhook: xác minh, kiểm chữ ký, lưu tin', async () => {
   const msgs = ev.events.filter((e) => e.kind === 'message' || e.kind === 'echo');
   assert.deepEqual(msgs.map((e) => [e.kind, e.sender_id]), [['echo', '900001'], ['message', '900001']]);
   assert.equal(msgs[1].text, 'Shop ơi còn trứng không');
-  assert.deepEqual(ev.status, { verify_token: true, app_secret: true, page_token: false });
+  assert.deepEqual([ev.status.verify_token, ev.status.app_secret, ev.status.page_token], [true, true, false]);
   assert.match(ev.webhook_url, /\/api\/meta\/webhook$/);
   // chưa có mã page → gửi thử báo lỗi rõ ràng; kho không xem được
   assert.match((await admin('POST', '/api/meta/test-reply', { sender_id: '900001' })).error, /META_PAGE_TOKEN/);
@@ -378,6 +378,24 @@ test('Messenger webhook: tin standby (app khác giữ quyền chính) vẫn hi�
   assert.deepEqual([ev[0].kind, ev[0].sender_id, ev[0].page_id, ev[0].text], ['standby', '700007', '222', 'Còn hàng không shop']);
   assert.match((await admin('GET', '/api/meta/subscriptions')).error, /META_PAGE_TOKEN/);
   assert.match((await admin('POST', '/api/meta/subscribe')).error, /META_PAGE_TOKEN/);
+});
+
+test('Messenger: nhập mã Meta trên web (ưu tiên hơn .env), không trả mã ra ngoài, xóa thì quay về .env', async () => {
+  const st = (await admin('PUT', '/api/meta/config', { app_secret: ' web-secret-123 ' })).status;
+  assert.deepEqual([st.app_secret, st.source.app_secret, st.tail.app_secret, st.source.verify_token], [true, 'web', '…-123', 'env']);
+  assert.equal(JSON.stringify(await admin('GET', '/api/meta/events')).includes('web-secret-123'), false);
+  assert.equal(JSON.stringify(await admin('GET', '/api/bootstrap')).includes('web-secret-123'), false);
+  const { createHmac } = await import('node:crypto');
+  const body = JSON.stringify({ object: 'page', entry: [] });
+  const post = (key) => fetch(BASE + '/api/meta/webhook', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Hub-Signature-256': 'sha256=' + createHmac('sha256', key).update(body).digest('hex') }, body });
+  assert.equal((await post('web-secret-123')).status, 200);
+  assert.equal((await post('secret-xyz')).status, 401);
+  await admin('PUT', '/api/meta/config', { verify_token: 'web-verify' });
+  assert.equal((await fetch(BASE + '/api/meta/webhook?hub.mode=subscribe&hub.challenge=77&hub.verify_token=web-verify')).status, 200);
+  assert.equal((await (await fetch(BASE + '/api/meta/webhook', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status) >= 400, true);
+  const back = (await admin('PUT', '/api/meta/config', { clear: ['app_secret', 'verify_token'] })).status;
+  assert.deepEqual([back.source.app_secret, back.source.verify_token], ['env', 'env']);
+  assert.equal((await post('secret-xyz')).status, 200);
 });
 
 // ---------------------------------------------------------------- website công khai

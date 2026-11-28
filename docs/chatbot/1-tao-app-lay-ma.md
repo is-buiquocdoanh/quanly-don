@@ -42,6 +42,10 @@ Dán mã vào https://developers.facebook.com/tools/debug/accesstoken/ → **G�
 
 ## 1.5. Đưa mã lên server
 
+**Cách nhanh (khuyên dùng):** vào web → mục **Messenger** → **Nhập / đổi mã Meta** → dán 3 mã → **Lưu mã**. Không cần SSH, không cần khởi động lại. Mã nhập trên web được ưu tiên hơn `.env`; bấm *xóa mã trên web* thì quay về dùng `.env`.
+
+**Hoặc** sửa `.env` trên server:
+
 ```bash
 cd ~/apps/quanly-don
 nano .env

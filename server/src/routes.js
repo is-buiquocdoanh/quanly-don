@@ -13,7 +13,7 @@ import { getSite, saveSite, POLICIES, POST_CATEGORIES, listPosts, getPost, saveP
 import { markdown } from './site/markdown.js';
 import { siteStats } from './site/stats.js';
 import { saveUpload, listUploads } from './site/uploads.js';
-import { metaStatus, listEvents, sendTest, tokenPage, seenPages, pageSubscriptions, subscribePage } from './meta.js';
+import { metaStatus, saveMetaConfig, listEvents, sendTest, tokenPage, seenPages, pageSubscriptions, subscribePage } from './meta.js';
 import { forKho, getOrder, markZaloSent, orderText, zaloPhone } from './orders.js';
 import { extInfo } from './extzip.js';
 import { zaloStatus, startQR, logout, listGroups, chooseGroup, sendToGroup } from './zalo.js';
@@ -327,6 +327,7 @@ add('GET', '/api/meta/events', 'admin', async ({ baseUrl }) => ({
   status: metaStatus(), token_page: await tokenPage(), seen_pages: seenPages(),
   events: listEvents(50), webhook_url: baseUrl + '/api/meta/webhook',
 }));
+add('PUT', '/api/meta/config', 'admin', ({ body }) => ({ status: saveMetaConfig(body) }));
 add('GET', '/api/meta/subscriptions', 'admin', () => pageSubscriptions());
 add('POST', '/api/meta/subscribe', 'admin', () => subscribePage());
 add('POST', '/api/meta/test-reply', 'admin', async ({ body }) => sendTest(body.sender_id, body.text || 'Shop đã nhận được tin nhắn của bạn ạ (tin tự động thử nghiệm).'));

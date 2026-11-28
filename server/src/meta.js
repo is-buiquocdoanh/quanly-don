@@ -1,7 +1,8 @@
 // Messenger webhook — BẢN THỬ NGHIỆM: chỉ nhận + lưu tin nhắn Meta gửi tới, và gửi được 1 tin trả lời thử bằng tay.
 // Mục đích: kiểm tra app Meta (Standard access) có nhận / trả lời được KHÁCH THẬT không, trước khi làm chatbot.
 //
-// Cấu hình trong .env của server:
+// Cấu hình: nhập trên web (Messenger → Mã Meta, lưu trong bảng meta_secrets) hoặc trong .env của server.
+// Mã nhập trên web được ưu tiên; ô bỏ trống thì dùng .env:
 //   META_VERIFY_TOKEN  chuỗi tự đặt, dán giống hệt vào ô "Xác minh mã" ở Meta → Webhooks
 //   META_APP_SECRET    Meta → Cài đặt ứng dụng → Thông tin cơ bản → Khóa bí mật của ứng dụng (để kiểm tra chữ ký)
 //   META_PAGE_TOKEN    mã truy cập của page (Messenger → Cài đặt API → Tạo mã), để gửi tin trả lời thử
@@ -22,7 +23,25 @@ CREATE TABLE IF NOT EXISTS meta_events (
 CREATE INDEX IF NOT EXISTS idx_meta_events_at ON meta_events(id DESC);
 `);
 
-const env = (k) => (process.env[k] || '').trim();
+// mã Meta nhập trên web — bảng riêng, không nằm trong settings nên không bao giờ gửi ra trình duyệt
+db.exec('CREATE TABLE IF NOT EXISTS meta_secrets (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+const KEYS = { verify_token: 'META_VERIFY_TOKEN', app_secret: 'META_APP_SECRET', page_token: 'META_PAGE_TOKEN' };
+const saved = (k) => (db.prepare('SELECT value FROM meta_secrets WHERE key = ?').get(k)?.value || '').trim();
+const env = (k) => saved(k) || (process.env[k] || '').trim();
+const source = (k) => (saved(k) ? 'web' : (process.env[k] || '').trim() ? 'env' : '');
+
+/** Lưu mã nhập trên web. Ô bỏ trống = giữ nguyên; clear: ['app_secret'…] = xóa mã đã lưu trên web (quay về .env). */
+export function saveMetaConfig(body = {}) {
+  for (const [f, k] of Object.entries(KEYS)) {
+    const v = String(body[f] ?? '').replace(/\s+/g, '');
+    if (v) {
+      if (v.length > 1000) throw bad(`${k} quá dài`);
+      db.prepare('INSERT INTO meta_secrets(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(k, v);
+    } else if ((body.clear || []).includes(f)) db.prepare('DELETE FROM meta_secrets WHERE key = ?').run(k);
+  }
+  tokenPageCache = null;
+  return metaStatus();
+}
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const KEEP = 500; // chỉ giữ 500 sự kiện gần nhất
 
@@ -31,6 +50,9 @@ export function metaStatus() {
     verify_token: !!env('META_VERIFY_TOKEN'),
     app_secret: !!env('META_APP_SECRET'),
     page_token: !!env('META_PAGE_TOKEN'),
+    // mã đang lấy từ đâu ('web' | 'env' | '') + 4 ký tự cuối để nhận ra, không lộ cả mã
+    source: Object.fromEntries(Object.entries(KEYS).map(([f, k]) => [f, source(k)])),
+    tail: Object.fromEntries(Object.entries(KEYS).map(([f, k]) => [f, env(k) ? '…' + env(k).slice(-4) : ''])),
   };
 }
 
